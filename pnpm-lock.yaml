@@ -32,7 +32,7 @@ importers:
         specifier: ^8.0.0
         version: 8.19.1
       zod:
-        specifier: ^4.0.0
+        specifier: ^4.1.12
         version: 4.1.12
     devDependencies:
       '@types/bcryptjs':

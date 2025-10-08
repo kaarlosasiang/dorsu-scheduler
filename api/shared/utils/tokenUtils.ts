@@ -1,6 +1,6 @@
 import jwt, { SignOptions } from "jsonwebtoken";
-import { IUserPayload } from "./interfaces/IUser.js";
-import { JWT_CONFIG } from "../config/constants.js";
+import { IUserPayload } from "../interfaces/IUser.js";
+import { JWT_CONFIG } from "../../config/constants.js";
 
 export const generateAccessToken = (payload: IUserPayload): string => {
   const secret = process.env.JWT_ACCESS_SECRET;

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken } from '../tokenUtils.js';
+import { verifyAccessToken } from '../utils/tokenUtils.js';
 import { IUserPayload } from '../interfaces/IUser.js';
 import { ERROR_MESSAGES, USER_ROLES } from '../../config/constants.js';
 

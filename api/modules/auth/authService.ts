@@ -10,7 +10,7 @@ import {
   generateAccessToken, 
   generateRefreshToken, 
   verifyRefreshToken 
-} from '../../shared/tokenUtils.js';
+} from '../../shared/utils/tokenUtils.js';
 
 export class AuthService {
   
