@@ -2,7 +2,7 @@
   "watch": ["**/*.ts"],
   "ext": "ts,json",
   "ignore": ["node_modules", "dist"],
-  "exec": "ts-node --esm index.ts",
+  "exec": "tsx index.ts",
   "env": {
     "NODE_ENV": "development"
   }
