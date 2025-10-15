@@ -17,13 +17,23 @@ export class AuthController {
    */
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { username, password, role }: IRegisterData = req.body;
+      const { email, password, role }: IRegisterData = req.body;
 
       // Validation
-      if (!username || !password) {
+      if (!email || !password) {
         res.status(400).json({
           success: false,
-          message: ERROR_MESSAGES.VALIDATION.REQUIRED_FIELD('Username and password')
+          message: ERROR_MESSAGES.VALIDATION.REQUIRED_FIELD('Email and password')
+        });
+        return;
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address'
         });
         return;
       }
@@ -45,7 +55,7 @@ export class AuthController {
       }
 
       // Register user
-      const result = await AuthService.register({ username, password, role });
+      const result = await AuthService.register({ email, password, role });
 
       // Set refresh token cookie
       if (result.refreshToken) {
@@ -87,19 +97,19 @@ export class AuthController {
    */
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      const { username, password }: ILoginCredentials = req.body;
+      const { email, password }: ILoginCredentials = req.body;
 
       // Validation
-      if (!username || !password) {
+      if (!email || !password) {
         res.status(400).json({
           success: false,
-          message: ERROR_MESSAGES.VALIDATION.REQUIRED_FIELD('Username and password')
+          message: ERROR_MESSAGES.VALIDATION.REQUIRED_FIELD('Email and password')
         });
         return;
       }
 
       // Login user
-      const result = await AuthService.login({ username, password });
+      const result = await AuthService.login({ email, password });
 
       // Set refresh token cookie
       if (result.refreshToken) {

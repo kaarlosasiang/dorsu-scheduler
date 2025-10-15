@@ -5,13 +5,16 @@ import { PASSWORD_CONFIG, USER_ROLES } from "../config/constants.js";
 
 const userSchema = new Schema<IUser>(
   {
-    username: {
+    email: {
       type: String,
-      required: [true, "Username is required"],
+      required: [true, "Email is required"],
       unique: true,
       trim: true,
-      minlength: [3, "Username must be at least 3 characters long"],
-      maxlength: [50, "Username cannot exceed 50 characters"],
+      lowercase: true,
+      match: [
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        "Please provide a valid email address"
+      ],
     },
     password: {
       type: String,
@@ -48,6 +51,7 @@ const userSchema = new Schema<IUser>(
 
 // Index for better query performance
 userSchema.index({ role: 1 });
+userSchema.index({ email: 1 });
 
 // Hash password before saving
 userSchema.pre("save", async function (next: any) {
@@ -77,9 +81,9 @@ userSchema.methods.comparePassword = async function (
   }
 };
 
-// Static method to find by username
-userSchema.statics.findByUsername = function (username: string) {
-  return this.findOne({ username: username.toLowerCase() });
+// Static method to find by email
+userSchema.statics.findByEmail = function (email: string) {
+  return this.findOne({ email: email.toLowerCase() });
 };
 
 export const User = mongoose.model<IUser>("User", userSchema);

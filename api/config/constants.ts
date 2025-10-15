@@ -61,7 +61,7 @@ export const ERROR_MESSAGES = {
     UNAUTHORIZED: "Unauthorized access",
     FORBIDDEN: "Forbidden access",
     USER_NOT_FOUND: "User not found",
-    USERNAME_EXISTS: "Username already exists",
+    EMAIL_EXISTS: "Email already exists",
     ADMIN_REQUIRED: "Admin access required",
   },
   VALIDATION: {

@@ -2,7 +2,7 @@ import { Document } from 'mongoose';
 
 export interface IUser extends Document {
   _id: string;
-  username: string;
+  email: string;
   password: string;
   role: 'admin' | 'faculty' | 'staff';
   createdAt: Date;
@@ -11,18 +11,18 @@ export interface IUser extends Document {
 
 export interface IUserPayload {
   id: string;
-  username: string;
+  email: string;
   role: string;
 }
 
 export interface IRegisterData {
-  username: string;
+  email: string;
   password: string;
   role?: 'admin' | 'faculty' | 'staff';
 }
 
 export interface ILoginCredentials {
-  username: string;
+  email: string;
   password: string;
 }
 
@@ -31,7 +31,7 @@ export interface ILoginResponse {
   refreshToken?: string;
   user: {
     id: string;
-    username: string;
+    email: string;
     role: string;
   };
 }

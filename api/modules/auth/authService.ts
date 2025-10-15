@@ -21,16 +21,16 @@ export class AuthService {
     try {
       // Check if user already exists
       const existingUser = await User.findOne({ 
-        username: data.username.toLowerCase() 
+        email: data.email.toLowerCase() 
       });
       
       if (existingUser) {
-        throw new Error('Username already exists');
+        throw new Error('Email already exists');
       }
 
       // Create new user
       const user = new User({
-        username: data.username.toLowerCase(),
+        email: data.email.toLowerCase(),
         password: data.password,
         role: data.role || 'admin'
       });
@@ -40,7 +40,7 @@ export class AuthService {
       // Generate tokens
       const payload: IUserPayload = {
         id: user._id.toString(),
-        username: user.username,
+        email: user.email,
         role: user.role
       };
 
@@ -52,7 +52,7 @@ export class AuthService {
         refreshToken,
         user: {
           id: user._id.toString(),
-          username: user.username,
+          email: user.email,
           role: user.role
         }
       };
@@ -70,9 +70,9 @@ export class AuthService {
    */
   static async login(credentials: ILoginCredentials): Promise<ILoginResponse> {
     try {
-      // Find user by username
+      // Find user by email
       const user = await User.findOne({ 
-        username: credentials.username.toLowerCase() 
+        email: credentials.email.toLowerCase() 
       }).select('+password');
 
       if (!user) {
@@ -88,7 +88,7 @@ export class AuthService {
       // Generate tokens
       const payload: IUserPayload = {
         id: user._id.toString(),
-        username: user.username,
+        email: user.email,
         role: user.role
       };
 
@@ -100,7 +100,7 @@ export class AuthService {
         refreshToken,
         user: {
           id: user._id.toString(),
-          username: user.username,
+          email: user.email,
           role: user.role
         }
       };
@@ -130,7 +130,7 @@ export class AuthService {
       // Generate new access token
       const payload: IUserPayload = {
         id: user._id.toString(),
-        username: user.username,
+        email: user.email,
         role: user.role
       };
 
