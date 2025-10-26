@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./modules/auth/authRoutes.js";
 import facultyRoutes from "./modules/faculty-management/facultyRoutes.js";
+import { departmentRoutes } from "./modules/department-management/departmentRoutes.js";
 import {
   errorHandler,
   notFoundHandler,
@@ -61,6 +62,7 @@ app.get("/api/health", (req, res) => {
 // API Routes
 app.use(`${API_CONFIG.PREFIX}/auth`, authRoutes);
 app.use(`${API_CONFIG.PREFIX}/faculty`, facultyRoutes);
+app.use(`${API_CONFIG.PREFIX}/departments`, departmentRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

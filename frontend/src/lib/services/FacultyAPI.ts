@@ -1,21 +1,38 @@
 import APIService from "./BaseAPI";
 import APP_CONFIG from "@/config";
 
-export interface IAvailability {
-  day: string;
-  startTime: string;
-  endTime: string;
+export interface IName {
+  first: string;
+  middle?: string;
+  last: string;
+  ext?: string;
 }
 
 export interface IFaculty {
   _id?: string;
-  name: string;
-  department: string;
-  availability?: IAvailability[];
-  maxLoad?: number;
-  currentLoad?: number;
-  status?: "active" | "inactive";
-  createdAt?: Date;
+  id?: string;
+  name: IName;
+  email: string;
+  department: string | {
+    _id: string;
+    name: string;
+    code: string;
+    college?: string;
+    status?: string;
+  };
+  employmentType: "full-time" | "part-time";
+  image?: string;
+  minLoad: number;
+  maxLoad: number;
+  currentLoad: number;
+  maxPreparations: number;
+  currentPreparations: number;
+  status: "active" | "inactive";
+  createdAt?: string;
+  updatedAt?: string;
+  fullName?: string;
+  availableLoad?: number;
+  availablePreparations?: number;
 }
 
 export interface FacultyListResponse {
@@ -38,8 +55,12 @@ export interface FacultyStatsResponse {
     total: number;
     active: number;
     inactive: number;
+    fullTime: number;
+    partTime: number;
     totalWorkload: number;
     averageWorkload: number;
+    totalPreparations: number;
+    averagePreparations: number;
     departments: string[];
   };
 }
@@ -47,8 +68,32 @@ export interface FacultyStatsResponse {
 export interface FacultyQueryParams {
   department?: string;
   status?: "active" | "inactive";
+  employmentType?: "full-time" | "part-time";
+  email?: string;
   page?: number;
   limit?: number;
+}
+
+export interface FacultyCreateData {
+  name: IName;
+  email: string;
+  department: string;
+  employmentType: "full-time" | "part-time";
+  image?: string;
+  minLoad: number;
+  maxLoad: number;
+  status: "active" | "inactive";
+}
+
+export interface FacultyUpdateData {
+  name?: IName;
+  email?: string;
+  department?: string;
+  employmentType?: "full-time" | "part-time";
+  image?: string;
+  minLoad?: number;
+  maxLoad?: number;
+  status?: "active" | "inactive";
 }
 
 export interface WorkloadUpdate {
@@ -87,9 +132,16 @@ export const FacultyAPI = {
   },
 
   /**
+   * Get faculty by email
+   */
+  getByEmail: async (email: string) => {
+    return await FacultyAPI.getAll({ email });
+  },
+
+  /**
    * Create new faculty
    */
-  create: async (facultyData: Omit<IFaculty, "_id" | "createdAt">) => {
+  create: async (facultyData: FacultyCreateData) => {
     const response = await APIService.post(facultyData, APP_CONFIG.ENDPOINTS.FACULTY.BASE);
     return response.data as FacultyResponse;
   },
@@ -97,7 +149,7 @@ export const FacultyAPI = {
   /**
    * Update faculty
    */
-  update: async (id: string, facultyData: Partial<Omit<IFaculty, "_id" | "createdAt">>) => {
+  update: async (id: string, facultyData: FacultyUpdateData) => {
     const response = await APIService.put(facultyData, `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}`);
     return response.data as FacultyResponse;
   },
@@ -108,14 +160,6 @@ export const FacultyAPI = {
   delete: async (id: string) => {
     const response = await APIService.remove(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}`);
     return response.data;
-  },
-
-  /**
-   * Update faculty availability
-   */
-  updateAvailability: async (id: string, availability: IAvailability[]) => {
-    const response = await APIService.patch(availability, APP_CONFIG.ENDPOINTS.FACULTY.AVAILABILITY(id));
-    return response.data as FacultyResponse;
   },
 
   /**
@@ -161,16 +205,29 @@ export const FacultyAPI = {
   },
 
   /**
-   * Search faculty by name
+   * Get faculty by employment type
+   */
+  getByEmploymentType: async (employmentType: "full-time" | "part-time") => {
+    return await FacultyAPI.getAll({ employmentType, status: "active" });
+  },
+
+  /**
+   * Search faculty by name or email
    */
   search: async (query: string) => {
     // This would require a search endpoint on the backend
     // For now, we'll get all faculty and filter on frontend
     const response = await FacultyAPI.getAll();
-    const filteredFaculty = response.data.filter(faculty =>
-      faculty.name.toLowerCase().includes(query.toLowerCase()) ||
-      faculty.department.toLowerCase().includes(query.toLowerCase())
-    );
+    const filteredFaculty = response.data.filter(faculty => {
+      const fullName = `${faculty.name.first} ${faculty.name.middle || ''} ${faculty.name.last} ${faculty.name.ext || ''}`.toLowerCase();
+      const departmentName = typeof faculty.department === 'string' 
+        ? faculty.department 
+        : faculty.department.name;
+      
+      return fullName.includes(query.toLowerCase()) ||
+             faculty.email.toLowerCase().includes(query.toLowerCase()) ||
+             departmentName.toLowerCase().includes(query.toLowerCase());
+    });
     
     return {
       ...response,

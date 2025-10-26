@@ -20,8 +20,8 @@ export class FacultyController {
         return;
       }
 
-      const { department, status } = queryValidation.data;
-      const faculty = await FacultyService.getAll({ department, status });
+      const { department, status, employmentType, email } = queryValidation.data;
+      const faculty = await FacultyService.getAll({ department, status, employmentType, email });
 
       res.status(200).json({
         success: true,
@@ -148,16 +148,16 @@ export class FacultyController {
   }
 
   /**
-   * PATCH /api/faculty/:id/availability - Update faculty availability
+   * PATCH /api/faculty/:id/preparations - Update faculty preparations
    */
-  static async updateAvailability(req: Request, res: Response): Promise<void> {
+  static async updatePreparations(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const faculty = await FacultyService.updateAvailability(id, req.body);
+      const faculty = await FacultyService.updatePreparations(id, req.body);
 
       res.status(200).json({
         success: true,
-        message: 'Faculty availability updated successfully',
+        message: 'Faculty preparations updated successfully',
         data: faculty
       });
     } catch (error) {
@@ -170,6 +170,14 @@ export class FacultyController {
       }
 
       if (error instanceof Error && error.message.includes('Validation error')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+        return;
+      }
+
+      if (error instanceof Error && error.message.includes('cannot exceed')) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -214,7 +222,7 @@ export class FacultyController {
         return;
       }
 
-      if (error instanceof Error && error.message.includes('cannot exceed')) {
+      if (error instanceof Error && (error.message.includes('cannot exceed') || error.message.includes('cannot be below'))) {
         res.status(400).json({
           success: false,
           message: error.message

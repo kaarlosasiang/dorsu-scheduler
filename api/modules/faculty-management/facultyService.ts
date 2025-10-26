@@ -1,15 +1,16 @@
 import { Faculty, IFacultyDocument } from '../../models/facultyModel.js';
+import { Department } from '../../models/departmentModel.js';
 import { IFacultyFilter } from '../../shared/interfaces/IFaculty.js';
 import { 
   validateCreateFaculty, 
   validateUpdateFaculty, 
-  validateAvailability,
   validateWorkloadUpdate,
+  validatePreparationUpdate,
   validateStatusUpdate,
   CreateFacultyInput,
   UpdateFacultyInput,
-  AvailabilityInput,
   WorkloadUpdateInput,
+  PreparationUpdateInput,
   StatusUpdateInput
 } from '../../shared/validators/facultyValidator.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
@@ -30,15 +31,46 @@ export class FacultyService {
     try {
       const query: any = {};
       
+      // Handle department filtering - can be by ObjectId or department name search
       if (filters.department) {
-        query.department = new RegExp(filters.department, 'i');
+        // Check if it's a valid ObjectId first
+        if (/^[0-9a-fA-F]{24}$/.test(filters.department)) {
+          query.department = filters.department;
+        } else {
+          // Search by department name - first find matching departments
+          const departments = await Department.find({
+            name: new RegExp(filters.department, 'i'),
+            status: 'active'
+          }).select('_id');
+          
+          if (departments.length > 0) {
+            query.department = { $in: departments.map(d => d._id) };
+          } else {
+            // No matching departments found, return empty array
+            return [];
+          }
+        }
+      }
+
+      if (filters.departmentId) {
+        query.department = filters.departmentId;
       }
       
       if (filters.status) {
         query.status = filters.status;
       }
 
-      const faculty = await Faculty.find(query).sort({ name: 1 });
+      if (filters.employmentType) {
+        query.employmentType = filters.employmentType;
+      }
+
+      if (filters.email) {
+        query.email = new RegExp(filters.email, 'i');
+      }
+
+      const faculty = await Faculty.find(query)
+        .populate('department', 'name code college status')
+        .sort({ 'name.last': 1, 'name.first': 1 });
       
       // Emit event for potential integration hooks
       EventEmitter.emit('faculty.queried', { filters, count: faculty.length });
@@ -54,7 +86,8 @@ export class FacultyService {
    */
   static async getById(id: string): Promise<IFacultyDocument> {
     try {
-      const faculty = await Faculty.findById(id);
+      const faculty = await Faculty.findById(id)
+        .populate('department', 'name code college status');
       
       if (!faculty) {
         throw new Error('Faculty not found');
@@ -62,6 +95,30 @@ export class FacultyService {
 
       // Emit event for potential integration hooks
       EventEmitter.emit('faculty.retrieved', { facultyId: id });
+      
+      return faculty;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Faculty not found') {
+        throw error;
+      }
+      throw new Error(`Failed to fetch faculty: ${error}`);
+    }
+  }
+
+  /**
+   * Get faculty by email
+   */
+  static async getByEmail(email: string): Promise<IFacultyDocument> {
+    try {
+      const faculty = await Faculty.findOne({ email: email.toLowerCase() })
+        .populate('department', 'name code college status');
+      
+      if (!faculty) {
+        throw new Error('Faculty not found');
+      }
+
+      // Emit event for potential integration hooks
+      EventEmitter.emit('faculty.retrieved', { facultyEmail: email });
       
       return faculty;
     } catch (error) {
@@ -86,9 +143,25 @@ export class FacultyService {
 
       const validatedData = validation.data;
 
+        // Validate department exists
+        if (validatedData.department) {
+          const department = await Department.findById(validatedData.department);
+          if (!department) {
+            throw new Error('Department not found');
+          }
+        }      // Check for duplicate email
+      const existingEmail = await Faculty.findOne({
+        email: validatedData.email
+      });
+
+      if (existingEmail) {
+        throw new Error('Faculty with this email already exists');
+      }
+
       // Check for duplicate faculty name in department
       const existingFaculty = await Faculty.findOne({
-        name: new RegExp(`^${validatedData.name}$`, 'i'),
+        'name.first': new RegExp(`^${validatedData.name.first}$`, 'i'),
+        'name.last': new RegExp(`^${validatedData.name.last}$`, 'i'),
         department: validatedData.department
       });
 
@@ -99,11 +172,15 @@ export class FacultyService {
       const faculty = new Faculty(validatedData);
       await faculty.save();
 
+      // Populate the department for response
+      await faculty.populate('department', 'name code college status');
+
       // Emit event for potential integration hooks
       EventEmitter.emit('faculty.created', { 
         facultyId: faculty._id, 
         department: faculty.department,
-        name: faculty.name 
+        name: faculty.name,
+        employmentType: faculty.employmentType
       });
       
       return faculty;
@@ -132,6 +209,26 @@ export class FacultyService {
         throw new Error('Faculty not found');
       }
 
+      // Check for duplicate email if updating email
+      if (validatedData.email && validatedData.email !== existingFaculty.email) {
+        const duplicateEmail = await Faculty.findOne({
+          email: validatedData.email,
+          _id: { $ne: id }
+        });
+
+        if (duplicateEmail) {
+          throw new Error('Faculty with this email already exists');
+        }
+      }
+
+      // Validate department if updating
+      if (validatedData.department) {
+        const department = await Department.findById(validatedData.department);
+        if (!department) {
+          throw new Error('Department not found');
+        }
+      }
+
       // Check for duplicate name if updating name or department
       if (validatedData.name || validatedData.department) {
         const duplicateQuery: any = {
@@ -139,9 +236,11 @@ export class FacultyService {
         };
         
         if (validatedData.name) {
-          duplicateQuery.name = new RegExp(`^${validatedData.name}$`, 'i');
+          duplicateQuery['name.first'] = new RegExp(`^${validatedData.name.first}$`, 'i');
+          duplicateQuery['name.last'] = new RegExp(`^${validatedData.name.last}$`, 'i');
         } else {
-          duplicateQuery.name = new RegExp(`^${existingFaculty.name}$`, 'i');
+          duplicateQuery['name.first'] = new RegExp(`^${existingFaculty.name.first}$`, 'i');
+          duplicateQuery['name.last'] = new RegExp(`^${existingFaculty.name.last}$`, 'i');
         }
         
         if (validatedData.department) {
@@ -161,7 +260,7 @@ export class FacultyService {
         id,
         validatedData,
         { new: true, runValidators: true }
-      );
+      ).populate('department', 'name code college status');
 
       if (!updatedFaculty) {
         throw new Error('Faculty not found');
@@ -204,42 +303,6 @@ export class FacultyService {
   }
 
   /**
-   * Update faculty availability
-   */
-  static async updateAvailability(id: string, availability: AvailabilityInput): Promise<IFacultyDocument> {
-    try {
-      // Validate availability data
-      const validation = validateAvailability(availability);
-      if (!validation.success) {
-        const errors = validation.error.issues.map(err => `${err.path.join('.')}: ${err.message}`);
-        throw new Error(`Validation error: ${errors.join(', ')}`);
-      }
-
-      const validatedAvailability = validation.data;
-
-      const updatedFaculty = await Faculty.findByIdAndUpdate(
-        id,
-        { availability: validatedAvailability },
-        { new: true, runValidators: true }
-      );
-
-      if (!updatedFaculty) {
-        throw new Error('Faculty not found');
-      }
-
-      // Emit event for potential integration hooks
-      EventEmitter.emit('faculty.availability.updated', { 
-        facultyId: id,
-        availabilityCount: validatedAvailability.length 
-      });
-      
-      return updatedFaculty;
-    } catch (error) {
-      throw new Error(`Failed to update availability: ${error}`);
-    }
-  }
-
-  /**
    * Update faculty workload
    */
   static async updateWorkload(id: string, workloadData: WorkloadUpdateInput): Promise<IFacultyDocument> {
@@ -259,8 +322,13 @@ export class FacultyService {
       }
 
       // Check if new workload exceeds max load
-      if (hours > (faculty.maxLoad || 18)) {
-        throw new Error(`Workload (${hours}) cannot exceed maximum load (${faculty.maxLoad || 18})`);
+      if (hours > (faculty.maxLoad || 26)) {
+        throw new Error(`Workload (${hours}) cannot exceed maximum load (${faculty.maxLoad || 26})`);
+      }
+
+      // Check if new workload is below min load
+      if (hours < (faculty.minLoad || 18)) {
+        throw new Error(`Workload (${hours}) cannot be below minimum load (${faculty.minLoad || 18})`);
       }
 
       const updatedFaculty = await Faculty.findByIdAndUpdate(
@@ -278,12 +346,61 @@ export class FacultyService {
         facultyId: id,
         oldLoad: faculty.currentLoad,
         newLoad: hours,
-        maxLoad: faculty.maxLoad
+        maxLoad: faculty.maxLoad,
+        minLoad: faculty.minLoad
       });
       
       return updatedFaculty;
     } catch (error) {
       throw new Error(`Failed to update workload: ${error}`);
+    }
+  }
+
+  /**
+   * Update faculty preparations
+   */
+  static async updatePreparations(id: string, preparationData: PreparationUpdateInput): Promise<IFacultyDocument> {
+    try {
+      // Validate preparation data
+      const validation = validatePreparationUpdate(preparationData);
+      if (!validation.success) {
+        const errors = validation.error.issues.map(err => `${err.path.join('.')}: ${err.message}`);
+        throw new Error(`Validation error: ${errors.join(', ')}`);
+      }
+
+      const { preparations } = validation.data;
+
+      const faculty = await Faculty.findById(id);
+      if (!faculty) {
+        throw new Error('Faculty not found');
+      }
+
+      // Check if new preparations exceed max preparations
+      if (preparations > (faculty.maxPreparations || 4)) {
+        throw new Error(`Preparations (${preparations}) cannot exceed maximum preparations (${faculty.maxPreparations || 4})`);
+      }
+
+      const updatedFaculty = await Faculty.findByIdAndUpdate(
+        id,
+        { currentPreparations: preparations },
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedFaculty) {
+        throw new Error('Faculty not found');
+      }
+
+      // Emit event for potential integration hooks
+      EventEmitter.emit('faculty.preparations.updated', { 
+        facultyId: id,
+        oldPreparations: faculty.currentPreparations,
+        newPreparations: preparations,
+        maxPreparations: faculty.maxPreparations
+      });
+      
+      return updatedFaculty;
+    } catch (error) {
+      throw new Error(`Failed to update preparations: ${error}`);
     }
   }
 
@@ -331,8 +448,12 @@ export class FacultyService {
     total: number;
     active: number;
     inactive: number;
+    fullTime: number;
+    partTime: number;
     totalWorkload: number;
     averageWorkload: number;
+    totalPreparations: number;
+    averagePreparations: number;
     departments: string[];
   }> {
     try {
@@ -343,12 +464,17 @@ export class FacultyService {
         total: faculty.length,
         active: faculty.filter(f => f.status === 'active').length,
         inactive: faculty.filter(f => f.status === 'inactive').length,
+        fullTime: faculty.filter(f => f.employmentType === 'full-time').length,
+        partTime: faculty.filter(f => f.employmentType === 'part-time').length,
         totalWorkload: faculty.reduce((sum, f) => sum + (f.currentLoad || 0), 0),
         averageWorkload: 0,
+        totalPreparations: faculty.reduce((sum, f) => sum + (f.currentPreparations || 0), 0),
+        averagePreparations: 0,
         departments: [...new Set(faculty.map(f => f.department))]
       };
 
       stats.averageWorkload = stats.total > 0 ? stats.totalWorkload / stats.total : 0;
+      stats.averagePreparations = stats.total > 0 ? stats.totalPreparations / stats.total : 0;
 
       return stats;
     } catch (error) {

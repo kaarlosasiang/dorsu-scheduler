@@ -34,7 +34,6 @@ const APP_CONFIG = {
     FACULTY: {
       BASE: "faculty",
       STATS: "faculty/stats",
-      AVAILABILITY: (id: string) => `faculty/${id}/availability`,
       WORKLOAD: (id: string) => `faculty/${id}/workload`,
       STATUS: (id: string) => `faculty/${id}/status`,
     },

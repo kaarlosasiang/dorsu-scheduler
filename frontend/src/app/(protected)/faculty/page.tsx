@@ -20,6 +20,8 @@ import {
   GraduationCap,
   Briefcase,
   Activity,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -50,147 +52,51 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDataTable } from "@/hooks/use-data-table";
+import { useFaculty } from "@/hooks/useFaculty";
+import { useRouter } from "next/navigation";
+import { type IFaculty } from "@/lib/services/FacultyAPI";
 
-// Enhanced faculty data interface
+// Transform IFaculty to display format
 interface Faculty {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
   department: string;
   email: string;
   status: "active" | "inactive";
+  employmentType: "full-time" | "part-time";
   maxLoad: number;
+  minLoad: number;
   currentLoad: number;
-  availableSlots: number;
-  totalSlots: number;
-  yearsExperience: number;
-  specializations: string[];
-  salary: number;
+  maxPreparations: number;
+  currentPreparations: number;
   createdAt: string;
 }
 
-const mockFaculties: Faculty[] = [
-  {
-    id: "1",
-    name: "Dr. Maria Santos",
-    department: "Computer Science",
-    email: "maria.santos@dorsu.edu",
-    status: "active",
-    maxLoad: 20,
-    currentLoad: 16,
-    availableSlots: 12,
-    totalSlots: 25,
-    yearsExperience: 8,
-    specializations: ["Machine Learning", "Data Science"],
-    salary: 85000,
-    createdAt: "2024-01-15T08:30:00Z",
-  },
-  {
-    id: "2",
-    name: "Prof. John Rodriguez",
-    department: "Mathematics",
-    email: "john.rodriguez@dorsu.edu",
-    status: "active",
-    maxLoad: 18,
-    currentLoad: 12,
-    availableSlots: 18,
-    totalSlots: 30,
-    yearsExperience: 15,
-    specializations: ["Calculus", "Statistics"],
-    salary: 78000,
-    createdAt: "2024-02-20T10:15:00Z",
-  },
-  {
-    id: "3",
-    name: "Dr. Ana Dela Cruz",
-    department: "Physics",
-    email: "ana.delacruz@dorsu.edu",
-    status: "inactive",
-    maxLoad: 16,
-    currentLoad: 0,
-    availableSlots: 0,
-    totalSlots: 20,
-    yearsExperience: 12,
-    specializations: ["Quantum Physics", "Thermodynamics"],
-    salary: 82000,
-    createdAt: "2024-01-08T14:45:00Z",
-  },
-  {
-    id: "4",
-    name: "Prof. Miguel Garcia",
-    department: "Computer Science",
-    email: "miguel.garcia@dorsu.edu",
-    status: "active",
-    maxLoad: 22,
-    currentLoad: 20,
-    availableSlots: 8,
-    totalSlots: 28,
-    yearsExperience: 10,
-    specializations: ["Software Engineering", "Web Development"],
-    salary: 88000,
-    createdAt: "2024-03-10T09:20:00Z",
-  },
-  {
-    id: "5",
-    name: "Dr. Sarah Johnson",
-    department: "Chemistry",
-    email: "sarah.johnson@dorsu.edu",
-    status: "active",
-    maxLoad: 18,
-    currentLoad: 14,
-    availableSlots: 15,
-    totalSlots: 25,
-    yearsExperience: 7,
-    specializations: ["Organic Chemistry", "Biochemistry"],
-    salary: 79000,
-    createdAt: "2024-02-05T11:30:00Z",
-  },
-  {
-    id: "6",
-    name: "Prof. Robert Kim",
-    department: "Engineering",
-    email: "robert.kim@dorsu.edu",
-    status: "active",
-    maxLoad: 24,
-    currentLoad: 18,
-    availableSlots: 20,
-    totalSlots: 32,
-    yearsExperience: 20,
-    specializations: ["Civil Engineering", "Structural Design"],
-    salary: 95000,
-    createdAt: "2024-01-22T16:00:00Z",
-  },
-  {
-    id: "7",
-    name: "Dr. Lisa Chen",
-    department: "Biology",
-    email: "lisa.chen@dorsu.edu",
-    status: "active",
-    maxLoad: 16,
-    currentLoad: 10,
-    availableSlots: 22,
-    totalSlots: 28,
-    yearsExperience: 5,
-    specializations: ["Molecular Biology", "Genetics"],
-    salary: 75000,
-    createdAt: "2024-03-01T13:15:00Z",
-  },
-  {
-    id: "8",
-    name: "Prof. David Thompson",
-    department: "Mathematics",
-    email: "david.thompson@dorsu.edu",
-    status: "inactive",
-    maxLoad: 20,
-    currentLoad: 0,
-    availableSlots: 0,
-    totalSlots: 24,
-    yearsExperience: 25,
-    specializations: ["Abstract Algebra", "Number Theory"],
-    salary: 92000,
-    createdAt: "2024-01-30T12:45:00Z",
-  },
-];
+// Transform function to convert IFaculty to Faculty
+const transformFaculty = (faculty: IFaculty): Faculty => ({
+  id: faculty._id || "",
+  name: `${faculty.name.first} ${
+    faculty.name.middle ? faculty.name.middle + " " : ""
+  }${faculty.name.last}${faculty.name.ext ? " " + faculty.name.ext : ""}`,
+  firstName: faculty.name.first,
+  lastName: faculty.name.last,
+  department: typeof faculty.department === 'string' 
+    ? faculty.department 
+    : faculty.department.name,
+  email: faculty.email,
+  status: faculty.status,
+  employmentType: faculty.employmentType,
+  maxLoad: faculty.maxLoad,
+  minLoad: faculty.minLoad,
+  currentLoad: faculty.currentLoad || 0,
+  maxPreparations: faculty.maxPreparations || 4,
+  currentPreparations: faculty.currentPreparations || 0,
+  createdAt: faculty.createdAt || new Date().toISOString(),
+});
 
 // Enhanced column definitions with comprehensive metadata
 const columns: ColumnDef<Faculty>[] = [
@@ -226,12 +132,8 @@ const columns: ColumnDef<Faculty>[] = [
       <div className="flex items-center space-x-3">
         <Avatar className="h-8 w-8">
           <AvatarFallback className="text-xs bg-primary/10 text-primary">
-            {row.original.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase()}
+            {row.original.firstName.charAt(0).toUpperCase() +
+              row.original.lastName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div>
@@ -269,13 +171,37 @@ const columns: ColumnDef<Faculty>[] = [
       label: "Department",
       variant: "select",
       icon: Building2,
+      options: [], // Will be populated dynamically
+    },
+  },
+  {
+    id: "employmentType",
+    accessorKey: "employmentType",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Employment" />
+    ),
+    cell: ({ row }) => {
+      const type = row.original.employmentType;
+      return (
+        <Badge variant={type === "full-time" ? "default" : "secondary"}>
+          {type === "full-time" ? (
+            <Briefcase className="mr-1 h-3 w-3" />
+          ) : (
+            <Clock className="mr-1 h-3 w-3" />
+          )}
+          {type === "full-time" ? "Full-time" : "Part-time"}
+        </Badge>
+      );
+    },
+    enableSorting: true,
+    enableColumnFilter: true,
+    meta: {
+      label: "Employment Type",
+      variant: "select",
+      icon: Briefcase,
       options: [
-        { label: "Computer Science", value: "Computer Science", count: 2 },
-        { label: "Mathematics", value: "Mathematics", count: 2 },
-        { label: "Physics", value: "Physics", count: 1 },
-        { label: "Chemistry", value: "Chemistry", count: 1 },
-        { label: "Engineering", value: "Engineering", count: 1 },
-        { label: "Biology", value: "Biology", count: 1 },
+        { label: "Full-time", value: "full-time", count: 0 },
+        { label: "Part-time", value: "part-time", count: 0 },
       ],
     },
   },
@@ -305,8 +231,8 @@ const columns: ColumnDef<Faculty>[] = [
       variant: "select",
       icon: Activity,
       options: [
-        { label: "Active", value: "active", count: 6 },
-        { label: "Inactive", value: "inactive", count: 2 },
+        { label: "Active", value: "active", count: 0 },
+        { label: "Inactive", value: "inactive", count: 0 },
       ],
     },
   },
@@ -319,7 +245,7 @@ const columns: ColumnDef<Faculty>[] = [
     cell: ({ row }) => {
       const current = row.original.currentLoad;
       const max = row.original.maxLoad;
-      const percentage = (current / max) * 100;
+      const percentage = max > 0 ? (current / max) * 100 : 0;
 
       return (
         <div className="w-24">
@@ -341,8 +267,8 @@ const columns: ColumnDef<Faculty>[] = [
       label: "Current Load",
       variant: "range",
       icon: BookOpen,
-      range: [0, 25],
-      unit: "hrs",
+      range: [0, 30],
+      unit: "units",
     },
   },
   {
@@ -354,7 +280,7 @@ const columns: ColumnDef<Faculty>[] = [
     cell: ({ row }) => (
       <div className="flex items-center space-x-2">
         <Briefcase className="h-4 w-4 text-muted-foreground" />
-        <span>{row.original.maxLoad} hrs</span>
+        <span>{row.original.maxLoad} units</span>
       </div>
     ),
     enableSorting: true,
@@ -363,74 +289,35 @@ const columns: ColumnDef<Faculty>[] = [
       label: "Max Load",
       variant: "range",
       icon: Briefcase,
-      range: [10, 30],
-      unit: "hrs",
+      range: [18, 26],
+      unit: "units",
     },
   },
   {
-    id: "availableSlots",
-    accessorKey: "availableSlots",
+    id: "preparations",
+    accessorKey: "currentPreparations",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Available Slots" />
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center space-x-2">
-        <Clock className="h-4 w-4 text-muted-foreground" />
-        <span>
-          {row.original.availableSlots}/{row.original.totalSlots}
-        </span>
-      </div>
-    ),
-    enableSorting: true,
-    enableColumnFilter: true,
-    meta: {
-      label: "Available Slots",
-      variant: "range",
-      icon: Clock,
-      range: [0, 35],
-    },
-  },
-  {
-    id: "yearsExperience",
-    accessorKey: "yearsExperience",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Experience" />
-    ),
-    cell: ({ row }) => (
-      <div className="flex items-center space-x-2">
-        <GraduationCap className="h-4 w-4 text-muted-foreground" />
-        <span>{row.original.yearsExperience} years</span>
-      </div>
-    ),
-    enableSorting: true,
-    enableColumnFilter: true,
-    meta: {
-      label: "Years of Experience",
-      variant: "range",
-      icon: GraduationCap,
-      range: [0, 30],
-      unit: "years",
-    },
-  },
-  {
-    id: "salary",
-    accessorKey: "salary",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Salary" />
+      <DataTableColumnHeader column={column} title="Preparations" />
     ),
     cell: ({ row }) => {
-      const salary = row.original.salary;
+      const current = row.original.currentPreparations;
+      const max = row.original.maxPreparations;
       return (
-        <div className="text-right font-medium">${salary.toLocaleString()}</div>
+        <div className="flex items-center space-x-2">
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <span>
+            {current}/{max}
+          </span>
+        </div>
       );
     },
     enableSorting: true,
     enableColumnFilter: true,
     meta: {
-      label: "Salary",
+      label: "Preparations",
       variant: "range",
-      range: [70000, 100000],
-      unit: "$",
+      icon: BookOpen,
+      range: [0, 4],
     },
   },
   {
@@ -496,10 +383,104 @@ const columns: ColumnDef<Faculty>[] = [
 ];
 
 export default function FacultyPage() {
+  const navigate = useRouter();
+  const {
+    faculties: rawFaculties,
+    stats,
+    isLoading,
+    error,
+    refresh,
+    searchFaculties,
+    deleteFaculty,
+    updateFacultyStatus,
+    clearError,
+  } = useFaculty();
+
+  // Transform faculty data for display
+  const faculties = React.useMemo(
+    () => rawFaculties.map(transformFaculty),
+    [rawFaculties]
+  );
+
+  // Update column meta with real data counts
+  const updatedColumns = React.useMemo(() => {
+    const departmentCounts = faculties.reduce((acc, faculty) => {
+      acc[faculty.department] = (acc[faculty.department] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const statusCounts = faculties.reduce((acc, faculty) => {
+      acc[faculty.status] = (acc[faculty.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const employmentCounts = faculties.reduce((acc, faculty) => {
+      acc[faculty.employmentType] = (acc[faculty.employmentType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return columns.map((column) => {
+      if (column.id === "department" && column.meta) {
+        return {
+          ...column,
+          meta: {
+            ...column.meta,
+            options: Object.entries(departmentCounts).map(([dept, count]) => ({
+              label: dept,
+              value: dept,
+              count,
+            })),
+          },
+        };
+      }
+      if (column.id === "status" && column.meta) {
+        return {
+          ...column,
+          meta: {
+            ...column.meta,
+            options: [
+              {
+                label: "Active",
+                value: "active",
+                count: statusCounts.active || 0,
+              },
+              {
+                label: "Inactive",
+                value: "inactive",
+                count: statusCounts.inactive || 0,
+              },
+            ],
+          },
+        };
+      }
+      if (column.id === "employmentType" && column.meta) {
+        return {
+          ...column,
+          meta: {
+            ...column.meta,
+            options: [
+              {
+                label: "Full-time",
+                value: "full-time",
+                count: employmentCounts["full-time"] || 0,
+              },
+              {
+                label: "Part-time",
+                value: "part-time",
+                count: employmentCounts["part-time"] || 0,
+              },
+            ],
+          },
+        };
+      }
+      return column;
+    });
+  }, [faculties]);
+
   const { table } = useDataTable({
-    data: mockFaculties,
-    columns,
-    pageCount: Math.ceil(mockFaculties.length / 10),
+    data: faculties,
+    columns: updatedColumns,
+    pageCount: Math.ceil(stats.total / 10),
     initialState: {
       pagination: { pageIndex: 0, pageSize: 10 },
       columnVisibility: {},
@@ -511,29 +492,49 @@ export default function FacultyPage() {
     getRowId: (row) => row.id,
   });
 
-  // Calculate stats
-  const activeCount = mockFaculties.filter((f) => f.status === "active").length;
-  const totalWorkload = mockFaculties.reduce(
-    (sum, f) => sum + f.currentLoad,
-    0
+  // Handle search
+  const handleSearch = React.useCallback(
+    async (query: string) => {
+      await searchFaculties(query);
+    },
+    [searchFaculties]
   );
-  const avgWorkload = totalWorkload / mockFaculties.length;
-  const avgSalary =
-    mockFaculties.reduce((sum, f) => sum + f.salary, 0) / mockFaculties.length;
-  const departments = [...new Set(mockFaculties.map((f) => f.department))];
+
+  // Handle delete faculty
+  const handleDeleteFaculty = React.useCallback(
+    async (id: string) => {
+      const success = await deleteFaculty(id);
+      if (success) {
+        // Optionally show success message
+        console.log("Faculty deleted successfully");
+      }
+    },
+    [deleteFaculty]
+  );
+
+  // Handle status update
+  const handleStatusUpdate = React.useCallback(
+    async (id: string, status: "active" | "inactive") => {
+      const success = await updateFacultyStatus(id, status);
+      if (success) {
+        console.log("Faculty status updated successfully");
+      }
+    },
+    [updateFacultyStatus]
+  );
 
   // Custom action bar content
   const CustomActionBar = () => (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" disabled={isLoading}>
         <Edit className="mr-2 h-4 w-4" />
         Bulk Edit
       </Button>
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" disabled={isLoading}>
         <Mail className="mr-2 h-4 w-4" />
         Send Email
       </Button>
-      <Button variant="destructive" size="sm">
+      <Button variant="destructive" size="sm" disabled={isLoading}>
         <Trash2 className="mr-2 h-4 w-4" />
         Delete Selected
       </Button>
@@ -541,11 +542,11 @@ export default function FacultyPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6 ">
+    <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight">
             Faculty Management
           </h1>
           <p className="text-muted-foreground">
@@ -553,11 +554,35 @@ export default function FacultyPage() {
             with advanced filtering and sorting.
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Faculty
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={refresh} disabled={isLoading}>
+            <Activity className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+          <Button onClick={() => navigate.push("/faculty/add")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Faculty
+          </Button>
+        </div>
       </div>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-2"
+              onClick={clearError}
+            >
+              Dismiss
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Enhanced Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -567,10 +592,9 @@ export default function FacultyPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockFaculties.length}</div>
+            <div className="text-2xl font-bold">{stats.total}</div>
             <p className="text-xs text-muted-foreground">
-              {activeCount} active, {mockFaculties.length - activeCount}{" "}
-              inactive
+              {stats.active} active, {stats.inactive} inactive
             </p>
           </CardContent>
         </Card>
@@ -581,7 +605,7 @@ export default function FacultyPage() {
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{departments.length}</div>
+            <div className="text-2xl font-bold">{stats.departments.length}</div>
             <p className="text-xs text-muted-foreground">Across all colleges</p>
           </CardContent>
         </Card>
@@ -593,7 +617,7 @@ export default function FacultyPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {avgWorkload.toFixed(1)} hrs
+              {`${stats.avgWorkload.toFixed(1)} units`}
             </div>
             <p className="text-xs text-muted-foreground">Per faculty member</p>
           </CardContent>
@@ -601,15 +625,15 @@ export default function FacultyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Salary</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Employment</CardTitle>
+            <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${Math.round(avgSalary / 1000)}k
+              {`${stats.fullTime}/${stats.partTime}`}
             </div>
             <p className="text-xs text-muted-foreground">
-              Average compensation
+              Full-time / Part-time
             </p>
           </CardContent>
         </Card>
@@ -627,8 +651,8 @@ export default function FacultyPage() {
             }
           >
             <DataTableAdvancedToolbar table={table}>
-              <DataTableSearch 
-                table={table} 
+              <DataTableSearch
+                table={table}
                 placeholder="Search faculty names, departments, emails..."
                 className="max-w-sm"
               />

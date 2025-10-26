@@ -18,7 +18,7 @@ router.put('/:id', FacultyController.update);
 router.delete('/:id', FacultyController.remove);
 
 // Specific update routes
-router.patch('/:id/availability', FacultyController.updateAvailability);
+router.patch('/:id/preparations', FacultyController.updatePreparations);
 router.patch('/:id/workload', FacultyController.updateWorkload);
 router.patch('/:id/status', FacultyController.setStatus);
 

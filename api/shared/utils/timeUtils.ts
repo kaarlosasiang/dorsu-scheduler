@@ -1,4 +1,8 @@
-import { IAvailability } from "../interfaces/IFaculty.js";
+interface IAvailabilitySlot {
+  day: string;
+  startTime: string;
+  endTime: string;
+}
 
 /**
  * Check if two time ranges overlap
@@ -10,12 +14,12 @@ export const isOverlap = (aStart: string, aEnd: string, bStart: string, bEnd: st
 /**
  * Check if there are overlapping time slots in availability array
  */
-export const hasOverlap = (availability: IAvailability[]): boolean => {
+export const hasOverlap = (availability: IAvailabilitySlot[]): boolean => {
   const grouped = availability.reduce((acc, slot) => {
     acc[slot.day] = acc[slot.day] || [];
     acc[slot.day].push(slot);
     return acc;
-  }, {} as Record<string, IAvailability[]>);
+  }, {} as Record<string, IAvailabilitySlot[]>);
 
   for (const day in grouped) {
     const slots = grouped[day];
