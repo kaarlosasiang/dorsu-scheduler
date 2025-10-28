@@ -2,8 +2,9 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import { IDepartment } from "../shared/interfaces/IDepartment.js";
 
 // Extend IDepartment with Mongoose Document
-export interface IDepartmentDocument extends Omit<IDepartment, '_id'>, Document {
+export interface IDepartmentDocument extends Omit<IDepartment, '_id' | 'courses'>, Document {
   _id: mongoose.Types.ObjectId;
+  courses?: mongoose.Types.ObjectId[];
 }
 
 // Static methods interface
@@ -37,6 +38,13 @@ const departmentSchema = new Schema<IDepartmentDocument>({
     type: String,
     trim: true,
     maxlength: [500, 'Description cannot exceed 500 characters']
+  },
+  courses: {
+    type: [{
+      type: Schema.Types.ObjectId,
+      ref: 'Course'
+    }],
+    default: []
   }
 }, {
   timestamps: true,
@@ -62,6 +70,12 @@ departmentSchema.virtual('facultyCount', {
   count: true
 });
 
+// Virtual for total courses count
+departmentSchema.virtual('coursesCount').get(function() {
+  return this.courses?.length || 0;
+});
+
+
 // Virtual for full display name (code + name)
 departmentSchema.virtual('displayName').get(function() {
   return `${this.code} - ${this.name}`;
@@ -79,7 +93,7 @@ departmentSchema.pre('save', async function(next) {
       return;
     }
   }
-  
+
   if (this.isModified('code')) {
     const existingByCode = await mongoose.model('Department').findOne({
       code: this.code.toUpperCase(),
@@ -90,7 +104,7 @@ departmentSchema.pre('save', async function(next) {
       return;
     }
   }
-  
+
   next();
 });
 
@@ -100,13 +114,17 @@ departmentSchema.statics.getStats = async function() {
     {
       $group: {
         _id: null,
-        total: { $sum: 1 }
+        total: { $sum: 1 },
+        totalCourses: {
+          $sum: {
+            $size: { $ifNull: ['$courses', []] }
+          }
+        }
       }
     }
   ]);
 
-  const result = stats[0] || { total: 0 };
-  return result;
+  return stats[0] || { total: 0, totalCourses: 0 };
 };
 
 export const Department = mongoose.model<IDepartmentDocument, IDepartmentModel>('Department', departmentSchema);

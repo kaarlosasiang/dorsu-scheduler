@@ -121,6 +121,7 @@ const columns: ColumnDef<Faculty>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
+    size: 40,
   },
   {
     id: "name",
@@ -129,16 +130,16 @@ const columns: ColumnDef<Faculty>[] = [
       <DataTableColumnHeader column={column} title="Faculty" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center space-x-3">
-        <Avatar className="h-8 w-8">
+      <div className="flex items-center space-x-3 min-w-[250px]">
+        <Avatar className="h-8 w-8 flex-shrink-0">
           <AvatarFallback className="text-xs bg-primary/10 text-primary">
             {row.original.firstName.charAt(0).toUpperCase() +
               row.original.lastName.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div>
-          <div className="font-medium">{row.original.name}</div>
-          <div className="text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <div className="font-medium truncate">{row.original.name}</div>
+          <div className="text-sm text-muted-foreground truncate max-w-[200px]">
             {row.original.email}
           </div>
         </div>
@@ -146,6 +147,7 @@ const columns: ColumnDef<Faculty>[] = [
     ),
     enableSorting: true,
     enableColumnFilter: true,
+    size: 300,
     meta: {
       label: "Faculty Name",
       placeholder: "Search faculty names...",
@@ -161,12 +163,13 @@ const columns: ColumnDef<Faculty>[] = [
     ),
     cell: ({ row }) => (
       <div className="flex items-center space-x-2">
-        <Building2 className="h-4 w-4 text-muted-foreground" />
-        <span>{row.original.department}</span>
+        <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <span className="truncate">{row.original.department}</span>
       </div>
     ),
     enableSorting: true,
     enableColumnFilter: true,
+    size: 180,
     meta: {
       label: "Department",
       variant: "select",
@@ -183,7 +186,7 @@ const columns: ColumnDef<Faculty>[] = [
     cell: ({ row }) => {
       const type = row.original.employmentType;
       return (
-        <Badge variant={type === "full-time" ? "default" : "secondary"}>
+        <Badge variant={type === "full-time" ? "default" : "secondary"} className="whitespace-nowrap">
           {type === "full-time" ? (
             <Briefcase className="mr-1 h-3 w-3" />
           ) : (
@@ -195,6 +198,7 @@ const columns: ColumnDef<Faculty>[] = [
     },
     enableSorting: true,
     enableColumnFilter: true,
+    size: 130,
     meta: {
       label: "Employment Type",
       variant: "select",
@@ -214,7 +218,7 @@ const columns: ColumnDef<Faculty>[] = [
     cell: ({ row }) => {
       const status = row.original.status;
       return (
-        <Badge variant={status === "active" ? "default" : "secondary"}>
+        <Badge variant={status === "active" ? "default" : "secondary"} className="whitespace-nowrap">
           {status === "active" ? (
             <CheckCircle className="mr-1 h-3 w-3" />
           ) : (
@@ -226,6 +230,7 @@ const columns: ColumnDef<Faculty>[] = [
     },
     enableSorting: true,
     enableColumnFilter: true,
+    size: 110,
     meta: {
       label: "Status",
       variant: "select",
@@ -248,7 +253,7 @@ const columns: ColumnDef<Faculty>[] = [
       const percentage = max > 0 ? (current / max) * 100 : 0;
 
       return (
-        <div className="w-24">
+        <div className="w-28">
           <div className="flex items-center justify-between text-xs mb-1">
             <span>
               {current}/{max}
@@ -263,6 +268,7 @@ const columns: ColumnDef<Faculty>[] = [
     },
     enableSorting: true,
     enableColumnFilter: true,
+    size: 150,
     meta: {
       label: "Current Load",
       variant: "range",
@@ -278,13 +284,14 @@ const columns: ColumnDef<Faculty>[] = [
       <DataTableColumnHeader column={column} title="Max Load" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center space-x-2">
-        <Briefcase className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center space-x-2 whitespace-nowrap">
+        <Briefcase className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span>{row.original.maxLoad} units</span>
       </div>
     ),
     enableSorting: true,
     enableColumnFilter: true,
+    size: 120,
     meta: {
       label: "Max Load",
       variant: "range",
@@ -303,8 +310,8 @@ const columns: ColumnDef<Faculty>[] = [
       const current = row.original.currentPreparations;
       const max = row.original.maxPreparations;
       return (
-        <div className="flex items-center space-x-2">
-          <BookOpen className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center space-x-2 whitespace-nowrap">
+          <BookOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           <span>
             {current}/{max}
           </span>
@@ -313,6 +320,7 @@ const columns: ColumnDef<Faculty>[] = [
     },
     enableSorting: true,
     enableColumnFilter: true,
+    size: 130,
     meta: {
       label: "Preparations",
       variant: "range",
@@ -327,13 +335,14 @@ const columns: ColumnDef<Faculty>[] = [
       <DataTableColumnHeader column={column} title="Date Added" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center space-x-2">
-        <Calendar className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center space-x-2 whitespace-nowrap">
+        <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span>{new Date(row.original.createdAt).toLocaleDateString()}</span>
       </div>
     ),
     enableSorting: true,
     enableColumnFilter: true,
+    size: 140,
     meta: {
       label: "Date Added",
       variant: "date",
@@ -379,6 +388,7 @@ const columns: ColumnDef<Faculty>[] = [
     ),
     enableSorting: false,
     enableHiding: false,
+    size: 50,
   },
 ];
 

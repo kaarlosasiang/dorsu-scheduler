@@ -3,6 +3,7 @@ export interface IDepartment {
   name: string;
   code: string;
   description?: string;
+  courses?: string[]; // Array of Course ObjectId references
   createdAt?: Date;
   updatedAt?: Date;
 }

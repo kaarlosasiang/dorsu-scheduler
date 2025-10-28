@@ -1,9 +1,10 @@
 "use client";
 
-import { GalleryVerticalEnd } from "lucide-react";
+import {GalleryVerticalEnd} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
+import { useAuth } from "@/contexts/authContext";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,9 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { AuthAPI } from "@/lib/services/AuthAPI";
 import { loginSchema } from "./schema";
 import type { LoginFormData, LoginFormProps } from "./types";
+import Image from 'next/image'
 
 export function LoginForm({
   onSuccess,
@@ -25,6 +26,7 @@ export function LoginForm({
   ...props
 }: LoginFormProps & React.ComponentProps<"div">) {
   const [generalError, setGeneralError] = useState<string>("");
+  const { login } = useAuth();
 
   const {
     register,
@@ -38,33 +40,22 @@ export function LoginForm({
     try {
       setGeneralError("");
       
-      // Call the actual AuthAPI
-      const response = await AuthAPI.login({
-        email: data.email,
-        password: data.password,
-      });
+      // Use the login function from AuthContext
+      await login(data.email, data.password);
 
-      if (response.success) {
-        // Transform the API response to match our LoginResponse type
-        const loginResponse = {
-          success: true,
-          data: {
-            user: {
-              id: response.data.user.id,
-              email: response.data.user.email,
-              name: response.data.user.username, // Map username to name
-              role: response.data.user.role,
-            },
-            token: response.data.accessToken,
+      // If we reach here, login was successful
+      onSuccess?.({
+        success: true,
+        data: {
+          user: {
+            id: "",
+            email: data.email,
+            name: "",
+            role: "",
           },
-        };
-        
-        onSuccess?.(loginResponse);
-      } else {
-        const errorMessage = response.message || "Login failed";
-        setGeneralError(errorMessage);
-        onError?.(errorMessage);
-      }
+          token: "",
+        },
+      });
     } catch (error: any) {
       console.error("Login error:", error);
       
@@ -91,8 +82,8 @@ export function LoginForm({
               href="#"
               className="flex flex-col items-center gap-2 font-medium"
             >
-              <div className="flex size-8 items-center justify-center rounded-md">
-                <GalleryVerticalEnd className="size-6" />
+              <div className="flex items-center justify-center rounded-md">
+                  <Image src="/dorsu-icon.png" height={100} width={100} alt={"DOrSU Logo"}/>
               </div>
               <span className="sr-only">DOrSched</span>
             </a>

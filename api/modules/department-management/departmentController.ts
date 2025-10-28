@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { DepartmentService } from './departmentService.js';
-import { validateDepartmentQuery } from '../../shared/validators/departmentValidator.js';
+import { validateDepartmentQuery, validateCreateDepartment, validateUpdateDepartment, validateDepartmentId } from '../../shared/validators/departmentValidator.js';
 
 export class DepartmentController {
   /**
@@ -43,6 +43,13 @@ export class DepartmentController {
   static async getById(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      // Validate ID format
+      const idValidation = validateDepartmentId(id);
+      if (!idValidation.success) {
+        res.status(400).json({ success: false, message: 'Invalid department ID format' });
+        return;
+      }
 
       const department = await DepartmentService.getById(id);
 
@@ -88,7 +95,18 @@ export class DepartmentController {
    */
   static async create(req: Request, res: Response): Promise<void> {
     try {
-      const department = await DepartmentService.create(req.body);
+      // Validate request body
+      const validation = validateCreateDepartment(req.body);
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid department data',
+          errors: validation.error.issues.map(i => i.message)
+        });
+        return;
+      }
+
+      const department = await DepartmentService.create(validation.data);
 
       res.status(201).json({
         success: true,
@@ -110,7 +128,26 @@ export class DepartmentController {
   static async update(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const department = await DepartmentService.update(id, req.body);
+
+      // Validate ID format
+      const idValidation = validateDepartmentId(id);
+      if (!idValidation.success) {
+        res.status(400).json({ success: false, message: 'Invalid department ID format' });
+        return;
+      }
+
+      // Validate request body
+      const validation = validateUpdateDepartment(req.body);
+      if (!validation.success) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid department data',
+          errors: validation.error.issues.map(i => i.message)
+        });
+        return;
+      }
+
+      const department = await DepartmentService.update(id, validation.data);
 
       res.status(200).json({
         success: true,
@@ -140,6 +177,14 @@ export class DepartmentController {
   static async delete(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+
+      // Validate ID format
+      const idValidation = validateDepartmentId(id);
+      if (!idValidation.success) {
+        res.status(400).json({ success: false, message: 'Invalid department ID format' });
+        return;
+      }
+
       await DepartmentService.delete(id);
 
       res.status(200).json({

@@ -179,6 +179,16 @@ export const FacultyAPI = {
   },
 
   /**
+   * Update faculty availability
+   */
+  updateAvailability: async (id: string, availabilityData: any) => {
+    // For now, use the general update endpoint
+    // This should be replaced with a specific availability endpoint when backend supports it
+    const response = await APIService.patch(availabilityData, `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/availability`);
+    return response.data as FacultyResponse;
+  },
+
+  /**
    * Get faculty statistics
    */
   getStats: async (department?: string) => {

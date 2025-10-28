@@ -17,7 +17,9 @@ export const createDepartmentSchema = z.object({
   description: z.string()
     .max(500, 'Description cannot exceed 500 characters')
     .trim()
-    .optional()
+    .optional(),
+
+  courses: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid course ID')).optional()
 });
 
 // Update department validation schema
@@ -38,7 +40,9 @@ export const updateDepartmentSchema = z.object({
   description: z.string()
     .max(500, 'Description cannot exceed 500 characters')
     .trim()
-    .optional()
+    .optional(),
+
+  courses: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid course ID')).optional()
 });
 
 // Query parameters validation schema

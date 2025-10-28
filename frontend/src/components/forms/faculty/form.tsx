@@ -289,7 +289,7 @@ export function FacultyForm({
                       </SelectItem>
                     ) : (
                       departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id}>
+                        <SelectItem key={dept.id} value={dept.id as string}>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{dept.code}</span>
                             <span className="text-muted-foreground">-</span>

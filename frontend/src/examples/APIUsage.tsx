@@ -7,7 +7,7 @@ import { AuthAPI, FacultyAPI } from "@/lib/services";
 const handleLogin = async () => {
   try {
     const response = await AuthAPI.login({
-      username: "admin",
+      email: "admin@example.com",
       password: "password123"
     });
     console.log("Login successful:", response);
@@ -25,15 +25,18 @@ const handleFacultyOperations = async () => {
 
     // Create new faculty
     const newFaculty = await FacultyAPI.create({
-      name: "Dr. John Smith",
-      department: "Computer Science",
-      availability: [
-        {
-          day: "Monday",
-          startTime: "08:00",
-          endTime: "17:00"
-        }
-      ]
+      name: {
+        first: "John",
+        middle: "A",
+        last: "Smith",
+        ext: "Dr."
+      },
+      email: "john.smith@example.com",
+      department: "507f1f77bcf86cd799439011", // Department ID
+      employmentType: "full-time",
+      minLoad: 18,
+      maxLoad: 24,
+      status: "active"
     });
     console.log("Created faculty:", newFaculty);
 
@@ -54,7 +57,7 @@ const ExampleComponent = () => {
 
   const handleLogin = async () => {
     await auth.login({
-      username: "admin",
+      email: "admin@example.com",
       password: "password123"
     });
   };
@@ -65,8 +68,17 @@ const ExampleComponent = () => {
 
   const createFaculty = async () => {
     await faculty.create({
-      name: "Dr. Jane Doe",
-      department: "Mathematics",
+      name: {
+        first: "Jane",
+        last: "Doe",
+        ext: "Dr."
+      },
+      email: "jane.doe@example.com",
+      department: "507f1f77bcf86cd799439011", // Department ID
+      employmentType: "full-time",
+      minLoad: 18,
+      maxLoad: 24,
+      status: "active"
     });
   };
 

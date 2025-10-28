@@ -11,6 +11,7 @@ import {
   notFoundHandler,
 } from "./shared/middlewares/errorHandler.js";
 import { API_CONFIG } from "./config/constants.js";
+import {courseRoutes} from "./modules/course-management/courseRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -63,6 +64,7 @@ app.get("/api/health", (req, res) => {
 app.use(`${API_CONFIG.PREFIX}/auth`, authRoutes);
 app.use(`${API_CONFIG.PREFIX}/faculty`, facultyRoutes);
 app.use(`${API_CONFIG.PREFIX}/departments`, departmentRoutes);
+app.use(`${API_CONFIG.PREFIX}/courses`, courseRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

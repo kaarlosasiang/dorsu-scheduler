@@ -169,6 +169,7 @@ const createAPIService = (url = "") => {
     put,
     patch,
     remove,
+    delete: remove, // Alias for consistency
     instance, // Expose the instance for direct usage if needed
   };
 };

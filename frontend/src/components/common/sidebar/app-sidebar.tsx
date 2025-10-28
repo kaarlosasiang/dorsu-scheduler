@@ -31,16 +31,11 @@ import {
 
 // This is sample data.
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   teams: [
     {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      name: "DORSU Scheduler",
+      logo: "/dorsu-icon.png",
+      plan: "Admin",
     },
   ],
   navMain: [
@@ -61,8 +56,12 @@ const data = {
         },
         {
           title: "Departments",
-          url: "/faculty/departments",
+          url: "/departments",
         },
+          {
+              title: "Courses",
+              url: "/courses",
+          },
       ],
     },
     {
@@ -142,7 +141,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

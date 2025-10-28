@@ -1,42 +1,65 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { DepartmentAPI, type IDepartment, type DepartmentQueryParams } from "@/lib/services/DepartmentAPI";
 
-// Department interface
-export interface Department {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
+interface UseDepartmentsReturn {
+  departments: IDepartment[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  stats: {
+    total: number;
+    totalCourses: number;
+  };
 }
 
-// Hook to fetch departments from API
-export function useDepartments() {
-  const [departments, setDepartments] = useState<Department[]>([]);
+export function useDepartments(params?: DepartmentQueryParams): UseDepartmentsReturn {
+  const [departments, setDepartments] = useState<IDepartment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({
+    total: 0,
+    totalCourses: 0,
+  });
+
+  const fetchDepartments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [departmentsResponse, statsResponse] = await Promise.all([
+        DepartmentAPI.getAll(params),
+        DepartmentAPI.getStats(),
+      ]);
+
+      if (departmentsResponse.success) {
+        setDepartments(departmentsResponse.data);
+      } else {
+        setError("Failed to fetch departments");
+      }
+
+      if (statsResponse.success) {
+        setStats(statsResponse.data);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch departments");
+      console.error("Error fetching departments:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [params]);
 
   useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/departments`);
-        const data = await response.json();
-        
-        if (data.success) {
-          setDepartments(data.data);
-        } else {
-          setError('Failed to fetch departments');
-        }
-      } catch (err) {
-        setError('Failed to fetch departments');
-        console.error('Error fetching departments:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDepartments();
-  }, []);
+  }, [fetchDepartments]);
 
-  return { departments, loading, error };
+  return {
+    departments,
+    loading,
+    error,
+    refetch: fetchDepartments,
+    stats
+  };
 }
+

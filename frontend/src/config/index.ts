@@ -28,7 +28,7 @@ const APP_CONFIG = {
       LOGIN: "auth/login",
       LOGOUT: "auth/logout",
       REFRESH_TOKEN: "auth/refresh-token",
-      ME: "auth/me",
+      ME: "auth/profile",
       REGISTER: "auth/register",
     },
     FACULTY: {
@@ -36,6 +36,11 @@ const APP_CONFIG = {
       STATS: "faculty/stats",
       WORKLOAD: (id: string) => `faculty/${id}/workload`,
       STATUS: (id: string) => `faculty/${id}/status`,
+    },
+    DEPARTMENTS: {
+      BASE: "departments",
+      STATS: "departments/stats",
+      BY_CODE: (code: string) => `departments/code/${code}`,
     },
     COURSES: {
       BASE: "courses",
