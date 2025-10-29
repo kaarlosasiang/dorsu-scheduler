@@ -49,6 +49,7 @@ const APP_CONFIG = {
     CLASSROOMS: {
       BASE: "classrooms",
       AVAILABLE: "classrooms/available",
+      STATS: "classrooms/stats",
     },
     SCHEDULES: {
       BASE: "schedules",

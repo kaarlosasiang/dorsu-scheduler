@@ -49,13 +49,15 @@ const departmentSchema = new Schema<IDepartmentDocument>({
 }, {
   timestamps: true,
   toJSON: {
+    virtuals: true,
     transform: function(doc, ret) {
       ret.id = ret._id.toString();
       delete (ret as any)._id;
       delete (ret as any).__v;
       return ret;
     }
-  }
+  },
+  toObject: { virtuals: true }
 });
 
 // Indexes for efficient lookups
@@ -70,9 +72,12 @@ departmentSchema.virtual('facultyCount', {
   count: true
 });
 
-// Virtual for total courses count
-departmentSchema.virtual('coursesCount').get(function() {
-  return this.courses?.length || 0;
+// Virtual for courses count (to be populated when needed)
+departmentSchema.virtual('coursesCount', {
+  ref: 'Course',
+  localField: '_id',
+  foreignField: 'department',
+  count: true
 });
 
 

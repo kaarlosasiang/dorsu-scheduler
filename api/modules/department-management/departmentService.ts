@@ -24,6 +24,8 @@ export class DepartmentService {
       }
 
       const departments = await Department.find(query)
+        .populate('facultyCount')
+        .populate('coursesCount')
         .sort({ name: 1 })
         .exec();
 
@@ -39,7 +41,10 @@ export class DepartmentService {
    */
   static async getById(id: string): Promise<IDepartmentDocument> {
     try {
-      const department = await Department.findById(id).exec();
+      const department = await Department.findById(id)
+        .populate('facultyCount')
+        .populate('coursesCount')
+        .exec();
 
       if (!department) {
         throw new Error('Department not found');
@@ -60,7 +65,10 @@ export class DepartmentService {
    */
   static async getByCode(code: string): Promise<IDepartmentDocument> {
     try {
-      const department = await Department.findOne({ code: code.toUpperCase() }).exec();
+      const department = await Department.findOne({ code: code.toUpperCase() })
+        .populate('facultyCount')
+        .populate('coursesCount')
+        .exec();
 
       if (!department) {
         throw new Error('Department not found');

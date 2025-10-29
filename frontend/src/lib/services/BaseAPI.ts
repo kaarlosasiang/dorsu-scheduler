@@ -76,18 +76,26 @@ const createAPIService = (url = "") => {
             }
           );
 
-          // Store the new access token
-          localStorage.setItem(APP_CONFIG.ACCESS_TOKEN_KEY, data.data.accessToken);
-          
-          // Retry the original request with the new access token
-          originalRequest.headers["Authorization"] = `Bearer ${data.data.accessToken}`;
-          return instance(originalRequest);
+          // Validate response structure and store the new access token
+          if (data?.success && data?.data?.accessToken) {
+            localStorage.setItem(APP_CONFIG.ACCESS_TOKEN_KEY, data.data.accessToken);
+
+            // Retry the original request with the new access token
+            originalRequest.headers["Authorization"] = `Bearer ${data.data.accessToken}`;
+            return instance(originalRequest);
+          } else {
+            // If response structure is invalid, throw error to be caught below
+            throw new Error("Invalid refresh token response structure");
+          }
         } catch (refreshError: any) {
           console.error("Refresh token error", refreshError);
-          localStorage.removeItem(APP_CONFIG.ACCESS_TOKEN_KEY);
 
-          // Only logout if refresh token is expired/invalid
+          // Only logout and redirect if refresh token is expired/invalid (401)
+          // For other errors (network issues, etc.), just reject and let the app handle it
           if (refreshError?.response?.status === 401) {
+            localStorage.removeItem(APP_CONFIG.ACCESS_TOKEN_KEY);
+
+            // Call logout endpoint to clear refresh token cookie
             try {
               await axios.post(
                 `${APP_CONFIG.API_URL}/${APP_CONFIG.ENDPOINTS.AUTH.LOGOUT}`,
@@ -102,17 +110,17 @@ const createAPIService = (url = "") => {
             } catch (logoutError) {
               console.error("Logout error", logoutError);
             }
-          }
 
-          // Store the session expired message in localStorage
-          localStorage.setItem(
-            APP_CONFIG.SESSION_EXPIRED_KEY,
-            "Your session has expired. Please log in again."
-          );
+            // Store the session expired message in localStorage
+            localStorage.setItem(
+              APP_CONFIG.SESSION_EXPIRED_KEY,
+              "Your session has expired. Please log in again."
+            );
 
-          // Redirect to login only if not already there
-          if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-            window.location.href = "/login";
+            // Redirect to login only if not already there
+            if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+              window.location.href = "/login";
+            }
           }
 
           return Promise.reject(refreshError);

@@ -6,6 +6,10 @@ export interface IDepartment {
   courses?: string[]; // Array of Course ObjectId references
   createdAt?: Date;
   updatedAt?: Date;
+  // Virtual fields
+  coursesCount?: number;
+  facultyCount?: number;
+  displayName?: string;
 }
 
 export interface IDepartmentFilter {

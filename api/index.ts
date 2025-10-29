@@ -6,12 +6,14 @@ import { connectDB } from "./config/db.js";
 import authRoutes from "./modules/auth/authRoutes.js";
 import facultyRoutes from "./modules/faculty-management/facultyRoutes.js";
 import { departmentRoutes } from "./modules/department-management/departmentRoutes.js";
+import { courseRoutes } from "./modules/course-management/courseRoutes.js";
+import { classroomRoutes } from "./modules/classroom-management/classroomRoutes.js";
+import { scheduleRoutes } from "./modules/schedule-management/scheduleRoutes.js";
 import {
   errorHandler,
   notFoundHandler,
 } from "./shared/middlewares/errorHandler.js";
 import { API_CONFIG } from "./config/constants.js";
-import {courseRoutes} from "./modules/course-management/courseRoutes";
 
 // Load environment variables
 dotenv.config();
@@ -65,6 +67,8 @@ app.use(`${API_CONFIG.PREFIX}/auth`, authRoutes);
 app.use(`${API_CONFIG.PREFIX}/faculty`, facultyRoutes);
 app.use(`${API_CONFIG.PREFIX}/departments`, departmentRoutes);
 app.use(`${API_CONFIG.PREFIX}/courses`, courseRoutes);
+app.use(`${API_CONFIG.PREFIX}/classrooms`, classroomRoutes);
+app.use(`${API_CONFIG.PREFIX}/schedules`, scheduleRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
