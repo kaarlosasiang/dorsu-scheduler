@@ -33,7 +33,7 @@ function checkTimeOverlap(slot1: ITimeSlot, slot2: ITimeSlot): boolean {
 export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise<IScheduleConflict[]> {
   const conflicts: IScheduleConflict[] = [];
   
-  const { faculty, classroom, timeSlot, semester, academicYear, _id, course } = scheduleData;
+  const { faculty, classroom, timeSlot, semester, academicYear, _id, subject } = scheduleData;
   
   if (!timeSlot || !semester || !academicYear) {
     return conflicts;
@@ -52,7 +52,7 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
   }
   
   const existingSchedules = await Schedule.find(query)
-    .populate('course', 'courseCode courseName units')
+    .populate('subject', 'subjectCode subjectName units')
     .populate('faculty', 'name email currentLoad maxLoad')
     .populate('classroom', 'roomNumber building capacity')
     .populate('department', 'name code');
@@ -63,7 +63,7 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
     
     if (!hasOverlap) continue;
     
-    const existingCourse = existing.course as any;
+    const existingSubject = existing.subject as any;
     const existingFaculty = existing.faculty as any;
     const existingClassroom = existing.classroom as any;
     
@@ -72,11 +72,11 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
       conflicts.push({
         type: 'faculty',
         severity: 'error',
-        message: `Faculty ${existingFaculty.name?.first} ${existingFaculty.name?.last} is already teaching ${existingCourse.courseCode} at this time`,
+        message: `Faculty ${existingFaculty.name?.first} ${existingFaculty.name?.last} is already teaching ${existingSubject.subjectCode} at this time`,
         schedules: [existing._id.toString()],
         details: {
           faculty: existingFaculty,
-          course: existingCourse,
+          subject: existingSubject,
           timeSlot: existing.timeSlot,
           classroom: existingClassroom
         }
@@ -88,11 +88,11 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
       conflicts.push({
         type: 'classroom',
         severity: 'error',
-        message: `Room ${existingClassroom.building} - ${existingClassroom.roomNumber} is already occupied by ${existingCourse.courseCode} at this time`,
+        message: `Room ${existingClassroom.building} - ${existingClassroom.roomNumber} is already occupied by ${existingSubject.subjectCode} at this time`,
         schedules: [existing._id.toString()],
         details: {
           classroom: existingClassroom,
-          course: existingCourse,
+          subject: existingSubject,
           timeSlot: existing.timeSlot,
           faculty: existingFaculty
         }
@@ -101,10 +101,10 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
   }
   
   // 3. Faculty workload check (Objective 3)
-  if (faculty && course) {
+  if (faculty && subject) {
     const workloadConflict = await checkFacultyWorkload(
       faculty.toString(),
-      course.toString(),
+      subject.toString(),
       semester,
       academicYear,
       _id?.toString()
@@ -115,10 +115,10 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
   }
   
   // 4. Classroom capacity check
-  if (classroom && course) {
+  if (classroom && subject) {
     const capacityConflict = await checkClassroomCapacity(
       classroom.toString(),
-      course.toString()
+      subject.toString()
     );
     if (capacityConflict) {
       conflicts.push(capacityConflict);
@@ -134,7 +134,7 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
  */
 export async function checkFacultyWorkload(
   facultyId: string,
-  courseId: string,
+  subjectId: string,
   semester: string,
   academicYear: string,
   excludeScheduleId?: string
@@ -155,15 +155,15 @@ export async function checkFacultyWorkload(
   }
   
   const facultySchedules = await Schedule.find(query)
-    .populate('course', 'units courseCode');
+    .populate('subject', 'units subjectCode');
   
   // Calculate total units/hours
   let totalUnits = 0;
-  const uniqueCourses = new Set<string>();
+  const uniqueSubjects = new Set<string>();
   
   for (const schedule of facultySchedules) {
-    totalUnits += (schedule as any).course.units || 0;
-    uniqueCourses.add(schedule.course.toString());
+    totalUnits += (schedule as any).subject.units || 0;
+    uniqueSubjects.add(schedule.subject.toString());
   }
   
   // Check against faculty limits
@@ -180,20 +180,20 @@ export async function checkFacultyWorkload(
       details: {
         currentLoad: totalUnits,
         maxLoad,
-        preparations: uniqueCourses.size
+        preparations: uniqueSubjects.size
       }
     };
   }
   
   // Warning if too many preparations
-  if (uniqueCourses.size >= maxPreparations) {
+  if (uniqueSubjects.size >= maxPreparations) {
     return {
       type: 'workload',
       severity: 'warning',
-      message: `Faculty ${faculty.name.first} ${faculty.name.last} has ${uniqueCourses.size + 1} preparations (max: ${maxPreparations})`,
+      message: `Faculty ${faculty.name.first} ${faculty.name.last} has ${uniqueSubjects.size + 1} preparations (max: ${maxPreparations})`,
       schedules: facultySchedules.map(s => s._id.toString()),
       details: {
-        currentPreparations: uniqueCourses.size,
+        currentPreparations: uniqueSubjects.size,
         maxPreparations
       }
     };
@@ -207,7 +207,7 @@ export async function checkFacultyWorkload(
  */
 export async function checkClassroomCapacity(
   classroomId: string,
-  courseId: string
+  subjectId: string
 ): Promise<IScheduleConflict | null> {
   const classroom = await Classroom.findById(classroomId);
   if (!classroom) return null;

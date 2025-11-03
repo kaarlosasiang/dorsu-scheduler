@@ -17,7 +17,7 @@ export const timeSlotSchema = z.object({
 
 // Create schedule schema
 export const createScheduleSchema = z.object({
-  course: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid course ID'),
+  subject: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid subject ID'),
   faculty: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid faculty ID'),
   classroom: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid classroom ID'),
   department: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID'),
@@ -34,7 +34,7 @@ export const updateScheduleSchema = createScheduleSchema.partial();
 
 // Schedule query schema
 export const scheduleQuerySchema = z.object({
-  course: z.string().optional(),
+  subject: z.string().optional(),
   faculty: z.string().optional(),
   classroom: z.string().optional(),
   department: z.string().optional(),
@@ -52,6 +52,7 @@ export const scheduleGenerationSchema = z.object({
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, 'Academic year must be in format YYYY-YYYY'),
   departments: z.array(z.string()).optional(),
   courses: z.array(z.string()).optional(),
+  subjects: z.array(z.string()).optional(),
   constraints: z.object({
     maxHoursPerWeek: z.number().min(1).max(40).optional(),
     minHoursPerWeek: z.number().min(1).max(40).optional(),

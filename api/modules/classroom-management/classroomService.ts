@@ -151,8 +151,13 @@ export class ClassroomService {
         throw new Error('Classroom not found');
       }
 
-      // TODO: Check if any schedules are using this classroom
-      // For now, just delete it
+      // Check if any schedules are using this classroom
+      const Schedule = (await import('../../models/scheduleModel.js')).Schedule;
+      const scheduleCount = await Schedule.countDocuments({ classroom: id });
+      if (scheduleCount > 0) {
+        throw new Error('Cannot delete classroom that is assigned to schedules. Please remove or reassign schedules first.');
+      }
+
       await Classroom.findByIdAndDelete(id);
     } catch (error) {
       console.error('Error in ClassroomService.delete:', error);

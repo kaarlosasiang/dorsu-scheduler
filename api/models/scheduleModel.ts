@@ -2,9 +2,9 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import { ISchedule, ITimeSlot } from "../shared/interfaces/ISchedule";
 
 // Extend ISchedule with Mongoose Document
-export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'course' | 'faculty' | 'classroom' | 'department'>, Document {
+export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'subject' | 'faculty' | 'classroom' | 'department'>, Document {
   _id: mongoose.Types.ObjectId;
-  course: mongoose.Types.ObjectId;
+  subject: mongoose.Types.ObjectId;
   faculty: mongoose.Types.ObjectId;
   classroom: mongoose.Types.ObjectId;
   department: mongoose.Types.ObjectId;
@@ -38,10 +38,10 @@ const timeSlotSchema = new Schema<ITimeSlot>({
 
 // Schedule schema
 const scheduleSchema = new Schema<IScheduleDocument>({
-  course: {
+  subject: {
     type: Schema.Types.ObjectId,
-    ref: 'Course',
-    required: [true, 'Course is required'],
+    ref: 'Subject',
+    required: [true, 'Subject is required'],
     index: true
   },
   faculty: {
@@ -180,7 +180,7 @@ scheduleSchema.statics.findConflicts = async function(scheduleData: Partial<ISch
 
   // Check for time overlap
   const existingSchedules = await this.find(query)
-    .populate('course', 'courseCode courseName')
+    .populate('subject', 'subjectCode subjectName')
     .populate('faculty', 'name')
     .populate('classroom', 'roomNumber building');
 
@@ -203,7 +203,7 @@ scheduleSchema.statics.findConflicts = async function(scheduleData: Partial<ISch
         schedule: existing,
         details: {
           faculty: existing.faculty,
-          course: existing.course,
+          subject: existing.subject,
           time: `${existing.timeSlot.startTime}-${existing.timeSlot.endTime}`
         }
       });
@@ -218,7 +218,7 @@ scheduleSchema.statics.findConflicts = async function(scheduleData: Partial<ISch
         schedule: existing,
         details: {
           classroom: existing.classroom,
-          course: existing.course,
+          subject: existing.subject,
           time: `${existing.timeSlot.startTime}-${existing.timeSlot.endTime}`
         }
       });

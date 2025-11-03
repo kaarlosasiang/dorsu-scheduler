@@ -6,7 +6,7 @@ export interface ITimeSlot {
 
 export interface ISchedule {
   _id?: string;
-  course: string; // Course ObjectId reference
+  subject: string; // Subject ObjectId reference
   faculty: string; // Faculty ObjectId reference
   classroom: string; // Classroom ObjectId reference
   department: string; // Department ObjectId reference
@@ -21,14 +21,14 @@ export interface ISchedule {
   updatedAt?: Date;
 
   // Virtual/populated fields
-  courseDetails?: any;
+  subjectDetails?: any;
   facultyDetails?: any;
   classroomDetails?: any;
   departmentDetails?: any;
 }
 
 export interface IScheduleFilter {
-  course?: string;
+  subject?: string;
   faculty?: string;
   classroom?: string;
   department?: string;
@@ -87,6 +87,7 @@ export interface IScheduleGenerationRequest {
   academicYear: string;
   departments?: string[]; // If empty, generate for all
   courses?: string[]; // If empty, generate for all in selected departments
+  subjects?: string[]; // If specified, generate only for these subjects
   constraints?: IScheduleConstraints;
   overwriteExisting?: boolean;
 }
@@ -95,8 +96,8 @@ export interface IScheduleGenerationRequest {
 export interface IScheduleGenerationResult {
   success: boolean;
   message: string;
-  generated: number;
-  failed: number;
+  generated?: number;
+  failed?: number;
   conflicts: IScheduleConflict[];
   schedules?: ISchedule[];
   statistics?: {
@@ -106,5 +107,10 @@ export interface IScheduleGenerationResult {
     roomUtilization: number;
     facultyUtilization: number;
   };
+  failedSubjects?: Array<{
+    subjectCode: string;
+    subjectName: string;
+    reason: string;
+  }>;
 }
 

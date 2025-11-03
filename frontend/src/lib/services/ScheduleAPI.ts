@@ -1,5 +1,4 @@
 import APIService from "./BaseAPI";
-import APP_CONFIG from "@/config";
 
 export interface ITimeSlot {
   day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -10,7 +9,7 @@ export interface ITimeSlot {
 export interface ISchedule {
   _id?: string;
   id?: string;
-  course: string | any;
+  subject: string | any;
   faculty: string | any;
   classroom: string | any;
   department: string | any;
@@ -25,7 +24,7 @@ export interface ISchedule {
   updatedAt?: string;
 
   // Populated fields
-  courseDetails?: any;
+  subjectDetails?: any;
   facultyDetails?: any;
   classroomDetails?: any;
   departmentDetails?: any;
@@ -82,6 +81,7 @@ export interface ScheduleGenerationRequest {
   academicYear: string;
   departments?: string[];
   courses?: string[];
+  subjects?: string[];
   constraints?: {
     maxHoursPerWeek?: number;
     minHoursPerWeek?: number;
@@ -95,8 +95,8 @@ export interface ScheduleGenerationRequest {
 export interface ScheduleGenerationResponse {
   success: boolean;
   message: string;
-  generated: number;
-  failed: number;
+  generated?: number;
+  failed?: number;
   conflicts: IScheduleConflict[];
   schedules?: ISchedule[];
   statistics?: {
@@ -106,17 +106,22 @@ export interface ScheduleGenerationResponse {
     roomUtilization: number;
     facultyUtilization: number;
   };
+  failedSubjects?: Array<{
+    subjectCode: string;
+    subjectName: string;
+    reason: string;
+  }>;
 }
 
 export interface ScheduleQueryParams {
-  course?: string;
+  subject?: string;
   faculty?: string;
   classroom?: string;
   department?: string;
   semester?: string;
   academicYear?: string;
   yearLevel?: string;
-  section?: string;
+  subject: string;
   status?: 'draft' | 'published' | 'archived';
   day?: string;
 }
@@ -129,7 +134,7 @@ export interface ScheduleCreateData {
   timeSlot: ITimeSlot;
   semester: string;
   academicYear: string;
-  yearLevel?: string;
+  subject?: string;
   section?: string;
   status?: 'draft' | 'published' | 'archived';
 }

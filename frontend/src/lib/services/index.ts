@@ -4,6 +4,7 @@ export { AuthAPI } from "./AuthAPI";
 export { FacultyAPI } from "./FacultyAPI";
 export { DepartmentAPI } from "./DepartmentAPI";
 export { default as CourseAPI } from "./CourseAPI";
+export { default as SubjectAPI } from "./SubjectAPI";
 
 // Export types
 export type {
@@ -45,4 +46,14 @@ export type {
   CourseCreateData,
   CourseUpdateData,
 } from "./CourseAPI";
+export type {
+  ISubject,
+  SubjectListResponse,
+  SubjectResponse,
+  SubjectStatsResponse,
+  SubjectQueryParams,
+  SubjectCreateData,
+  SubjectUpdateData,
+} from "./SubjectAPI";
+
 

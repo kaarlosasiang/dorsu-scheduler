@@ -212,12 +212,12 @@ export class CourseService {
         throw new Error('Course not found');
       }
 
-      // TODO: Uncomment when Schedule model is implemented
-      // const Schedule = (await import('../../models/scheduleModel.js')).Schedule;
-      // const scheduleCount = await Schedule.countDocuments({ course: id });
-      // if (scheduleCount > 0) {
-      //   throw new Error('Cannot delete course that is referenced in schedules');
-      // }
+      // Check if any subjects belong to this course
+      const Subject = (await import('../../models/subjectModel.js')).Subject;
+      const subjectCount = await Subject.countDocuments({ course: id });
+      if (subjectCount > 0) {
+        throw new Error('Cannot delete course that has subjects assigned to it. Please delete or reassign subjects first.');
+      }
 
       // Remove course from any departments that reference it
       if (course.department) {

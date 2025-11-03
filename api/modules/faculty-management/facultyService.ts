@@ -289,6 +289,13 @@ export class FacultyService {
         throw new Error('Faculty not found');
       }
 
+      // Check if any schedules are assigned to this faculty
+      const Schedule = (await import('../../models/scheduleModel.js')).Schedule;
+      const scheduleCount = await Schedule.countDocuments({ faculty: id });
+      if (scheduleCount > 0) {
+        throw new Error('Cannot delete faculty who is assigned to schedules. Please remove or reassign schedules first.');
+      }
+
       await Faculty.findByIdAndDelete(id);
 
       // Emit event for potential integration hooks

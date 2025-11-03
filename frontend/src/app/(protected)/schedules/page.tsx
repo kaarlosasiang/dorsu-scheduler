@@ -82,24 +82,37 @@ interface Schedule {
 
 // Transform function
 const transformSchedule = (schedule: ISchedule): Schedule => {
-    const course = schedule.course as any;
-    const faculty = schedule.faculty as any;
-    const classroom = schedule.classroom as any;
-    const department = schedule.department as any;
+    // When Mongoose populates, it replaces the ID string with the full object
+    // So schedule.subject could be either a string (ID) or an object (populated)
+    const subject = typeof schedule.subject === 'object' ? schedule.subject : null;
+    const faculty = typeof schedule.faculty === 'object' ? schedule.faculty : null;
+    const classroom = typeof schedule.classroom === 'object' ? schedule.classroom : null;
+    const department = typeof schedule.department === 'object' ? schedule.department : null;
+
+    // Debug logging (remove after testing)
+    if (!subject) {
+        console.log('Schedule with no subject object:', { scheduleId: schedule._id, subject: schedule.subject });
+    }
 
     return {
         id: schedule._id || schedule.id || "",
-        courseName: course?.courseName || "Unknown Course",
-        courseCode: course?.courseCode || "N/A",
-        facultyName: faculty?.name ? `${faculty.name.first} ${faculty.name.last}` : "Unknown Faculty",
-        classroom: classroom?.displayName || classroom?.roomNumber || "Unknown Room",
-        day: schedule.timeSlot.day,
-        timeSlot: `${schedule.timeSlot.startTime} - ${schedule.timeSlot.endTime}`,
-        semester: schedule.semester,
-        academicYear: schedule.academicYear,
+        courseName: (subject as any)?.subjectName || (subject as any)?.name || "Unknown Course",
+        courseCode: (subject as any)?.subjectCode || (subject as any)?.code || "N/A",
+        facultyName: (faculty as any)?.name
+            ? `${(faculty as any).name.first || ''} ${(faculty as any).name.last || ''}`.trim()
+            : (faculty as any)?.firstName && (faculty as any)?.lastName
+            ? `${(faculty as any).firstName} ${(faculty as any).lastName}`
+            : "Unknown Faculty",
+        classroom: (classroom as any)?.roomNumber || (classroom as any)?.displayName || (classroom as any)?.name || "Unknown Room",
+        day: schedule.timeSlot?.day || "Unknown",
+        timeSlot: schedule.timeSlot?.startTime && schedule.timeSlot?.endTime
+            ? `${schedule.timeSlot.startTime} - ${schedule.timeSlot.endTime}`
+            : "N/A",
+        semester: schedule.semester || "N/A",
+        academicYear: schedule.academicYear || "N/A",
         status: schedule.status || "draft",
         isGenerated: schedule.isGenerated || false,
-        departmentName: department?.name || "Unknown Department",
+        departmentName: (department as any)?.name || (department as any)?.departmentName || "Unknown Department",
     };
 };
 

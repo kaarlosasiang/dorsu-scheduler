@@ -7,6 +7,7 @@ import authRoutes from "./modules/auth/authRoutes.js";
 import facultyRoutes from "./modules/faculty-management/facultyRoutes.js";
 import { departmentRoutes } from "./modules/department-management/departmentRoutes.js";
 import { courseRoutes } from "./modules/course-management/courseRoutes.js";
+import subjectRoutes from "./modules/subject-management/subjectRoutes.js";
 import { classroomRoutes } from "./modules/classroom-management/classroomRoutes.js";
 import { scheduleRoutes } from "./modules/schedule-management/scheduleRoutes.js";
 import {
@@ -66,6 +67,7 @@ app.get("/api/health", (req, res) => {
 app.use(`${API_CONFIG.PREFIX}/auth`, authRoutes);
 app.use(`${API_CONFIG.PREFIX}/faculty`, facultyRoutes);
 app.use(`${API_CONFIG.PREFIX}/departments`, departmentRoutes);
+app.use(`${API_CONFIG.PREFIX}/subjects`, subjectRoutes);
 app.use(`${API_CONFIG.PREFIX}/courses`, courseRoutes);
 app.use(`${API_CONFIG.PREFIX}/classrooms`, classroomRoutes);
 app.use(`${API_CONFIG.PREFIX}/schedules`, scheduleRoutes);

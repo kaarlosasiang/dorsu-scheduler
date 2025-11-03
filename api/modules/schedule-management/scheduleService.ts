@@ -1,10 +1,12 @@
 import { Schedule, IScheduleDocument } from '../../models/scheduleModel';
-import { IScheduleFilter, IScheduleGenerationRequest, IScheduleGenerationResult } from '../../shared/interfaces/ISchedule';
+import { IScheduleGenerationResult } from '../../shared/interfaces/ISchedule';
 import {
   validateCreateSchedule,
   validateUpdateSchedule,
   CreateScheduleInput,
-  UpdateScheduleInput
+  UpdateScheduleInput,
+  ScheduleQueryInput,
+  ScheduleGenerationInput
 } from '../../shared/validators/scheduleValidator';
 import { detectConflicts as detectScheduleConflicts } from '../../shared/utils/conflictDetector';
 import { generateSchedules as generateAutomatedSchedules } from '../../shared/utils/scheduleGenerator';
@@ -12,11 +14,11 @@ import { generateSchedules as generateAutomatedSchedules } from '../../shared/ut
 /**
  * Get all schedules with optional filtering
  */
-export async function getAll(filters: IScheduleFilter = {}): Promise<IScheduleDocument[]> {
+export async function getAll(filters: ScheduleQueryInput = {}): Promise<IScheduleDocument[]> {
   try {
     const query: any = {};
     
-    if (filters.course) query.course = filters.course;
+    if (filters.subject) query.subject = filters.subject;
     if (filters.faculty) query.faculty = filters.faculty;
     if (filters.classroom) query.classroom = filters.classroom;
     if (filters.department) query.department = filters.department;
@@ -28,7 +30,7 @@ export async function getAll(filters: IScheduleFilter = {}): Promise<IScheduleDo
     if (filters.day) query['timeSlot.day'] = filters.day;
 
     const schedules = await Schedule.find(query)
-      .populate('course', 'courseCode courseName units')
+      .populate('subject', 'subjectCode subjectName units')
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
       .populate('department', 'name code')
@@ -48,7 +50,7 @@ export async function getAll(filters: IScheduleFilter = {}): Promise<IScheduleDo
 export async function getById(id: string): Promise<IScheduleDocument> {
   try {
     const schedule = await Schedule.findById(id)
-      .populate('course', 'courseCode courseName units description')
+      .populate('subject', 'subjectCode subjectName units description')
       .populate('faculty', 'name email department')
       .populate('classroom', 'roomNumber building capacity type facilities')
       .populate('department', 'name code')
@@ -96,7 +98,7 @@ export async function create(scheduleData: CreateScheduleInput): Promise<ISchedu
 
     // Populate before returning
     await savedSchedule.populate([
-      { path: 'course', select: 'courseCode courseName units' },
+      { path: 'subject', select: 'subjectCode subjectName units' },
       { path: 'faculty', select: 'name email' },
       { path: 'classroom', select: 'roomNumber building capacity' },
       { path: 'department', select: 'name code' }
@@ -148,7 +150,7 @@ export async function update(id: string, updateData: UpdateScheduleInput): Promi
       validatedData,
       { new: true, runValidators: true }
     )
-      .populate('course', 'courseCode courseName units')
+      .populate('subject', 'subjectCode subjectName units')
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
       .populate('department', 'name code')
@@ -216,7 +218,7 @@ export async function detectConflicts(scheduleData: any): Promise<any[]> {
  * Generate automated schedules
  * CORE FEATURE: Implements all 4 objectives
  */
-export async function generateSchedules(request: IScheduleGenerationRequest): Promise<IScheduleGenerationResult> {
+export async function generateSchedules(request: ScheduleGenerationInput): Promise<IScheduleGenerationResult> {
   try {
     return await generateAutomatedSchedules(request);
   } catch (error) {
@@ -236,7 +238,7 @@ export async function getByFaculty(facultyId: string, semester: string, academic
       academicYear,
       status: { $ne: 'archived' }
     })
-      .populate('course', 'courseCode courseName units')
+      .populate('subject', 'subjectCode subjectName units')
       .populate('classroom', 'roomNumber building')
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
   } catch (error) {
@@ -256,7 +258,7 @@ export async function getByClassroom(classroomId: string, semester: string, acad
       academicYear,
       status: { $ne: 'archived' }
     })
-      .populate('course', 'courseCode courseName')
+      .populate('subject', 'subjectCode subjectName')
       .populate('faculty', 'name')
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
   } catch (error) {
