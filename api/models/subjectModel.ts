@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import { ISubject } from "../shared/interfaces/ISubject";
 
 // Extend ISubject with Mongoose Document
-export interface ISubjectDocument extends Omit<ISubject, '_id' | 'course' | 'department' | 'prerequisites'>, Document {
+export interface ISubjectDocument extends Omit<ISubject, '_id' | 'course' | 'department' | 'prerequisites' | 'hasLaboratory' | 'lectureHours' | 'labHours' | 'totalTeachingHours'>, Document {
   _id: mongoose.Types.ObjectId;
   course: mongoose.Types.ObjectId;
   department?: mongoose.Types.ObjectId;
@@ -29,9 +29,23 @@ const subjectSchema = new Schema<ISubjectDocument>({
     trim: true,
     index: true
   },
+  lectureUnits: {
+    type: Number,
+    required: [true, 'Lecture units are required'],
+    min: [0, 'Lecture units must be at least 0'],
+    max: [12, 'Lecture units cannot exceed 12'],
+    default: 0
+  },
+  labUnits: {
+    type: Number,
+    required: [true, 'Lab units are required'],
+    min: [0, 'Lab units must be at least 0'],
+    max: [12, 'Lab units cannot exceed 12'],
+    default: 0
+  },
   units: {
     type: Number,
-    required: [true, 'Units are required'],
+    required: false, // Computed field
     min: [0, 'Units must be at least 0'],
     max: [12, 'Units cannot exceed 12']
   },
@@ -63,10 +77,6 @@ const subjectSchema = new Schema<ISubjectDocument>({
     trim: true,
     index: true
   },
-  isLaboratory: {
-    type: Boolean,
-    default: false
-  },
   prerequisites: [{
     type: Schema.Types.ObjectId,
     ref: 'Subject'
@@ -91,7 +101,29 @@ subjectSchema.virtual('displayName').get(function() {
   return `${this.subjectCode} - ${this.subjectName}`;
 });
 
-// Pre-save middleware: normalize code and name
+// Virtual for hasLaboratory (true if labUnits > 0)
+subjectSchema.virtual('hasLaboratory').get(function() {
+  return (this.labUnits || 0) > 0;
+});
+
+// Virtual for lectureHours (1:1 ratio)
+subjectSchema.virtual('lectureHours').get(function() {
+  return (this.lectureUnits || 0) * 1;
+});
+
+// Virtual for labHours (1:0.75 ratio, so 1 unit = 1.333... hours)
+subjectSchema.virtual('labHours').get(function() {
+  return (this.labUnits || 0) / 0.75;
+});
+
+// Virtual for totalTeachingHours
+subjectSchema.virtual('totalTeachingHours').get(function() {
+  const lectureHours = (this.lectureUnits || 0) * 1;
+  const labHours = (this.labUnits || 0) / 0.75;
+  return lectureHours + labHours;
+});
+
+// Pre-save middleware: compute units and normalize
 subjectSchema.pre('save', async function(next) {
   // Normalize
   if (this.subjectCode && typeof this.subjectCode === 'string') {
@@ -99,6 +131,17 @@ subjectSchema.pre('save', async function(next) {
   }
   if (this.subjectName && typeof this.subjectName === 'string') {
     this.subjectName = this.subjectName.trim();
+  }
+
+  // Compute total units from lectureUnits and labUnits
+  const lectureUnits = this.lectureUnits || 0;
+  const labUnits = this.labUnits || 0;
+  this.units = lectureUnits + labUnits;
+
+  // Validate that at least one type of units is specified
+  if (lectureUnits === 0 && labUnits === 0) {
+    next(new Error('Subject must have at least lecture units or lab units'));
+    return;
   }
 
   // Ensure no duplicate subjectCode within the same course

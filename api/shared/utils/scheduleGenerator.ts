@@ -2,7 +2,7 @@ import { Schedule } from '../../models/scheduleModel';
 import { Subject } from '../../models/subjectModel';
 import { Faculty } from '../../models/facultyModel';
 import { Classroom } from '../../models/classroomModel';
-import { detectConflicts, getStandardTimeSlots } from './conflictDetector';
+import { detectConflicts } from './conflictDetector';
 import {
   ISchedule,
   IScheduleConstraints,
@@ -11,6 +11,16 @@ import {
   IScheduleConflict
 } from '../interfaces/ISchedule';
 import { ScheduleGenerationInput } from '../validators/scheduleValidator';
+import {
+  calculateLectureHours,
+  calculateLabHours,
+  getRecommendedDuration
+} from './teachingHoursCalculator';
+import {
+  generateLectureTimeSlots,
+  generateLabTimeSlots,
+  getTimeSlotsForScheduleType
+} from './timeSlotPatterns';
 
 /**
  * Automated Schedule Generator
@@ -72,10 +82,11 @@ async function getAvailableClassrooms(): Promise<any[]> {
 
 /**
  * Update faculty current load
+ * Now uses teaching hours instead of units
  */
-async function updateFacultyLoad(facultyId: string, units: number): Promise<void> {
+async function updateFacultyLoad(facultyId: string, teachingHours: number): Promise<void> {
   await Faculty.findByIdAndUpdate(facultyId, {
-    $inc: { currentLoad: units, currentPreparations: 1 }
+    $inc: { currentLoad: teachingHours, currentPreparations: 1 }
   });
 }
 
@@ -104,29 +115,42 @@ async function findSuitableFaculty(
       semester,
       academicYear,
       status: { $ne: 'archived' }
-    }).populate('subject', 'units');
+    }).populate('subject', 'lectureUnits labUnits');
 
-    // Calculate current load
-    let currentUnits = 0;
+    // Calculate current load in teaching hours
+    let currentHours = 0;
     const uniqueSubjects = new Set();
 
     for (const schedule of facultySchedules) {
-      currentUnits += (schedule as any).subject?.units || 0;
-      uniqueSubjects.add(schedule.subject.toString());
+      const subjectData = (schedule as any).subject;
+      if (subjectData) {
+        const scheduleType = (schedule as any).scheduleType;
+        if (scheduleType === 'lecture') {
+          currentHours += calculateLectureHours(subjectData.lectureUnits || 0);
+        } else if (scheduleType === 'laboratory') {
+          currentHours += calculateLabHours(subjectData.labUnits || 0);
+        }
+        uniqueSubjects.add(schedule.subject.toString());
+      }
     }
 
-    // Check workload constraints
+    // Check workload constraints (now in hours, not units)
     const maxLoad = constraints.maxHoursPerWeek || faculty.maxLoad || 26;
     const maxPreparations = constraints.maxPreparations || faculty.maxPreparations || 4;
 
+    // Calculate teaching hours for this subject component
+    const subjectHours = subject.lectureUnits ? calculateLectureHours(subject.lectureUnits) : 0;
+    const labHours = subject.labUnits ? calculateLabHours(subject.labUnits) : 0;
+    const totalSubjectHours = subjectHours + labHours;
+
     // Check if adding this subject would exceed limits
-    if (currentUnits + subject.units <= maxLoad && uniqueSubjects.size < maxPreparations) {
+    if (currentHours + totalSubjectHours <= maxLoad && uniqueSubjects.size < maxPreparations) {
       suitable.push({
         ...faculty.toObject(),
-        currentLoad: currentUnits,
+        currentLoad: currentHours,
         preparations: uniqueSubjects.size,
         // Priority: lower load = higher priority (for fair distribution)
-        priority: maxLoad - currentUnits
+        priority: maxLoad - currentHours
       });
     }
   }
@@ -142,7 +166,8 @@ async function findSuitableFaculty(
 function findSuitableClassrooms(
   subject: any,
   availableClassrooms: any[],
-  constraints: IScheduleConstraints
+  constraints: IScheduleConstraints,
+  scheduleType: 'lecture' | 'laboratory' = 'lecture'
 ): any[] {
   const minCapacity = constraints.minimumCapacity || 30;
   const requiredFacilities = constraints.requiredFacilities || [];
@@ -168,9 +193,17 @@ function findSuitableClassrooms(
       }
     }
 
-    // Check room type matching for laboratory subjects
-    if (subject.isLaboratory && classroom.type !== 'laboratory' && classroom.type !== 'computer-lab') {
-      return false;
+    // Check room type matching based on schedule type
+    if (scheduleType === 'laboratory') {
+      // Laboratory schedules need laboratory or computer-lab rooms
+      if (classroom.type !== 'laboratory' && classroom.type !== 'computer-lab') {
+        return false;
+      }
+    } else {
+      // Lecture schedules need lecture rooms (or other non-lab rooms)
+      if (classroom.type === 'laboratory' || classroom.type === 'computer-lab') {
+        return false;
+      }
     }
 
     return true;
@@ -192,7 +225,8 @@ async function findBestAssignment(
   suitableClassrooms: any[],
   timeSlots: ITimeSlot[],
   semester: string,
-  academicYear: string
+  academicYear: string,
+  scheduleType: 'lecture' | 'laboratory' = 'lecture'
 ): Promise<{ faculty: any; classroom: any; timeSlot: ITimeSlot } | null> {
 
   // Try different combinations to find conflict-free assignment
@@ -205,6 +239,7 @@ async function findBestAssignment(
           faculty: faculty._id,
           classroom: classroom._id,
           timeSlot,
+          scheduleType,
           semester,
           academicYear
         };
@@ -223,17 +258,19 @@ async function findBestAssignment(
 }
 
 /**
- * Generate schedule for a single subject
+ * Generate schedule for a single subject component (lecture or lab)
  * Uses intelligent algorithm to find best fit
  */
-async function generateSubjectSchedule(
+async function generateScheduleComponent(
   subject: any,
   availableFaculty: any[],
   availableClassrooms: any[],
   timeSlots: ITimeSlot[],
   semester: string,
   academicYear: string,
-  constraints: IScheduleConstraints
+  constraints: IScheduleConstraints,
+  scheduleType: 'lecture' | 'laboratory',
+  units: number
 ): Promise<ISchedule | null> {
 
   // 1. Find suitable faculty (Objective 3: Fair distribution)
@@ -246,18 +283,19 @@ async function generateSubjectSchedule(
   );
 
   if (suitableFaculty.length === 0) {
-    throw new Error(`No suitable faculty found for subject ${subject.subjectCode}`);
+    throw new Error(`No suitable faculty found for ${scheduleType} of subject ${subject.subjectCode}`);
   }
 
-  // 2. Find suitable classroom
+  // 2. Find suitable classroom based on schedule type
   const suitableClassrooms = findSuitableClassrooms(
     subject,
     availableClassrooms,
-    constraints
+    constraints,
+    scheduleType
   );
 
   if (suitableClassrooms.length === 0) {
-    throw new Error(`No suitable classroom found for subject ${subject.subjectCode}`);
+    throw new Error(`No suitable ${scheduleType} classroom found for subject ${subject.subjectCode}`);
   }
 
   // 3. Find best time slot (Objective 2: Conflict resolution)
@@ -267,7 +305,8 @@ async function generateSubjectSchedule(
     suitableClassrooms,
     timeSlots,
     semester,
-    academicYear
+    academicYear,
+    scheduleType
   );
 
   if (!bestAssignment) {
@@ -289,6 +328,7 @@ async function generateSubjectSchedule(
     classroom: bestAssignment.classroom._id,
     department: departmentId,
     timeSlot: bestAssignment.timeSlot,
+    scheduleType,
     semester,
     academicYear,
     yearLevel: subject.yearLevel,
@@ -298,10 +338,72 @@ async function generateSubjectSchedule(
 
   await schedule.save();
 
-  // 5. Update faculty current load
-  await updateFacultyLoad(bestAssignment.faculty._id, subject.units);
+  // 5. Update faculty current load (convert units to teaching hours based on type)
+  const teachingHours = scheduleType === 'lecture'
+    ? calculateLectureHours(units)
+    : calculateLabHours(units);
+  await updateFacultyLoad(bestAssignment.faculty._id, teachingHours);
 
   return JSON.parse(JSON.stringify(schedule)) as ISchedule;
+}
+
+/**
+ * Generate schedule for a single subject (may create lecture and/or lab schedules)
+ * Uses intelligent algorithm to find best fit
+ */
+async function generateSubjectSchedule(
+  subject: any,
+  availableFaculty: any[],
+  availableClassrooms: any[],
+  semester: string,
+  academicYear: string,
+  constraints: IScheduleConstraints
+): Promise<ISchedule[]> {
+  const schedules: ISchedule[] = [];
+
+  // Generate lecture schedule if subject has lecture units
+  // Lectures use MW, MF, or WF patterns with 1.5 hour sessions
+  if (subject.lectureUnits && subject.lectureUnits > 0) {
+    const lectureTimeSlots = generateLectureTimeSlots();
+    const lectureSchedule = await generateScheduleComponent(
+      subject,
+      availableFaculty,
+      availableClassrooms,
+      lectureTimeSlots,
+      semester,
+      academicYear,
+      constraints,
+      'lecture',
+      subject.lectureUnits
+    );
+
+    if (lectureSchedule) {
+      schedules.push(lectureSchedule);
+    }
+  }
+
+  // Generate laboratory schedule if subject has lab units
+  // Labs use TTh pattern with 1.5 hour sessions
+  if (subject.labUnits && subject.labUnits > 0) {
+    const labTimeSlots = generateLabTimeSlots();
+    const labSchedule = await generateScheduleComponent(
+      subject,
+      availableFaculty,
+      availableClassrooms,
+      labTimeSlots,
+      semester,
+      academicYear,
+      constraints,
+      'laboratory',
+      subject.labUnits
+    );
+
+    if (labSchedule) {
+      schedules.push(labSchedule);
+    }
+  }
+
+  return schedules;
 }
 
 /**
@@ -368,7 +470,6 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
     const subjectsToSchedule = await getSubjectsToSchedule(departments, subjects, courses);
     const availableFaculty = await getAvailableFaculty(departments);
     const availableClassrooms = await getAvailableClassrooms();
-    const timeSlots = getStandardTimeSlots();
 
     if (subjectsToSchedule.length === 0) {
       throw new Error('No subjects found to schedule');
@@ -389,18 +490,17 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
     // Generate schedule for each subject
     for (const subject of subjectsToSchedule) {
       try {
-        const schedule = await generateSubjectSchedule(
+        const schedules = await generateSubjectSchedule(
           subject,
           availableFaculty,
           availableClassrooms,
-          timeSlots,
           semester,
           academicYear,
           constraints
         );
 
-        if (schedule) {
-          generatedSchedules.push(schedule);
+        if (schedules && schedules.length > 0) {
+          generatedSchedules.push(...schedules);
         } else {
           failedSubjects.push({
             subject,

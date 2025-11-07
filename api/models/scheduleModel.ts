@@ -66,6 +66,13 @@ const scheduleSchema = new Schema<IScheduleDocument>({
     type: timeSlotSchema,
     required: [true, 'Time slot is required']
   },
+  scheduleType: {
+    type: String,
+    required: [true, 'Schedule type is required'],
+    enum: ['lecture', 'laboratory'],
+    default: 'lecture',
+    index: true
+  },
   semester: {
     type: String,
     required: [true, 'Semester is required'],

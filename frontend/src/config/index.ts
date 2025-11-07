@@ -27,7 +27,7 @@ const APP_CONFIG = {
     AUTH: {
       LOGIN: "auth/login",
       LOGOUT: "auth/logout",
-      REFRESH_TOKEN: "auth/refresh-token",
+      REFRESH_TOKEN: "auth/refresh",
       ME: "auth/profile",
       REGISTER: "auth/register",
     },

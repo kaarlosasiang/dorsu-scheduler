@@ -11,6 +11,7 @@ export interface ISchedule {
   classroom: string; // Classroom ObjectId reference
   department: string; // Department ObjectId reference
   timeSlot: ITimeSlot;
+  scheduleType: 'lecture' | 'laboratory'; // Type of schedule (lecture or lab)
   semester: string; // e.g., "1st Semester 2024-2025"
   academicYear: string; // e.g., "2024-2025"
   yearLevel?: string; // e.g., "1st Year", "2nd Year", "3rd Year", "4th Year"

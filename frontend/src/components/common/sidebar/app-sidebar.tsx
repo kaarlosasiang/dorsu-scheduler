@@ -41,7 +41,7 @@ const data = {
     navMain: [
         {
             title: "Dashboard",
-            url: "#",
+            url: "/",
             icon: LayoutDashboard,
             isActive: true,
         },
@@ -61,6 +61,10 @@ const data = {
                 {
                     title: "Courses",
                     url: "/courses",
+                },
+                {
+                    title: "Subjects",
+                    url: "/subjects",
                 },
             ],
         },

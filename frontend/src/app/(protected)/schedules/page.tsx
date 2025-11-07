@@ -18,9 +18,7 @@ import {
     CheckCircle2,
     FileText,
     Sparkles,
-    BarChart3,
     PlayCircle,
-    Building2,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -28,7 +26,6 @@ import { DataTableColumnHeader } from "@/components/common/data-table/data-table
 import { DataTableAdvancedToolbar } from "@/components/common/data-table/data-table-advanced-toolbar";
 import { DataTableFilterList } from "@/components/common/data-table/data-table-filter-list";
 import { DataTableSortList } from "@/components/common/data-table/data-table-sort-list";
-import { DataTableActionBar } from "@/components/common/data-table/data-table-action-bar";
 import { DataTableViewOptions } from "@/components/common/data-table/data-table-view-options";
 import { DataTableSearch } from "@/components/common/data-table/data-table-search";
 import { Button } from "@/components/ui/button";
@@ -38,7 +35,6 @@ import {
     CardContent,
     CardHeader,
     CardTitle,
-    CardDescription,
 } from "@/components/ui/card";
 import {
     DropdownMenu,
@@ -165,6 +161,10 @@ const columns: ColumnDef<Schedule>[] = [
         ),
         enableSorting: false,
         enableHiding: false,
+        size: 48,
+        minSize: 48,
+        maxSize: 64,
+        enableResizing: false,
     },
     {
         id: "course",
@@ -173,20 +173,22 @@ const columns: ColumnDef<Schedule>[] = [
             <DataTableColumnHeader column={column} title="Course" />
         ),
         cell: ({ row }) => (
-            <div className="flex items-center space-x-3 min-w-[200px]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <div className="flex items-center space-x-3 min-w-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 flex-shrink-0">
                     <BookOpen className="h-5 w-5 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{row.original.courseName}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground truncate">
                         {row.original.courseCode}
                     </div>
                 </div>
             </div>
         ),
         enableSorting: true,
-        size: 200,
+        size: 260,
+        minSize: 160,
+        maxSize: 420,
     },
     {
         id: "faculty",
@@ -195,13 +197,15 @@ const columns: ColumnDef<Schedule>[] = [
             <DataTableColumnHeader column={column} title="Faculty" />
         ),
         cell: ({ row }) => (
-            <div className="flex items-center space-x-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span>{row.original.facultyName}</span>
+            <div className="flex items-center space-x-2 min-w-0">
+                <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="truncate">{row.original.facultyName}</span>
             </div>
         ),
         enableSorting: true,
-        size: 180,
+        size: 160,
+        minSize: 120,
+        maxSize: 240,
     },
     {
         id: "classroom",
@@ -210,13 +214,15 @@ const columns: ColumnDef<Schedule>[] = [
             <DataTableColumnHeader column={column} title="Classroom" />
         ),
         cell: ({ row }) => (
-            <div className="flex items-center space-x-2">
-                <DoorOpen className="h-4 w-4 text-muted-foreground" />
-                <span>{row.original.classroom}</span>
+            <div className="flex items-center space-x-2 min-w-0">
+                <DoorOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <span className="truncate">{row.original.classroom}</span>
             </div>
         ),
         enableSorting: true,
-        size: 150,
+        size: 120,
+        minSize: 80,
+        maxSize: 200,
     },
     {
         id: "schedule",
@@ -225,16 +231,18 @@ const columns: ColumnDef<Schedule>[] = [
             <DataTableColumnHeader column={column} title="Schedule" />
         ),
         cell: ({ row }) => (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 min-w-0">
                 <DayBadge day={row.original.day} />
-                <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>{row.original.timeSlot}</span>
+                <div className="flex items-center space-x-1 text-sm text-muted-foreground min-w-0">
+                    <Clock className="h-3 w-3 flex-shrink-0" />
+                    <span className="truncate">{row.original.timeSlot}</span>
                 </div>
             </div>
         ),
         enableSorting: true,
-        size: 140,
+        size: 160,
+        minSize: 120,
+        maxSize: 220,
     },
     {
         id: "semester",
@@ -243,13 +251,15 @@ const columns: ColumnDef<Schedule>[] = [
             <DataTableColumnHeader column={column} title="Semester" />
         ),
         cell: ({ row }) => (
-            <div className="flex flex-col">
-                <span className="font-medium">{row.original.semester}</span>
-                <span className="text-xs text-muted-foreground">{row.original.academicYear}</span>
+            <div className="flex flex-col min-w-0">
+                <span className="font-medium truncate">{row.original.semester}</span>
+                <span className="text-xs text-muted-foreground truncate">{row.original.academicYear}</span>
             </div>
         ),
         enableSorting: true,
-        size: 130,
+        size: 140,
+        minSize: 110,
+        maxSize: 200,
     },
     {
         id: "status",
@@ -269,12 +279,17 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
-        size: 100,
+        size: 120,
+        minSize: 100,
+        maxSize: 160,
     },
     {
         id: "actions",
         enableHiding: false,
-        size: 50,
+        size: 56,
+        minSize: 48,
+        maxSize: 96,
+        enableResizing: false,
         cell: ({ row }) => {
             const schedule = row.original;
             const router = useRouter();
