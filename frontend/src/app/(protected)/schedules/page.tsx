@@ -90,6 +90,22 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
         console.log('Schedule with no subject object:', { scheduleId: schedule._id, subject: schedule.subject });
     }
 
+    // Format days: use days array if available, otherwise single day
+    const days = schedule.timeSlot?.days && schedule.timeSlot.days.length > 0
+        ? schedule.timeSlot.days
+        : [schedule.timeSlot?.day || "unknown"];
+
+    // Sort days in proper week order for display
+    const dayOrder: Record<string, number> = {
+        'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
+        'friday': 5, 'saturday': 6, 'sunday': 7
+    };
+    const sortedDays = [...days].sort((a, b) => (dayOrder[a.toLowerCase()] || 0) - (dayOrder[b.toLowerCase()] || 0));
+
+    // Format day names: capitalize first 3 letters
+    const formatDay = (day: string) => day.charAt(0).toUpperCase() + day.slice(1, 3);
+    const dayDisplay = sortedDays.map(formatDay).join(" ");
+
     return {
         id: schedule._id || schedule.id || "",
         courseName: (subject as any)?.subjectName || (subject as any)?.name || "Unknown Course",
@@ -100,7 +116,7 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
             ? `${(faculty as any).firstName} ${(faculty as any).lastName}`
             : "Unknown Faculty",
         classroom: (classroom as any)?.roomNumber || (classroom as any)?.displayName || (classroom as any)?.name || "Unknown Room",
-        day: schedule.timeSlot?.day || "Unknown",
+        day: dayDisplay,
         timeSlot: schedule.timeSlot?.startTime && schedule.timeSlot?.endTime
             ? `${schedule.timeSlot.startTime} - ${schedule.timeSlot.endTime}`
             : "N/A",
@@ -129,11 +145,11 @@ const StatusBadge = ({ status }: { status: string }) => {
     );
 };
 
-// Day badge component
+// Day badge component - displays day patterns like "Mon Wed" or "Tue Thu"
 const DayBadge = ({ day }: { day: string }) => {
     return (
-        <Badge variant="outline" className="capitalize">
-            {day.substring(0, 3)}
+        <Badge variant="outline" className="font-medium">
+            {day}
         </Badge>
     );
 };
@@ -335,6 +351,8 @@ export default function SchedulesPage() {
     const { schedules: rawSchedules, loading, error, stats, refetch } = useSchedules();
     const [generateDialogOpen, setGenerateDialogOpen] = React.useState(false);
     const [generating, setGenerating] = React.useState(false);
+    const [selectedSemester, setSelectedSemester] = React.useState("1st Semester");
+    const [selectedAcademicYear, setSelectedAcademicYear] = React.useState("2024-2025");
 
     // Transform schedules data
     const schedules = React.useMemo(
@@ -362,13 +380,13 @@ export default function SchedulesPage() {
         setGenerating(true);
         try {
             const result = await ScheduleAPI.generateSchedules({
-                semester: "1st Semester",
-                academicYear: "2024-2025",
+                semester: selectedSemester,
+                academicYear: selectedAcademicYear,
                 overwriteExisting: false,
             });
 
             if (result.success) {
-                toast.success(`Successfully generated ${result.generated} schedules!`);
+                toast.success(`Successfully generated ${result.generated} schedules for ${selectedSemester} ${selectedAcademicYear}!`);
                 setGenerateDialogOpen(false);
                 refetch();
             } else {
@@ -497,7 +515,7 @@ export default function SchedulesPage() {
 
             {/* Generate Dialog */}
             <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[550px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Sparkles className="h-5 w-5" />
@@ -509,10 +527,42 @@ export default function SchedulesPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label htmlFor="semester" className="text-sm font-medium">
+                                Semester
+                            </label>
+                            <select
+                                id="semester"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={selectedSemester}
+                                onChange={(e) => setSelectedSemester(e.target.value)}
+                            >
+                                <option value="1st Semester">1st Semester</option>
+                                <option value="2nd Semester">2nd Semester</option>
+                                <option value="Summer">Summer</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="academicYear" className="text-sm font-medium">
+                                Academic Year
+                            </label>
+                            <select
+                                id="academicYear"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={selectedAcademicYear}
+                                onChange={(e) => setSelectedAcademicYear(e.target.value)}
+                            >
+                                <option value="2024-2025">2024-2025</option>
+                                <option value="2025-2026">2025-2026</option>
+                                <option value="2026-2027">2026-2027</option>
+                            </select>
+                        </div>
+
                         <Alert>
                             <PlayCircle className="h-4 w-4" />
                             <AlertDescription>
-                                This will generate schedules for <strong>1st Semester 2024-2025</strong>.
+                                This will generate schedules for <strong>{selectedSemester} {selectedAcademicYear}</strong>.
                                 Existing schedules will be preserved unless overwrite is enabled.
                             </AlertDescription>
                         </Alert>

@@ -14,7 +14,7 @@ export default function AddDepartmentPage() {
   };
 
   return (
-    <div className="container mx-auto">
+    <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>

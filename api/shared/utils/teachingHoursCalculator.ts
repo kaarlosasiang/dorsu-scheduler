@@ -4,14 +4,25 @@
  */
 
 /**
- * Teaching hours conversion ratios
- * - Lecture: 1 unit = 1 hour (1:1 ratio)
- * - Lab: 1 unit = 1.33... hours (1:0.75 ratio, or 0.75 units = 1 hour)
+ * Teaching hours conversion ratios and session structure
+ *
+ * LECTURE:
+ * - 1 unit = 1 hour (1:1 ratio)
+ * - Meets on 2 days per week (MW, MF, or WF)
+ * - Each session is 1 hour
+ * - Example: 2 lecture units = 2 teaching hours = 1 hour M + 1 hour W
+ *
+ * LABORATORY:
+ * - 1 teaching hour = 0.75 units (or 0.75 units = 1 hour)
+ * - Meets on 2 days per week (TTh)
+ * - Each session is 1.5 hours
+ * - Example: 2.25 lab units = 3 teaching hours = 1.5 hours T + 1.5 hours Th
  *
  * Examples:
- * - 3 lecture units = 3 teaching hours
- * - 2.25 lab units = 2.25 / 0.75 = 3 teaching hours
- * - 1.5 lab units = 1.5 / 0.75 = 2 teaching hours
+ * - 2 lecture units = 2 teaching hours (1 hour × 2 days)
+ * - 3 lecture units = 3 teaching hours (requires different pattern or extra time)
+ * - 2.25 lab units = 2.25 / 0.75 = 3 teaching hours (1.5 hours × 2 days)
+ * - 1.5 lab units = 1.5 / 0.75 = 2 teaching hours (1 hour × 2 days)
  */
 
 export const LECTURE_UNIT_TO_HOURS_RATIO = 1;

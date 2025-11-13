@@ -24,6 +24,11 @@ const timeSlotSchema = new Schema<ITimeSlot>({
     enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
     lowercase: true
   },
+  days: [{
+    type: String,
+    enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+    lowercase: true
+  }], // Optional array for patterns like MW, TTh
   startTime: {
     type: String,
     required: [true, 'Start time is required'],

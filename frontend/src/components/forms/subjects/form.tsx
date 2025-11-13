@@ -2,14 +2,13 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookOpen, FileText, Code, Hash, GraduationCap, Calendar, Beaker, ListChecks } from "lucide-react";
-import { useState, useEffect } from "react";
+import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, Building2, ListChecks } from "lucide-react";
+import { useState, useMemo } from "react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -31,10 +30,11 @@ import {
 } from "@/components/ui/select";
 
 import { subjectSchema } from "./schema";
-import type { SubjectFormData, SubjectFormProps } from "./types";
+import type { SubjectFormData, SubjectFormProps, ISubject } from "./types";
 import { useSubjectForm } from "./useSubjectForm";
-import CourseAPI from "@/lib/services/CourseAPI";
-import { SubjectAPI } from "@/lib/services/SubjectAPI";
+import { useCourses } from "@/hooks/useCourses";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useSubjects } from "@/hooks/useSubjects";
 
 export function SubjectForm({
   initialData,
@@ -45,29 +45,30 @@ export function SubjectForm({
   className,
 }: SubjectFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
   const { createSubject, updateSubject } = useSubjectForm();
+  const { courses, loading: loadingCourses } = useCourses();
+  const { departments, loading: loadingDepartments } = useDepartments();
+
+  // Extract initial course ID
+  const initialCourseId = typeof initialData?.course === 'string'
+    ? initialData.course
+    : initialData?.course?._id || "";
 
   const form = useForm<SubjectFormData>({
-    resolver: zodResolver(subjectSchema),
+    resolver: zodResolver(subjectSchema) as never,
     defaultValues: {
       subjectCode: initialData?.subjectCode || "",
       subjectName: initialData?.subjectName || "",
-      units: initialData?.units || 3,
+      lectureUnits: initialData?.lectureUnits || 0,
+      labUnits: initialData?.labUnits || 0,
       description: initialData?.description || "",
-      course: typeof initialData?.course === 'string' ? initialData.course : initialData?.course?._id || "",
-      department: typeof initialData?.department === 'string' && initialData.department
+      course: initialCourseId,
+      department: typeof initialData?.department === 'string'
         ? initialData.department
-        : initialData?.department?._id || undefined,
-      yearLevel: initialData?.yearLevel || undefined,
-      semester: initialData?.semester || undefined,
-      isLaboratory: initialData?.isLaboratory || false,
-      prerequisites: Array.isArray(initialData?.prerequisites) 
-        ? initialData.prerequisites.map((p: any) => typeof p === 'string' ? p : p._id)
-        : [],
+        : initialData?.department?._id || "",
+      yearLevel: (initialData?.yearLevel as any) || "",
+      semester: (initialData?.semester as any) || "",
+      prerequisites: initialData?.prerequisites || [],
     },
   });
 
@@ -80,50 +81,40 @@ export function SubjectForm({
   } = form;
 
   const selectedCourse = watch("course");
+  const selectedDepartment = watch("department");
+  const lectureUnits = watch("lectureUnits");
+  const labUnits = watch("labUnits");
   const selectedPrerequisites = watch("prerequisites") || [];
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const response = await CourseAPI.getAll();
-        setCourses(response.data || []);
-      } catch (error) {
-        console.error("Error fetching courses:", error);
-      } finally {
-        setLoadingCourses(false);
-      }
-    };
+  // Fetch subjects for prerequisites selection
+  const { subjects: availableSubjects, loading: loadingSubjects } = useSubjects({
+    course: selectedCourse,
+    autoFetch: !!selectedCourse,
+  });
 
-    fetchCourses();
-  }, []);
+  // Calculate total units
+  const totalUnits = useMemo(() => {
+    return (lectureUnits || 0) + (labUnits || 0);
+  }, [lectureUnits, labUnits]);
 
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      try {
-        const response = await SubjectAPI.getAll();
-        setSubjects(response.data || []);
-      } catch (error) {
-        console.error("Error fetching subjects:", error);
-      } finally {
-        setLoadingSubjects(false);
-      }
-    };
+  // Filter out current subject from prerequisites if in edit mode
+  const prerequisiteOptions = useMemo(() => {
+    if (!availableSubjects) return [];
 
-    fetchSubjects();
-  }, []);
+    const currentSubjectId = initialData?._id || initialData?.id;
+    return availableSubjects.filter(
+      (subject: ISubject) => subject._id !== currentSubjectId && subject.id !== currentSubjectId
+    );
+  }, [availableSubjects, initialData]);
 
   const onSubmit = async (data: SubjectFormData) => {
     setIsSubmitting(true);
     try {
-      // Clean up data - remove empty department field
-      const cleanedData = { ...data };
-      if (!cleanedData.department || cleanedData.department === "") {
-        delete cleanedData.department;
-      }
+      console.log("Subject form data:", data);
 
       const response = mode === "create"
-        ? await createSubject(cleanedData)
-        : await updateSubject(initialData?._id || initialData?.id || "", cleanedData);
+        ? await createSubject(data)
+        : await updateSubject(initialData?._id || initialData?.id || "", data);
 
       if (response?.success) {
         onSuccess?.(response);
@@ -139,12 +130,12 @@ export function SubjectForm({
     }
   };
 
-  const togglePrerequisite = (subjectId: string) => {
-    const current = selectedPrerequisites;
-    const updated = current.includes(subjectId)
-      ? current.filter((id: string) => id !== subjectId)
+  const handlePrerequisiteToggle = (subjectId: string) => {
+    const current = selectedPrerequisites || [];
+    const newPrerequisites = current.includes(subjectId)
+      ? current.filter((id) => id !== subjectId)
       : [...current, subjectId];
-    setValue("prerequisites", updated);
+    setValue("prerequisites", newPrerequisites);
   };
 
   return (
@@ -156,187 +147,220 @@ export function SubjectForm({
           </h2>
           <p className="text-muted-foreground">
             {mode === "create"
-              ? "Fill in the details to add a new subject."
-              : "Update the subject information."}
+              ? "Create a new subject for a course"
+              : "Update subject information"}
           </p>
         </div>
-        {onCancel && (
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Basic Information */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Basic Information
+              Subject Information
             </CardTitle>
             <CardDescription>
-              Enter the subject details.
+              Basic information about the subject
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Subject Code */}
-              <Field>
-                <FieldLabel htmlFor="subjectCode" className="flex items-center gap-2">
-                  <Code className="h-4 w-4" />
-                  Subject Code
-                </FieldLabel>
+          <CardContent className="space-y-4">
+            {/* Subject Code */}
+            <Field>
+              <FieldLabel>Subject Code *</FieldLabel>
+              <div className="relative">
+                <Code className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="subjectCode"
-                  placeholder="e.g., CS101, MATH201"
                   {...register("subjectCode")}
-                  aria-invalid={errors.subjectCode ? "true" : "false"}
+                  placeholder="e.g., CS101"
+                  className="pl-9"
                 />
-                {errors.subjectCode && (
-                  <FieldDescription className="text-destructive text-sm">
-                    {errors.subjectCode.message}
-                  </FieldDescription>
-                )}
-                <FieldDescription>
-                  Enter a unique code for the subject
+              </div>
+              {errors.subjectCode && (
+                <FieldDescription className="text-destructive">
+                  {errors.subjectCode.message}
                 </FieldDescription>
-              </Field>
+              )}
+            </Field>
 
-              {/* Units */}
-              <Field>
-                <FieldLabel htmlFor="units" className="flex items-center gap-2">
-                  <Hash className="h-4 w-4" />
-                  Units
-                </FieldLabel>
+            {/* Subject Name */}
+            <Field>
+              <FieldLabel>Subject Name *</FieldLabel>
+              <div className="relative">
+                <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="units"
-                  type="number"
-                  min={0}
-                  max={12}
-                  placeholder="3"
-                  {...register("units", { valueAsNumber: true })}
-                  aria-invalid={errors.units ? "true" : "false"}
+                  {...register("subjectName")}
+                  placeholder="e.g., Introduction to Computer Science"
+                  className="pl-9"
                 />
-                {errors.units && (
-                  <FieldDescription className="text-destructive text-sm">
-                    {errors.units.message}
-                  </FieldDescription>
-                )}
-                <FieldDescription>
-                  Enter the number of credit units (0-12)
-                </FieldDescription>
-              </Field>
-            </div>
-
-            {/* Subject Name - Full width */}
-            <Field className="mt-4">
-              <FieldLabel htmlFor="subjectName" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Subject Name
-              </FieldLabel>
-              <Input
-                id="subjectName"
-                placeholder="e.g., Introduction to Programming"
-                {...register("subjectName")}
-                aria-invalid={errors.subjectName ? "true" : "false"}
-              />
+              </div>
               {errors.subjectName && (
-                <FieldDescription className="text-destructive text-sm">
+                <FieldDescription className="text-destructive">
                   {errors.subjectName.message}
                 </FieldDescription>
               )}
-              <FieldDescription>
-                Enter the full name of the subject
-              </FieldDescription>
             </Field>
 
-            {/* Description - Full width */}
-            <Field className="mt-4">
-              <FieldLabel htmlFor="description">
-                Description (Optional)
-              </FieldLabel>
+            {/* Description */}
+            <Field>
+              <FieldLabel>Description</FieldLabel>
               <Textarea
-                id="description"
-                placeholder="Enter subject description..."
-                rows={3}
                 {...register("description")}
+                placeholder="Subject description (optional)"
+                rows={3}
+                maxLength={1000}
               />
+              {errors.description && (
+                <FieldDescription className="text-destructive">
+                  {errors.description.message}
+                </FieldDescription>
+              )}
               <FieldDescription>
-                Brief description of the subject
+                {watch("description")?.length || 0} / 1000 characters
               </FieldDescription>
             </Field>
           </CardContent>
         </Card>
 
-        {/* Course & Curriculum */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Hash className="h-5 w-5" />
+              Units
+            </CardTitle>
+            <CardDescription>
+              Define lecture and laboratory units
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Lecture Units */}
+              <Field>
+                <FieldLabel>Lecture Units *</FieldLabel>
+                <Input
+                  type="number"
+                  {...register("lectureUnits", { valueAsNumber: true })}
+                  min={0}
+                  max={12}
+                  step={0.25}
+                />
+                {errors.lectureUnits && (
+                  <FieldDescription className="text-destructive">
+                    {errors.lectureUnits.message}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              {/* Lab Units */}
+              <Field>
+                <FieldLabel>Lab Units *</FieldLabel>
+                <Input
+                  type="number"
+                  {...register("labUnits", { valueAsNumber: true })}
+                  min={0}
+                  max={12}
+                  step={0.25}
+                />
+                {errors.labUnits && (
+                  <FieldDescription className="text-destructive">
+                    {errors.labUnits.message}
+                  </FieldDescription>
+                )}
+              </Field>
+            </div>
+
+            {/* Total Units Display */}
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm font-medium">
+                Total Units: <span className="text-lg font-bold">{totalUnits}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Lecture: {lectureUnits || 0} units, Lab: {labUnits || 0} units
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <GraduationCap className="h-5 w-5" />
-              Course & Curriculum
+              Course & Classification
             </CardTitle>
             <CardDescription>
-              Assign the subject to a course and specify curriculum details.
+              Assign to course, department, year level, and semester
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {/* Course - Full width */}
+          <CardContent className="space-y-4">
+            {/* Course */}
             <Field>
-              <FieldLabel htmlFor="course" className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4" />
-                Course (Degree Program)
-              </FieldLabel>
+              <FieldLabel>Course *</FieldLabel>
               <Select
-                value={selectedCourse}
                 onValueChange={(value) => setValue("course", value)}
+                defaultValue={selectedCourse}
+                disabled={loadingCourses}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a course" />
+                  <SelectValue placeholder="Select course" />
                 </SelectTrigger>
                 <SelectContent>
-                  {loadingCourses ? (
-                    <SelectItem value="loading" disabled>
-                      Loading courses...
+                  {courses?.filter((course: any) => course._id || course.id).map((course: any) => (
+                    <SelectItem key={course._id || course.id} value={course._id || course.id}>
+                      {course.courseCode} - {course.courseName}
                     </SelectItem>
-                  ) : courses.length === 0 ? (
-                    <SelectItem value="none" disabled>
-                      No courses available
-                    </SelectItem>
-                  ) : (
-                    courses.map((course) => (
-                      <SelectItem key={course._id || course.id} value={course._id || course.id}>
-                        {course.courseCode} - {course.courseName}
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
               {errors.course && (
-                <FieldDescription className="text-destructive text-sm">
+                <FieldDescription className="text-destructive">
                   {errors.course.message}
                 </FieldDescription>
               )}
-              <FieldDescription>
-                Select the degree program this subject belongs to
-              </FieldDescription>
             </Field>
 
-            {/* Year Level and Semester - Two columns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <Field>
-                <FieldLabel htmlFor="yearLevel" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Year Level (Optional)
-                </FieldLabel>
+            {/* Department */}
+            <Field>
+              <FieldLabel>Department (Optional)</FieldLabel>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
                 <Select
-                  value={watch("yearLevel") || ""}
-                  onValueChange={(value) => setValue("yearLevel", value as any)}
+                  onValueChange={(value) => setValue("department", value === "none" ? "" : value)}
+                  value={selectedDepartment || "none"}
+                  disabled={loadingDepartments}
+                >
+                  <SelectTrigger className="pl-9">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {departments?.filter((dept: any) => dept._id || dept.id).map((dept: any) => (
+                      <SelectItem key={dept._id || dept.id} value={dept._id || dept.id}>
+                        {dept.departmentName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {errors.department && (
+                <FieldDescription className="text-destructive">
+                  {errors.department.message}
+                </FieldDescription>
+              )}
+            </Field>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Year Level */}
+              <Field>
+                <FieldLabel>Year Level</FieldLabel>
+                <Select
+                  onValueChange={(value) => setValue("yearLevel", value === "none" ? "" : (value as any))}
+                  value={watch("yearLevel") || "none"}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select year level" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
                     <SelectItem value="1st Year">1st Year</SelectItem>
                     <SelectItem value="2nd Year">2nd Year</SelectItem>
                     <SelectItem value="3rd Year">3rd Year</SelectItem>
@@ -344,108 +368,111 @@ export function SubjectForm({
                     <SelectItem value="5th Year">5th Year</SelectItem>
                   </SelectContent>
                 </Select>
-                <FieldDescription>
-                  Select the year level for this subject
-                </FieldDescription>
+                {errors.yearLevel && (
+                  <FieldDescription className="text-destructive">
+                    {errors.yearLevel.message}
+                  </FieldDescription>
+                )}
               </Field>
 
+              {/* Semester */}
               <Field>
-                <FieldLabel htmlFor="semester">
-                  Semester (Optional)
-                </FieldLabel>
-                <Select
-                  value={watch("semester") || ""}
-                  onValueChange={(value) => setValue("semester", value as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select semester" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1st Semester">1st Semester</SelectItem>
-                    <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                    <SelectItem value="Summer">Summer</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FieldDescription>
-                  Select the semester for this subject
-                </FieldDescription>
-              </Field>
-            </div>
-
-            {/* Laboratory Checkbox */}
-            <div className="mt-4 rounded-md border p-4">
-              <div className="flex flex-row items-start space-x-3 space-y-0">
-                <Checkbox
-                  id="isLaboratory"
-                  checked={watch("isLaboratory")}
-                  onCheckedChange={(checked) => setValue("isLaboratory", checked as boolean)}
-                />
-                <div className="space-y-1 leading-none">
-                  <label
-                    htmlFor="isLaboratory"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-2"
+                <FieldLabel>Semester</FieldLabel>
+                <div className="relative">
+                  <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
+                  <Select
+                    onValueChange={(value) => setValue("semester", value === "none" ? "" : (value as any))}
+                    value={watch("semester") || "none"}
                   >
-                    <Beaker className="h-4 w-4" />
-                    Laboratory Subject
-                  </label>
-                  <p className="text-sm text-muted-foreground">
-                    Check if this subject requires laboratory facilities
-                  </p>
+                    <SelectTrigger className="pl-9">
+                      <SelectValue placeholder="Select semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
+                {errors.semester && (
+                  <FieldDescription className="text-destructive">
+                    {errors.semester.message}
+                  </FieldDescription>
+                )}
+              </Field>
             </div>
           </CardContent>
         </Card>
 
         {/* Prerequisites */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ListChecks className="h-5 w-5" />
-              Prerequisites (Optional)
-            </CardTitle>
-            <CardDescription>
-              Select subjects that are required before taking this subject.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+        {selectedCourse && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ListChecks className="h-5 w-5" />
+                Prerequisites
+              </CardTitle>
+              <CardDescription>
+                Select subjects that are required before taking this subject
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               {loadingSubjects ? (
                 <p className="text-sm text-muted-foreground">Loading subjects...</p>
-              ) : subjects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No subjects available</p>
+              ) : prerequisiteOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No subjects available for prerequisites. Create subjects in this course first.
+                </p>
               ) : (
-                subjects
-                  .filter((s) => s._id !== initialData?._id && s._id !== initialData?.id)
-                  .map((subject) => (
-                    <div key={subject._id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`prereq-${subject._id}`}
-                        checked={selectedPrerequisites.includes(subject._id)}
-                        onCheckedChange={() => togglePrerequisite(subject._id)}
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {prerequisiteOptions.filter((subject: ISubject) => subject._id || subject.id).map((subject: ISubject) => (
+                    <label
+                      key={subject._id || subject.id}
+                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedPrerequisites.includes(subject._id || subject.id || "")}
+                        onChange={() => handlePrerequisiteToggle(subject._id || subject.id || "")}
+                        className="rounded border-gray-300"
                       />
-                      <label
-                        htmlFor={`prereq-${subject._id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
+                      <span className="text-sm">
                         {subject.subjectCode} - {subject.subjectName}
-                      </label>
-                    </div>
-                  ))
+                      </span>
+                    </label>
+                  ))}
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+              {errors.prerequisites && (
+                <FieldDescription className="text-destructive mt-2">
+                  {errors.prerequisites.message}
+                </FieldDescription>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-4">
+        {/* Form Actions */}
+        <div className="flex justify-end gap-3">
           {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : mode === "create" ? "Create Subject" : "Update Subject"}
+            {isSubmitting
+              ? mode === "create"
+                ? "Creating..."
+                : "Updating..."
+              : mode === "create"
+              ? "Create Subject"
+              : "Update Subject"}
           </Button>
         </div>
       </form>

@@ -10,10 +10,17 @@ import { ISchedule, IScheduleConflict, ITimeSlot } from '../interfaces/ISchedule
 
 /**
  * Check for time overlap between two time slots
+ * Now supports days array for patterns like MW, TTh
  */
 function checkTimeOverlap(slot1: ITimeSlot, slot2: ITimeSlot): boolean {
-  if (slot1.day !== slot2.day) return false;
-  
+  // Get days from both slots (use days array if available, otherwise single day)
+  const days1 = slot1.days && slot1.days.length > 0 ? slot1.days : [slot1.day];
+  const days2 = slot2.days && slot2.days.length > 0 ? slot2.days : [slot2.day];
+
+  // Check if any days overlap
+  const hasCommonDay = days1.some(day => days2.includes(day));
+  if (!hasCommonDay) return false;
+
   const toMinutes = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
     return hours * 60 + minutes;
@@ -39,9 +46,15 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
     return conflicts;
   }
   
-  // Find all schedules in the same semester/year on the same day
+  // Find all schedules in the same semester/year on the same day(s)
+  // Check both single day and days array
+  const daysToCheck = timeSlot.days && timeSlot.days.length > 0 ? timeSlot.days : [timeSlot.day];
+
   const query: any = {
-    'timeSlot.day': timeSlot.day,
+    $or: [
+      { 'timeSlot.day': { $in: daysToCheck } },
+      { 'timeSlot.days': { $in: daysToCheck } }
+    ],
     semester,
     academicYear,
     status: { $ne: 'archived' }

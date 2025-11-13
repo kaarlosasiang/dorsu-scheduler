@@ -1,22 +1,20 @@
-import { ISubject } from "@/lib/services/SubjectAPI";
+import { z } from "zod";
+import { subjectSchema } from "./schema";
+import type { ISubject as APISubject, SubjectResponse as APISubjectResponse, SubjectListResponse } from "@/lib/services/SubjectAPI";
 
-export interface SubjectFormData {
-  subjectCode: string;
-  subjectName: string;
-  units: number;
-  description?: string;
-  course: string;
-  department?: string;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
-  semester?: '1st Semester' | '2nd Semester' | 'Summer';
-  isLaboratory?: boolean;
-  prerequisites?: string[];
-}
+// Infer types from schema
+export type SubjectFormData = z.infer<typeof subjectSchema>;
 
+// Re-export types from SubjectAPI to maintain compatibility
+export type ISubject = APISubject;
+export type SubjectResponse = APISubjectResponse;
+export type SubjectsListResponse = SubjectListResponse;
+
+// Form props
 export interface SubjectFormProps {
   initialData?: ISubject;
   mode?: "create" | "edit";
-  onSuccess?: (response: any) => void;
+  onSuccess?: (data: SubjectResponse) => void;
   onError?: (error: string) => void;
   onCancel?: () => void;
   className?: string;

@@ -5,13 +5,19 @@ export interface ISubject {
   id?: string;
   subjectCode: string;
   subjectName: string;
-  units: number;
+  units?: number; // Total units (calculated from lectureUnits + labUnits)
+  lectureUnits: number; // Units for lecture component
+  labUnits: number; // Units for laboratory component
+  lectureHours?: number; // Computed: Teaching hours for lecture
+  labHours?: number; // Computed: Teaching hours for lab
+  totalTeachingHours?: number; // Computed: lectureHours + labHours
   description?: string;
   course: string | any;
   department?: string | any;
   yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
   semester?: '1st Semester' | '2nd Semester' | 'Summer';
-  isLaboratory?: boolean;
+  hasLaboratory?: boolean; // Computed: true if labUnits > 0
+  isLaboratory?: boolean; // Legacy field, same as hasLaboratory
   prerequisites?: string[] | any[];
   createdAt?: string;
   updatedAt?: string;
@@ -73,26 +79,26 @@ export interface SubjectQueryParams {
 export interface SubjectCreateData {
   subjectCode: string;
   subjectName: string;
-  units: number;
+  lectureUnits: number;
+  labUnits: number;
   description?: string;
   course: string;
   department?: string;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
-  semester?: '1st Semester' | '2nd Semester' | 'Summer';
-  isLaboratory?: boolean;
+  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year' | null;
+  semester?: '1st Semester' | '2nd Semester' | 'Summer' | null;
   prerequisites?: string[];
 }
 
 export interface SubjectUpdateData {
   subjectCode?: string;
   subjectName?: string;
-  units?: number;
+  lectureUnits?: number;
+  labUnits?: number;
   description?: string;
   course?: string;
   department?: string;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
-  semester?: '1st Semester' | '2nd Semester' | 'Summer';
-  isLaboratory?: boolean;
+  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year' | null;
+  semester?: '1st Semester' | '2nd Semester' | 'Summer' | null;
   prerequisites?: string[];
 }
 

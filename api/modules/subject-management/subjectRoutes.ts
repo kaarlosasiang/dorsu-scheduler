@@ -10,7 +10,6 @@ router.use(authenticateToken);
 // Subject statistics and special routes (place before /:id to avoid conflicts)
 router.get('/stats', SubjectController.getStats);
 router.get('/course/:courseId', SubjectController.getByCourse);
-router.post('/update-departments', SubjectController.updateDepartments);
 
 // Main CRUD routes
 router.get('/', SubjectController.getAll);

@@ -2,6 +2,7 @@ import APIService from "./BaseAPI";
 
 export interface ITimeSlot {
   day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  days?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday')[];
   startTime: string;
   endTime: string;
 }
@@ -121,7 +122,6 @@ export interface ScheduleQueryParams {
   semester?: string;
   academicYear?: string;
   yearLevel?: string;
-  subject: string;
   status?: 'draft' | 'published' | 'archived';
   day?: string;
 }

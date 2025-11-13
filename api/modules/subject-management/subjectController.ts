@@ -6,7 +6,6 @@ import {
   validateUpdateSubject,
   validateSubjectId
 } from '../../shared/validators/subjectValidator';
-import { updateSubjectsWithCourseDepartments } from '../../shared/utils/subjectDepartmentMigration';
 
 export class SubjectController {
   /**
@@ -207,39 +206,6 @@ export class SubjectController {
       res.status(statusCode).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to delete subject'
-      });
-    }
-  }
-
-  /**
-   * POST /api/subjects/update-departments - Update subjects to inherit departments from courses
-   * This is a maintenance endpoint to fix subjects without departments
-   */
-  static async updateDepartments(req: Request, res: Response): Promise<void> {
-    try {
-      const result = await updateSubjectsWithCourseDepartments();
-
-      if (result.success) {
-        res.status(200).json({
-          success: true,
-          message: `Successfully updated ${result.updated} subjects. ${result.failed} subjects could not be updated.`,
-          data: {
-            updated: result.updated,
-            failed: result.failed,
-            errors: result.errors
-          }
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Migration failed',
-          errors: result.errors
-        });
-      }
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to update departments'
       });
     }
   }

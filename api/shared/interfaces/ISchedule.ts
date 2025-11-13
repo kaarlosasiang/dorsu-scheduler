@@ -1,5 +1,6 @@
 export interface ITimeSlot {
   day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  days?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday')[]; // Multiple days for patterns like MW, TTh
   startTime: string; // Format: "HH:mm" (24-hour)
   endTime: string;   // Format: "HH:mm" (24-hour)
 }

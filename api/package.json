@@ -6,7 +6,9 @@
     "dev": "nodemon",
     "start": "node dist/index.js",
     "build": "tsc",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "seed": "tsx shared/utils/seedTestData.ts",
+    "seed:watch": "tsx watch shared/utils/seedTestData.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

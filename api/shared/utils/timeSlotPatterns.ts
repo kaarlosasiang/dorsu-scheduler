@@ -40,14 +40,17 @@ export const STANDARD_TIME_STARTS = [
 
 /**
  * Default session durations (in hours)
+ * - Lecture: 1 hour per session (e.g., 2 units = 2 hours total = 1 hour M + 1 hour W)
+ * - Lab: 1.5 hours per session (e.g., 2.25 units = 3 hours total = 1.5 hours T + 1.5 hours Th)
  */
-export const DEFAULT_LECTURE_DURATION = 1.5; // 1.5 hours per session
+export const DEFAULT_LECTURE_DURATION = 1.0; // 1 hour per session
 export const DEFAULT_LAB_DURATION = 1.5;     // 1.5 hours per session
 
 /**
  * Generate time slots for lecture schedules
  * Lectures use MW, MF, or WF patterns
- * Each session is typically 1.5 hours
+ * Each session is 1 hour (e.g., 2 units = 1 hour M + 1 hour W)
+ * Returns patterns with days array to avoid duplicates
  */
 export function generateLectureTimeSlots(): ITimeSlot[] {
   const slots: ITimeSlot[] = [];
@@ -56,14 +59,13 @@ export function generateLectureTimeSlots(): ITimeSlot[] {
     for (const startTime of STANDARD_TIME_STARTS) {
       const endTime = calculateEndTime(startTime, DEFAULT_LECTURE_DURATION);
 
-      // Create slots for each day in the pattern
-      for (const day of dayPattern) {
-        slots.push({
-          day: day as ITimeSlot['day'],
-          startTime,
-          endTime
-        });
-      }
+      // Create ONE slot per pattern with days array (not separate slots per day)
+      slots.push({
+        day: dayPattern[0] as ITimeSlot['day'], // First day for compatibility
+        days: dayPattern as ITimeSlot['days'], // Full pattern
+        startTime,
+        endTime
+      });
     }
   }
 
@@ -74,6 +76,7 @@ export function generateLectureTimeSlots(): ITimeSlot[] {
  * Generate time slots for laboratory schedules
  * Labs use TTh pattern
  * Each session is 1.5 hours
+ * Returns patterns with days array to match lecture format
  */
 export function generateLabTimeSlots(): ITimeSlot[] {
   const slots: ITimeSlot[] = [];
@@ -82,14 +85,13 @@ export function generateLabTimeSlots(): ITimeSlot[] {
     for (const startTime of STANDARD_TIME_STARTS) {
       const endTime = calculateEndTime(startTime, DEFAULT_LAB_DURATION);
 
-      // Create slots for each day in the pattern
-      for (const day of dayPattern) {
-        slots.push({
-          day: day as ITimeSlot['day'],
-          startTime,
-          endTime
-        });
-      }
+      // Create ONE slot per pattern with days array (not separate slots per day)
+      slots.push({
+        day: dayPattern[0] as ITimeSlot['day'], // First day for compatibility
+        days: dayPattern as ITimeSlot['days'], // Full pattern
+        startTime,
+        endTime
+      });
     }
   }
 
