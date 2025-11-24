@@ -7,9 +7,9 @@
     "build": "pnpm run --recursive build",
     "start": "pnpm run --parallel start",
     "lint": "pnpm run --recursive lint",
-    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:app": "pnpm --filter frontend dev",
     "dev:api": "pnpm --filter api dev",
-    "build:frontend": "pnpm --filter frontend build",
+    "build:app": "pnpm --filter frontend build",
     "build:api": "pnpm --filter api build"
   },
   "devDependencies": {},
