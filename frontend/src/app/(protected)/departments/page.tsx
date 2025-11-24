@@ -240,10 +240,17 @@ const columns: ColumnDef<Department>[] = [
         size: 50,
         cell: ({ row }) => {
             const department = row.original;
-            const router = useRouter();
 
-            return (
-                <DropdownMenu>
+            return <DepartmentActionCell department={department} />;
+        },
+    },
+];
+
+function DepartmentActionCell({ department }: { department: any }) {
+    const router = useRouter();
+
+    return (
+        <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
