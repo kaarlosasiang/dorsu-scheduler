@@ -387,10 +387,8 @@ function ScheduleActionCell({ schedule }: { schedule: any }) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            );
-        },
-    },
-];
+    );
+}
 
 export default function SchedulesPage() {
     const router = useRouter();

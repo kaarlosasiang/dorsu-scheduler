@@ -376,10 +376,6 @@ function ActionCell({ classroom }: { classroom: any }) {
     );
 }
 
-const columns: ColumnDef<IClassroom>[] = [
-    // ... columns will continue from previous definition
-];
-
 // Custom Action Bar for bulk operations
 function CustomActionBar() {
     return (

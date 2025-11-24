@@ -259,10 +259,8 @@ function CourseActionCell({ course }: { course: any }) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            );
-        },
-    },
-];
+    );
+}
 
 // Custom Action Bar for bulk operations
 function CustomActionBar() {

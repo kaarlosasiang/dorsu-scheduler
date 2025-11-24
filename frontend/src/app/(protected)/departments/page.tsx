@@ -288,10 +288,8 @@ function DepartmentActionCell({ department }: { department: any }) {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            );
-        },
-    },
-];
+    );
+}
 
 // Custom Action Bar for bulk operations
 function CustomActionBar() {
