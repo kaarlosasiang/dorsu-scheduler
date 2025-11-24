@@ -31,7 +31,9 @@ const WEEK_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 // Parse time string "HH:MM AM/PM" to minutes since midnight
 function parseTime(timeStr: string): number {
     const [time, period] = timeStr.split(" ");
-    let [hours, minutes] = time.split(":").map(Number);
+    const [hoursStr, minutesStr] = time.split(":");
+    let hours = Number(hoursStr);
+    const minutes = Number(minutesStr);
     
     if (period === "PM" && hours !== 12) hours += 12;
     if (period === "AM" && hours === 12) hours = 0;

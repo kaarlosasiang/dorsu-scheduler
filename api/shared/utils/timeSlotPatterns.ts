@@ -3,8 +3,8 @@
  * Generates appropriate time slots based on schedule type and institutional standards
  */
 
-import { ITimeSlot } from '../interfaces/ISchedule';
-import { calculateEndTime } from './teachingHoursCalculator';
+import { ITimeSlot } from '../interfaces/ISchedule.js';
+import { calculateEndTime } from './teachingHoursCalculator.js';
 
 /**
  * Day patterns for different schedule types

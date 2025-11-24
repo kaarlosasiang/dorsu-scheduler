@@ -1,7 +1,7 @@
-import { Schedule } from '../../models/scheduleModel';
-import { Faculty } from '../../models/facultyModel';
-import { Classroom } from '../../models/classroomModel';
-import { ISchedule, IScheduleConflict, ITimeSlot } from '../interfaces/ISchedule';
+import { Schedule } from '../../models/scheduleModel.js';
+import { Faculty } from '../../models/facultyModel.js';
+import { Classroom } from '../../models/classroomModel.js';
+import { ISchedule, IScheduleConflict, ITimeSlot } from '../interfaces/ISchedule.js';
 
 /**
  * Advanced conflict detection system

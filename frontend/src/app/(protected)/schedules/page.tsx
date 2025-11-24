@@ -347,10 +347,17 @@ const columns: ColumnDef<Schedule>[] = [
         enableResizing: false,
         cell: ({ row }) => {
             const schedule = row.original;
-            const router = useRouter();
 
-            return (
-                <DropdownMenu>
+            return <ScheduleActionCell schedule={schedule} />;
+        },
+    },
+];
+
+function ScheduleActionCell({ schedule }: { schedule: any }) {
+    const router = useRouter();
+
+    return (
+        <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
@@ -380,10 +387,8 @@ const columns: ColumnDef<Schedule>[] = [
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            );
-        },
-    },
-];
+    );
+}
 
 export default function SchedulesPage() {
     const router = useRouter();

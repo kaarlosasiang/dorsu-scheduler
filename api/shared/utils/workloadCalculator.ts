@@ -1,5 +1,5 @@
-import { Schedule } from '../../models/scheduleModel';
-import { calculateLectureHours, calculateLabHours } from './teachingHoursCalculator';
+import { Schedule } from '../../models/scheduleModel.js';
+import { calculateLectureHours, calculateLabHours } from './teachingHoursCalculator.js';
 
 /**
  * Faculty Workload Calculator

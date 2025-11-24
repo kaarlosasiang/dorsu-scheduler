@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import { ISubject } from "../shared/interfaces/ISubject";
+import { ISubject } from "../shared/interfaces/ISubject.js";
 
 // Extend ISubject with Mongoose Document
 export interface ISubjectDocument extends Omit<ISubject, '_id' | 'course' | 'department' | 'prerequisites' | 'hasLaboratory' | 'lectureHours' | 'labHours' | 'totalTeachingHours'>, Document {

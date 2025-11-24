@@ -327,10 +327,19 @@ const columns: ColumnDef<Classroom>[] = [
         size: 50,
         cell: ({ row }) => {
             const classroom = row.original;
-            const router = useRouter();
 
             return (
-                <DropdownMenu>
+                <ActionCell classroom={classroom} />
+            );
+        },
+    },
+];
+
+function ActionCell({ classroom }: { classroom: any }) {
+    const router = useRouter();
+
+    return (
+        <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" className="h-8 w-8 p-0">
                             <span className="sr-only">Open menu</span>
@@ -364,10 +373,8 @@ const columns: ColumnDef<Classroom>[] = [
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
-            );
-        },
-    },
-];
+    );
+}
 
 // Custom Action Bar for bulk operations
 function CustomActionBar() {

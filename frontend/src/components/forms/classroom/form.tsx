@@ -151,7 +151,7 @@ export function ClassroomForm({
               Basic Information
             </CardTitle>
             <CardDescription>
-              Enter the classroom's basic details.
+              Enter the classroom&apos;s basic details.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

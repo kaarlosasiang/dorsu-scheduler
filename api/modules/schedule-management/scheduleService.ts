@@ -1,5 +1,5 @@
-import { Schedule, IScheduleDocument } from '../../models/scheduleModel';
-import { IScheduleGenerationResult } from '../../shared/interfaces/ISchedule';
+import { Schedule, IScheduleDocument } from '../../models/scheduleModel.js';
+import { IScheduleGenerationResult } from '../../shared/interfaces/ISchedule.js';
 import {
   validateCreateSchedule,
   validateUpdateSchedule,
@@ -7,9 +7,9 @@ import {
   UpdateScheduleInput,
   ScheduleQueryInput,
   ScheduleGenerationInput
-} from '../../shared/validators/scheduleValidator';
-import { detectConflicts as detectScheduleConflicts } from '../../shared/utils/conflictDetector';
-import { generateSchedules as generateAutomatedSchedules } from '../../shared/utils/scheduleGenerator';
+} from '../../shared/validators/scheduleValidator.js';
+import { detectConflicts as detectScheduleConflicts } from '../../shared/utils/conflictDetector.js';
+import { generateSchedules as generateAutomatedSchedules } from '../../shared/utils/scheduleGenerator.js';
 
 /**
  * Get all schedules with optional filtering

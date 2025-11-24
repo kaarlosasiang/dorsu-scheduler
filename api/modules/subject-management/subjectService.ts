@@ -1,11 +1,11 @@
-import { Subject, ISubjectDocument } from '../../models/subjectModel';
-import { ISubjectFilter } from '../../shared/interfaces/ISubject';
+import { Subject, ISubjectDocument } from '../../models/subjectModel.js';
+import { ISubjectFilter } from '../../shared/interfaces/ISubject.js';
 import {
   validateCreateSubject,
   validateUpdateSubject,
   CreateSubjectInput,
   UpdateSubjectInput
-} from '../../shared/validators/subjectValidator';
+} from '../../shared/validators/subjectValidator.js';
 
 /**
  * Get all subjects with optional filtering
