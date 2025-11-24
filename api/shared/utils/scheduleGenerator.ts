@@ -325,7 +325,7 @@ async function generateScheduleComponent(
     constraints
   );
 
-  console.log(`     Found ${suitableFaculty.length} suitable faculty`);
+  console.log(`Found ${suitableFaculty.length} suitable faculty`);
   if (suitableFaculty.length === 0) {
     throw new Error(`No suitable faculty found for ${scheduleType} of subject ${subject.subjectCode}`);
   }

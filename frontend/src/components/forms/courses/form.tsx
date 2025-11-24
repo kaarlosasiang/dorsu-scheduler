@@ -53,7 +53,7 @@ export function CourseForm({
       units: initialData?.units || 3,
       department: typeof initialData?.department === 'string'
         ? initialData.department
-        : initialData?.department || "",
+        : (initialData?.department as any)?._id || (initialData?.department as any)?.id || "",
     },
   });
 
@@ -133,6 +133,10 @@ export function CourseForm({
                 id="courseCode"
                 placeholder="e.g., CS 101, MATH 201"
                 {...register("courseCode")}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setValue("courseCode", value);
+                }}
                 aria-invalid={errors.courseCode ? "true" : "false"}
                 disabled={mode === "edit"} // Prevent editing code in edit mode
               />
@@ -158,6 +162,15 @@ export function CourseForm({
                 id="courseName"
                 placeholder="e.g., Introduction to Computer Science"
                 {...register("courseName")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) {
+                    const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                    setValue("courseName", capitalized);
+                  } else {
+                    setValue("courseName", value);
+                  }
+                }}
                 aria-invalid={errors.courseName ? "true" : "false"}
               />
               {errors.courseName && (

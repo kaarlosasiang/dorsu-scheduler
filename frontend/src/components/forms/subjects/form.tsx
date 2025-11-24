@@ -3,7 +3,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, Building2, ListChecks } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,8 @@ export function SubjectForm({
 
   const selectedCourse = watch("course");
   const selectedDepartment = watch("department");
+  const selectedYearLevel = watch("yearLevel");
+  const selectedSemester = watch("semester");
   const lectureUnits = watch("lectureUnits");
   const labUnits = watch("labUnits");
   const selectedPrerequisites = watch("prerequisites") || [];
@@ -92,6 +94,14 @@ export function SubjectForm({
     autoFetch: !!selectedCourse,
   });
 
+  // Debug logging
+  useEffect(() => {
+    console.log("Available subjects for prerequisites:", availableSubjects);
+    console.log("Selected course:", selectedCourse);
+    console.log("Year level:", selectedYearLevel);
+    console.log("Semester:", selectedSemester);
+  }, [availableSubjects, selectedCourse, selectedYearLevel, selectedSemester]);
+
   // Calculate total units
   const totalUnits = useMemo(() => {
     return (lectureUnits || 0) + (labUnits || 0);
@@ -99,13 +109,84 @@ export function SubjectForm({
 
   // Filter out current subject from prerequisites if in edit mode
   const prerequisiteOptions = useMemo(() => {
-    if (!availableSubjects) return [];
+    console.log("Computing prerequisiteOptions...");
+    console.log("availableSubjects:", availableSubjects);
+    console.log("availableSubjects length:", availableSubjects?.length);
+    
+    if (!availableSubjects || availableSubjects.length === 0) {
+      console.log("No available subjects - returning empty array");
+      return [];
+    }
 
     const currentSubjectId = initialData?._id || initialData?.id;
-    return availableSubjects.filter(
-      (subject: ISubject) => subject._id !== currentSubjectId && subject.id !== currentSubjectId
+    console.log("Current subject ID:", currentSubjectId);
+    console.log("Mode:", mode);
+    console.log("Selected year level:", selectedYearLevel);
+    console.log("Selected semester:", selectedSemester);
+    
+    // Helper function to get numeric year from year level string
+    const getYearNumber = (yearLevel: string | null | undefined): number => {
+      if (!yearLevel) return 0;
+      const match = yearLevel.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+
+    // Helper function to get numeric semester from semester string
+    const getSemesterNumber = (semester: string | null | undefined): number => {
+      if (!semester) return 0;
+      const match = semester.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+
+    const currentYear = getYearNumber(selectedYearLevel);
+    const currentSemester = getSemesterNumber(selectedSemester);
+
+    console.log("Current year number:", currentYear);
+    console.log("Current semester number:", currentSemester);
+    
+    const filtered = availableSubjects.filter(
+      (subject: ISubject) => {
+        const subjectId = subject._id || subject.id;
+        
+        // In edit mode, exclude the current subject being edited
+        if (mode === "edit" && currentSubjectId && subjectId === currentSubjectId) {
+          console.log(`Excluding current subject: ${subject.subjectCode}`);
+          return false;
+        }
+
+        // Only show subjects from earlier year levels/semesters
+        const subjectYear = getYearNumber(subject.yearLevel);
+        const subjectSemester = getSemesterNumber(subject.semester);
+
+        console.log(`Subject ${subject.subjectCode}: year=${subjectYear}, semester=${subjectSemester}`);
+
+        // If no year level is selected yet, show all subjects
+        if (!currentYear) {
+          console.log(`No year level selected, including ${subject.subjectCode}`);
+          return true;
+        }
+
+        // Subject must be from an earlier year, OR same year but earlier semester
+        const isEarlier = subjectYear < currentYear || 
+                         (subjectYear === currentYear && subjectSemester < currentSemester);
+        
+        console.log(`Subject ${subject.subjectCode}: isEarlier=${isEarlier}`);
+        return isEarlier;
+      }
     );
-  }, [availableSubjects, initialData]);
+    
+    console.log("Filtered prerequisite options count:", filtered.length);
+    console.log("Filtered prerequisite options:", filtered);
+    return filtered;
+  }, [availableSubjects, initialData, mode, selectedYearLevel, selectedSemester]);
+
+  const handlePrerequisiteToggle = (subjectId: string) => {
+    const current = selectedPrerequisites || [];
+    const newPrerequisites = current.includes(subjectId)
+      ? current.filter((id) => id !== subjectId)
+      : [...current, subjectId];
+    setValue("prerequisites", newPrerequisites);
+  };
 
   const onSubmit = async (data: SubjectFormData) => {
     setIsSubmitting(true);
@@ -128,14 +209,6 @@ export function SubjectForm({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handlePrerequisiteToggle = (subjectId: string) => {
-    const current = selectedPrerequisites || [];
-    const newPrerequisites = current.includes(subjectId)
-      ? current.filter((id) => id !== subjectId)
-      : [...current, subjectId];
-    setValue("prerequisites", newPrerequisites);
   };
 
   return (
@@ -172,6 +245,10 @@ export function SubjectForm({
                 <Code className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   {...register("subjectCode")}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setValue("subjectCode", value);
+                  }}
                   placeholder="e.g., CS101"
                   className="pl-9"
                 />
@@ -190,6 +267,15 @@ export function SubjectForm({
                 <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   {...register("subjectName")}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value) {
+                      const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                      setValue("subjectName", capitalized);
+                    } else {
+                      setValue("subjectName", value);
+                    }
+                  }}
                   placeholder="e.g., Introduction to Computer Science"
                   className="pl-9"
                 />
@@ -426,22 +512,27 @@ export function SubjectForm({
                 </p>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {prerequisiteOptions.filter((subject: ISubject) => subject._id || subject.id).map((subject: ISubject) => (
-                    <label
-                      key={subject._id || subject.id}
-                      className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedPrerequisites.includes(subject._id || subject.id || "")}
-                        onChange={() => handlePrerequisiteToggle(subject._id || subject.id || "")}
-                        className="rounded border-gray-300"
-                      />
-                      <span className="text-sm">
-                        {subject.subjectCode} - {subject.subjectName}
-                      </span>
-                    </label>
-                  ))}
+                  {prerequisiteOptions.map((subject: ISubject) => {
+                    const subjectId = subject._id || subject.id || "";
+                    if (!subjectId) return null;
+                    
+                    return (
+                      <label
+                        key={subjectId}
+                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPrerequisites.includes(subjectId)}
+                          onChange={() => handlePrerequisiteToggle(subjectId)}
+                          className="rounded border-gray-300 h-4 w-4 text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm flex-1">
+                          {subject.subjectCode} - {subject.subjectName}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
               {errors.prerequisites && (

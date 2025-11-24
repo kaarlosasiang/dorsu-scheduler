@@ -19,6 +19,10 @@ import {
     FileText,
     Sparkles,
     PlayCircle,
+    LayoutGrid,
+    List,
+    CalendarRange,
+    TableProperties,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -59,6 +63,8 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useRouter } from "next/navigation";
 import { type ISchedule, ScheduleAPI } from "@/lib/services/ScheduleAPI";
 import { toast } from "sonner";
+import { ScheduleCalendar } from "@/components/common/schedule-calendar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Transform ISchedule to display format
 interface Schedule {
@@ -202,6 +208,14 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            const searchValue = value.toLowerCase();
+            return (
+                row.original.courseName.toLowerCase().includes(searchValue) ||
+                row.original.courseCode.toLowerCase().includes(searchValue)
+            );
+        },
         size: 260,
         minSize: 160,
         maxSize: 420,
@@ -219,6 +233,10 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            return row.original.facultyName.toLowerCase().includes(value.toLowerCase());
+        },
         size: 160,
         minSize: 120,
         maxSize: 240,
@@ -273,6 +291,13 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.semester);
+            }
+            return row.original.semester.toLowerCase().includes(value.toLowerCase());
+        },
         size: 140,
         minSize: 110,
         maxSize: 200,
@@ -295,6 +320,20 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.status);
+            }
+            return row.original.status === value;
+        },
+        meta: {
+            options: [
+                { label: "Draft", value: "draft" },
+                { label: "Published", value: "published" },
+                { label: "Archived", value: "archived" },
+            ],
+        },
         size: 120,
         minSize: 100,
         maxSize: 160,
@@ -353,12 +392,22 @@ export default function SchedulesPage() {
     const [generating, setGenerating] = React.useState(false);
     const [selectedSemester, setSelectedSemester] = React.useState("1st Semester");
     const [selectedAcademicYear, setSelectedAcademicYear] = React.useState("2024-2025");
+    const [view, setView] = React.useState<"table" | "calendar">("table");
 
     // Transform schedules data
     const schedules = React.useMemo(
         () => rawSchedules.map(transformSchedule),
         [rawSchedules]
     );
+
+    // Transform schedules for calendar view
+    const calendarSchedules = React.useMemo(() => {
+        return schedules.map(schedule => ({
+            ...schedule,
+            startTime: schedule.timeSlot.split(" - ")[0] || "",
+            endTime: schedule.timeSlot.split(" - ")[1] || "",
+        }));
+    }, [schedules]);
 
     // Initialize data table
     const { table } = useDataTable<Schedule>({
@@ -370,7 +419,7 @@ export default function SchedulesPage() {
             sorting: [{ id: "day", desc: false }],
             columnPinning: { left: ["select", "course"] },
         },
-        enableAdvancedFilter: true,
+        enableAdvancedFilter: false,
         enableColumnResizing: true,
         columnResizeMode: "onChange",
         getRowId: (row) => row.id,
@@ -432,6 +481,24 @@ export default function SchedulesPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    <div className="flex items-center border rounded-md">
+                        <Button
+                            variant={view === "table" ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => setView("table")}
+                            className="rounded-r-none"
+                        >
+                            <TableProperties className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant={view === "calendar" ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => setView("calendar")}
+                            className="rounded-l-none"
+                        >
+                            <CalendarRange className="h-4 w-4" />
+                        </Button>
+                    </div>
                     <Button
                         variant="outline"
                         onClick={() => router.push("/schedules/add")}
@@ -495,23 +562,30 @@ export default function SchedulesPage() {
                 </Card>
             </div>
 
-            {/* Enhanced Data Table */}
-            <Card>
-                <CardContent className="pt-6">
-                    <DataTable table={table}>
-                        <DataTableAdvancedToolbar table={table}>
-                            <DataTableSearch
-                                table={table}
-                                placeholder="Search schedules..."
-                                className="max-w-sm"
-                            />
-                            <DataTableFilterList table={table} />
-                            <DataTableSortList table={table} />
-                            <DataTableViewOptions table={table} />
-                        </DataTableAdvancedToolbar>
-                    </DataTable>
-                </CardContent>
-            </Card>
+            {/* View Content */}
+            {view === "table" ? (
+                <Card>
+                    <CardContent className="pt-6">
+                        <DataTable table={table}>
+                            <DataTableAdvancedToolbar table={table}>
+                                <DataTableSearch
+                                    table={table}
+                                    placeholder="Search schedules..."
+                                    className="max-w-sm"
+                                />
+                                <DataTableFilterList table={table} />
+                                <DataTableSortList table={table} />
+                                <DataTableViewOptions table={table} />
+                            </DataTableAdvancedToolbar>
+                        </DataTable>
+                    </CardContent>
+                </Card>
+            ) : (
+                <ScheduleCalendar
+                    schedules={calendarSchedules}
+                    onEventClick={(schedule) => router.push(`/schedules/${schedule.id}`)}
+                />
+            )}
 
             {/* Generate Dialog */}
             <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>

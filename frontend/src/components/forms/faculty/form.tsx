@@ -148,6 +148,15 @@ export function FacultyForm({
                     id="firstName"
                     placeholder="John"
                     {...register("name.first")}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value) {
+                        const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                        setValue("name.first", capitalized);
+                      } else {
+                        setValue("name.first", value);
+                      }
+                    }}
                     aria-invalid={errors.name?.first ? "true" : "false"}
                   />
                   {errors.name?.first && (
@@ -163,6 +172,15 @@ export function FacultyForm({
                     id="lastName"
                     placeholder="Doe"
                     {...register("name.last")}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value) {
+                        const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                        setValue("name.last", capitalized);
+                      } else {
+                        setValue("name.last", value);
+                      }
+                    }}
                     aria-invalid={errors.name?.last ? "true" : "false"}
                   />
                   {errors.name?.last && (
@@ -180,6 +198,15 @@ export function FacultyForm({
                     id="middleName"
                     placeholder="Michael"
                     {...register("name.middle")}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value) {
+                        const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                        setValue("name.middle", capitalized);
+                      } else {
+                        setValue("name.middle", value);
+                      }
+                    }}
                     aria-invalid={errors.name?.middle ? "true" : "false"}
                   />
                   {errors.name?.middle && (

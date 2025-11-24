@@ -49,6 +49,7 @@ export function DepartmentForm({
   const {
     handleSubmit,
     register,
+    setValue,
     formState: { errors },
   } = form;
 
@@ -118,6 +119,10 @@ export function DepartmentForm({
                 id="code"
                 placeholder="e.g., CS, IT, ENG"
                 {...register("code")}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setValue("code", value);
+                }}
                 aria-invalid={errors.code ? "true" : "false"}
                 disabled={mode === "edit"} // Prevent editing code in edit mode
               />
@@ -143,6 +148,15 @@ export function DepartmentForm({
                 id="name"
                 placeholder="e.g., Computer Science"
                 {...register("name")}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) {
+                    const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                    setValue("name", capitalized);
+                  } else {
+                    setValue("name", value);
+                  }
+                }}
                 aria-invalid={errors.name ? "true" : "false"}
               />
               {errors.name && (

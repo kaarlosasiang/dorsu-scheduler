@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ISubject } from "@/components/forms/subjects/types";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
+import APIService from "@/lib/services/BaseAPI";
 
 interface UseSubjectsOptions {
   course?: string;
@@ -31,27 +30,18 @@ export function useSubjects(options: UseSubjectsOptions = {}) {
       if (semester) params.append("semester", semester);
 
       const queryString = params.toString();
-      const url = `${API_URL}/subjects${queryString ? `?${queryString}` : ""}`;
+      const endpoint = `/subjects${queryString ? `?${queryString}` : ""}`;
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          // Add authorization header if needed
-          // "Authorization": `Bearer ${token}`,
-        },
-      });
+      const response = await APIService.get(endpoint);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to fetch subjects");
+      if (response.data?.success) {
+        setSubjects(response.data.data || []);
+        return response.data.data || [];
+      } else {
+        throw new Error(response.data?.message || "Failed to fetch subjects");
       }
-
-      setSubjects(result.data || []);
-      return result.data || [];
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to fetch subjects";
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || "Failed to fetch subjects";
       setError(errorMessage);
       setSubjects([]);
       return [];
