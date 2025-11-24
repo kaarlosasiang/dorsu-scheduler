@@ -28,7 +28,11 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:4321",
+    origin: [
+      "https://dorsu-scheduler.vercel.app",
+      "http://localhost:4321",
+      "http://localhost:3000"
+    ],
     credentials: true, // Allow cookies
   })
 );
