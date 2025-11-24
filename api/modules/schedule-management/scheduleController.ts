@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
-import * as ScheduleService from './scheduleService';
+import * as ScheduleService from './scheduleService.js';
 import {
   validateScheduleQuery,
   validateCreateSchedule,
   validateUpdateSchedule,
   validateScheduleId,
   validateScheduleGeneration
-} from '../../shared/validators/scheduleValidator';
+} from '../../shared/validators/scheduleValidator.js';
 
 export class ScheduleController {
   /**

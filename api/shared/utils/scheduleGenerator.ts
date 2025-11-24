@@ -1,24 +1,24 @@
-import { Schedule } from '../../models/scheduleModel';
-import { Subject } from '../../models/subjectModel';
-import { Faculty } from '../../models/facultyModel';
-import { Classroom } from '../../models/classroomModel';
-import { detectConflicts } from './conflictDetector';
+import { Schedule } from '../../models/scheduleModel.js';
+import { Subject } from '../../models/subjectModel.js';
+import { Faculty } from '../../models/facultyModel.js';
+import { Classroom } from '../../models/classroomModel.js';
+import { detectConflicts } from './conflictDetector.js';
 import {
   ISchedule,
   IScheduleConstraints,
   IScheduleGenerationResult,
   ITimeSlot,
   IScheduleConflict
-} from '../interfaces/ISchedule';
-import { ScheduleGenerationInput } from '../validators/scheduleValidator';
+} from '../interfaces/ISchedule.js';
+import { ScheduleGenerationInput } from '../validators/scheduleValidator.js';
 import {
   calculateLectureHours,
   calculateLabHours
-} from './teachingHoursCalculator';
+} from './teachingHoursCalculator.js';
 import {
   generateLectureTimeSlots,
   generateLabTimeSlots
-} from './timeSlotPatterns';
+} from './timeSlotPatterns.js';
 
 /**
  * Automated Schedule Generator

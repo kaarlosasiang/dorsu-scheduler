@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { CourseService } from './courseService';
+import { CourseService } from './courseService.js';
 import { validateCourseQuery, validateCreateCourse, validateUpdateCourse, validateCourseId } from '../../shared/validators/courseValidator.js';
 
 export class CourseController {

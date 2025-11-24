@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import { ISchedule, ITimeSlot } from "../shared/interfaces/ISchedule";
+import { ISchedule, ITimeSlot } from "../shared/interfaces/ISchedule.js";
 
 // Extend ISchedule with Mongoose Document
 export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'subject' | 'faculty' | 'classroom' | 'department'>, Document {

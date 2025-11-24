@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import * as SubjectService from './subjectService';
+import * as SubjectService from './subjectService.js';
 import {
   validateSubjectQuery,
   validateCreateSubject,
   validateUpdateSubject,
   validateSubjectId
-} from '../../shared/validators/subjectValidator';
+} from '../../shared/validators/subjectValidator.js';
 
 export class SubjectController {
   /**
