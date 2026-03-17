@@ -55,11 +55,7 @@ const data = {
                     url: "/faculty",
                 },
                 {
-                    title: "Departments",
-                    url: "/departments",
-                },
-                {
-                    title: "Courses",
+                    title: "Programs",
                     url: "/courses",
                 },
                 {

@@ -23,6 +23,7 @@ import {
     List,
     CalendarRange,
     TableProperties,
+    Download,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -63,6 +64,8 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useRouter } from "next/navigation";
 import { type ISchedule, ScheduleAPI } from "@/lib/services/ScheduleAPI";
 import { toast } from "sonner";
+import { exportCourseOffering } from "@/lib/utils/exportCourseOffering";
+import { useCourses } from "@/hooks/useCourses";
 import { ScheduleCalendar } from "@/components/common/schedule-calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -77,6 +80,7 @@ interface Schedule {
     timeSlot: string;
     semester: string;
     academicYear: string;
+    yearLevel: string;
     status: string;
     isGenerated: boolean;
     departmentName: string;
@@ -128,6 +132,7 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
             : "N/A",
         semester: schedule.semester || "N/A",
         academicYear: schedule.academicYear || "N/A",
+        yearLevel: schedule.yearLevel || (subject as any)?.yearLevel || "N/A",
         status: schedule.status || "draft",
         isGenerated: schedule.isGenerated || false,
         departmentName: (department as any)?.name || (department as any)?.departmentName || "Unknown Department",
@@ -393,10 +398,19 @@ function ScheduleActionCell({ schedule }: { schedule: any }) {
 export default function SchedulesPage() {
     const router = useRouter();
     const { schedules: rawSchedules, loading, error, stats, refetch } = useSchedules();
+    const { courses } = useCourses();
     const [generateDialogOpen, setGenerateDialogOpen] = React.useState(false);
     const [generating, setGenerating] = React.useState(false);
     const [selectedSemester, setSelectedSemester] = React.useState("1st Semester");
     const [selectedAcademicYear, setSelectedAcademicYear] = React.useState("2024-2025");
+
+    // Export state
+    const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+    const [exporting, setExporting] = React.useState(false);
+    const [exportSemester, setExportSemester] = React.useState("2nd Semester");
+    const [exportAcademicYear, setExportAcademicYear] = React.useState("2025-2026");
+    const [exportProgramName, setExportProgramName] = React.useState("");
+    const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
     const [view, setView] = React.useState<"table" | "calendar">("table");
 
     // Transform schedules data
@@ -453,6 +467,43 @@ export default function SchedulesPage() {
         }
     };
 
+    const handleExportCourseOffering = async () => {
+        if (!exportProgramName.trim()) {
+            toast.error("Please enter a program name");
+            return;
+        }
+        setExporting(true);
+        try {
+            // Fetch schedules for the selected semester/academic year/department
+            const params: import("@/lib/services/ScheduleAPI").ScheduleQueryParams = {
+                semester: exportSemester,
+                academicYear: exportAcademicYear,
+            };
+
+            const result = await ScheduleAPI.getAll(params);
+            if (!result.success || result.data.length === 0) {
+                toast.error("No schedules found for the selected filters");
+                return;
+            }
+
+            await exportCourseOffering({
+                programName: exportProgramName,
+                institute: exportInstitute,
+                semester: exportSemester,
+                academicYear: exportAcademicYear,
+                schedules: result.data as any[],
+            });
+
+            toast.success("Course offering PDF exported successfully!");
+            setExportDialogOpen(false);
+        } catch (err) {
+            console.error(err);
+            toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex h-[50vh] items-center justify-center">
@@ -504,6 +555,13 @@ export default function SchedulesPage() {
                             <CalendarRange className="h-4 w-4" />
                         </Button>
                     </div>
+                    <Button
+                        variant="outline"
+                        onClick={() => setExportDialogOpen(true)}
+                    >
+                        <Download className="mr-2 h-4 w-4" />
+                        Export
+                    </Button>
                     <Button
                         variant="outline"
                         onClick={() => router.push("/schedules/add")}
@@ -591,6 +649,87 @@ export default function SchedulesPage() {
                     onEventClick={(schedule) => router.push(`/schedules/${schedule.id}`)}
                 />
             )}
+
+            {/* Export Course Offering Dialog */}
+            <Dialog open={exportDialogOpen} onOpenChange={setExportDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Download className="h-5 w-5" />
+                            Export Course Offering
+                        </DialogTitle>
+                        <DialogDescription>
+                            Generate the official DOrSU Course Offering PDF (FM-DOrSU-ODI-01) from the current schedule data.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Program Name <span className="text-destructive">*</span></label>
+                            <select
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={exportProgramName}
+                                onChange={(e) => setExportProgramName(e.target.value)}
+                            >
+                                <option value="">Select a program...</option>
+                                {courses.map((c) => (
+                                    <option key={c._id ?? c.courseCode} value={c.courseName}>
+                                        {c.courseName}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Institute / Campus</label>
+                            <input
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                placeholder="e.g. Baganga Campus"
+                                value={exportInstitute}
+                                onChange={(e) => setExportInstitute(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Semester</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={exportSemester}
+                                    onChange={(e) => setExportSemester(e.target.value)}
+                                >
+                                    <option value="1st Semester">1st Semester</option>
+                                    <option value="2nd Semester">2nd Semester</option>
+                                    <option value="Summer">Summer</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Academic Year</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={exportAcademicYear}
+                                    onChange={(e) => setExportAcademicYear(e.target.value)}
+                                >
+                                    <option value="2024-2025">2024-2025</option>
+                                    <option value="2025-2026">2025-2026</option>
+                                    <option value="2026-2027">2026-2027</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExportDialogOpen(false)} disabled={exporting}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleExportCourseOffering} disabled={exporting}>
+                            {exporting ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating PDF...</>
+                            ) : (
+                                <><Download className="mr-2 h-4 w-4" />Export PDF</>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Generate Dialog */}
             <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>

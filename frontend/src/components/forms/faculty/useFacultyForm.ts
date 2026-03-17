@@ -19,8 +19,10 @@ export function useFacultyForm() {
       const createData = {
         name: data.name,
         email: data.email,
-        department: data.department,
+        program: data.program,
         employmentType: data.employmentType,
+        designation: data.designation || undefined,
+        adminLoad: data.designation ? (data.adminLoad ?? 0) : 0,
         image: data.image && data.image.trim() !== '' ? data.image : undefined,
         minLoad: data.minLoad,
         maxLoad: data.maxLoad,
@@ -35,9 +37,9 @@ export function useFacultyForm() {
           id: response.data._id || "",
           name: response.data.name,
           email: response.data.email,
-          department: typeof response.data.department === 'string' 
-            ? response.data.department 
-            : response.data.department.name,
+          program: typeof response.data.program === 'string' 
+            ? response.data.program 
+            : (response.data.program as any)?.courseCode || '',
           employmentType: response.data.employmentType,
           image: response.data.image,
           minLoad: response.data.minLoad,
@@ -69,8 +71,10 @@ export function useFacultyForm() {
       const updateData = {
         name: data.name,
         email: data.email,
-        department: data.department,
+        program: data.program,
         employmentType: data.employmentType,
+        designation: data.designation || undefined,
+        adminLoad: data.designation ? (data.adminLoad ?? 0) : 0,
         image: data.image && data.image.trim() !== '' ? data.image : undefined,
         minLoad: data.minLoad,
         maxLoad: data.maxLoad,
@@ -85,9 +89,9 @@ export function useFacultyForm() {
           id: response.data._id || "",
           name: response.data.name,
           email: response.data.email,
-          department: typeof response.data.department === 'string' 
-            ? response.data.department 
-            : response.data.department.name,
+          program: typeof response.data.program === 'string' 
+            ? response.data.program 
+            : (response.data.program as any)?.courseCode || '',
           employmentType: response.data.employmentType,
           image: response.data.image,
           minLoad: response.data.minLoad,

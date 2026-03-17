@@ -48,10 +48,10 @@ const facultySchema = new Schema<IFacultyDocument>({
     lowercase: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email address']
   },
-  department: {
+  program: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Department',
-    required: [true, 'Department is required'],
+    ref: 'Course',
+    required: [true, 'Program is required'],
     index: true
   } as any,
   employmentType: {
@@ -59,6 +59,17 @@ const facultySchema = new Schema<IFacultyDocument>({
     required: [true, 'Employment type is required'],
     enum: ['full-time', 'part-time'],
     default: 'full-time'
+  },
+  designation: {
+    type: String,
+    trim: true,
+    maxlength: [150, 'Designation cannot exceed 150 characters'],
+    default: null
+  },
+  adminLoad: {
+    type: Number,
+    default: 0,
+    min: [0, 'Admin load cannot be negative']
   },
   image: {
     type: String,
@@ -114,12 +125,24 @@ const facultySchema = new Schema<IFacultyDocument>({
 });
 
 // Indexes for efficient lookups
-facultySchema.index({ department: 1 });
+facultySchema.index({ program: 1 });
 facultySchema.index({ status: 1 });
 facultySchema.index({ employmentType: 1 });
 facultySchema.index({ email: 1 });
-facultySchema.index({ department: 1, status: 1 });
+facultySchema.index({ program: 1, status: 1 });
 facultySchema.index({ 'name.last': 1, 'name.first': 1 });
+
+// Virtual for total load (teaching + admin)
+facultySchema.virtual('totalLoad').get(function(this: IFacultyDocument) {
+  return (this.currentLoad || 0) + (this.adminLoad || 0);
+});
+
+// Virtual for overload (how much over minLoad the total load is)
+facultySchema.virtual('overload').get(function(this: IFacultyDocument) {
+  const total = (this.currentLoad || 0) + (this.adminLoad || 0);
+  const over = total - (this.minLoad || 18);
+  return over > 0 ? over : 0;
+});
 
 // Virtual for available load
 facultySchema.virtual('availableLoad').get(function(this: IFacultyDocument) {
@@ -175,6 +198,12 @@ facultySchema.pre('save', function(this: IFacultyDocument, next) {
   // Validate current preparations don't exceed max preparations
   if ((this.currentPreparations || 0) > (this.maxPreparations || 4)) {
     next(new Error('Current preparations cannot exceed maximum preparations'));
+    return;
+  }
+
+  // Validate adminLoad only set when designation is present
+  if ((this.adminLoad || 0) > 0 && !this.designation) {
+    next(new Error('Admin load can only be set when an administrative designation is assigned'));
     return;
   }
   

@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { ISchedule, ITimeSlot } from "../shared/interfaces/ISchedule.js";
+import { formatTime12h } from "../shared/utils/timeUtils.js";
 
 // Extend ISchedule with Mongoose Document
 export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'subject' | 'faculty' | 'classroom' | 'department'>, Document {
@@ -64,7 +65,7 @@ const scheduleSchema = new Schema<IScheduleDocument>({
   department: {
     type: Schema.Types.ObjectId,
     ref: 'Department',
-    required: [true, 'Department is required'],
+    required: false,
     index: true
   },
   timeSlot: {
@@ -120,6 +121,9 @@ const scheduleSchema = new Schema<IScheduleDocument>({
       ret.id = ret._id.toString();
       delete (ret as any)._id;
       delete (ret as any).__v;
+      // Format times as 12-hour for API responses; 24-hour stays in DB for calculations
+      if (ret.timeSlot?.startTime) ret.timeSlot.startTime = formatTime12h(ret.timeSlot.startTime);
+      if (ret.timeSlot?.endTime)   ret.timeSlot.endTime   = formatTime12h(ret.timeSlot.endTime);
       return ret;
     }
   },

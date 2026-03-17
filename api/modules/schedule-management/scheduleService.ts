@@ -30,7 +30,7 @@ export async function getAll(filters: ScheduleQueryInput = {}): Promise<ISchedul
     if (filters.day) query['timeSlot.day'] = filters.day;
 
     const schedules = await Schedule.find(query)
-      .populate('subject', 'subjectCode subjectName units')
+      .populate('subject', 'subjectCode subjectName units lectureUnits labUnits yearLevel semester')
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
       .populate('department', 'name code')
@@ -51,7 +51,7 @@ export async function getById(id: string): Promise<IScheduleDocument> {
   try {
     const schedule = await Schedule.findById(id)
       .populate('subject', 'subjectCode subjectName units description')
-      .populate('faculty', 'name email department')
+      .populate('faculty', 'name email program')
       .populate('classroom', 'roomNumber building capacity type facilities')
       .populate('department', 'name code')
       .exec();
@@ -238,8 +238,10 @@ export async function getByFaculty(facultyId: string, semester: string, academic
       academicYear,
       status: { $ne: 'archived' }
     })
-      .populate('subject', 'subjectCode subjectName units')
-      .populate('classroom', 'roomNumber building')
+      .populate('subject', 'subjectCode subjectName units lectureUnits labUnits yearLevel semester')
+      .populate('faculty', 'name email')
+      .populate('classroom', 'roomNumber building capacity')
+      .populate('department', 'name code')
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
   } catch (error) {
     console.error('Error in getByFaculty:', error);

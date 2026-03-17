@@ -22,6 +22,7 @@ import {
   Activity,
   AlertCircle,
   Loader2,
+  Download,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -57,6 +58,17 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { useFaculty } from "@/hooks/useFaculty";
 import { useRouter } from "next/navigation";
 import { type IFaculty } from "@/lib/services/FacultyAPI";
+import { ScheduleAPI } from "@/lib/services/ScheduleAPI";
+import { exportFacultyWorkload } from "@/lib/utils/exportCourseOffering";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Transform IFaculty to display format
 interface Faculty {
@@ -64,7 +76,7 @@ interface Faculty {
   name: string;
   firstName: string;
   lastName: string;
-  department: string;
+  program: string;
   email: string;
   status: "active" | "inactive";
   employmentType: "full-time" | "part-time";
@@ -84,9 +96,9 @@ const transformFaculty = (faculty: IFaculty): Faculty => ({
   }${faculty.name.last}${faculty.name.ext ? " " + faculty.name.ext : ""}`,
   firstName: faculty.name.first,
   lastName: faculty.name.last,
-  department: typeof faculty.department === 'string' 
-    ? faculty.department 
-    : faculty.department.name,
+  program: typeof faculty.program === 'string' 
+    ? faculty.program 
+    : (faculty.program as any)?.courseCode || '',
   email: faculty.email,
   status: faculty.status,
   employmentType: faculty.employmentType,
@@ -97,6 +109,157 @@ const transformFaculty = (faculty: IFaculty): Faculty => ({
   currentPreparations: faculty.currentPreparations || 0,
   createdAt: faculty.createdAt || new Date().toISOString(),
 });
+
+// ─── Faculty Action Cell with Per-Faculty Workload Export ────────────────────
+
+function FacultyActionCell({ faculty }: { faculty: Faculty }) {
+  const router = useRouter();
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [exportSemester, setExportSemester] = React.useState("2nd Semester");
+  const [exportAcademicYear, setExportAcademicYear] = React.useState("2025-2026");
+  const [exportProgramName, setExportProgramName] = React.useState(faculty.program || "");
+  const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const result = await ScheduleAPI.getByFaculty(faculty.id, exportSemester, exportAcademicYear);
+      if (!result.success || !result.data || result.data.length === 0) {
+        toast.error("No schedules found for this faculty in the selected period");
+        return;
+      }
+      await exportFacultyWorkload({
+        facultyName: faculty.name,
+        programName: exportProgramName || faculty.program,
+        institute: exportInstitute,
+        semester: exportSemester,
+        academicYear: exportAcademicYear,
+        schedules: result.data as any[],
+      });
+      toast.success("Faculty workload PDF exported successfully!");
+      setExportOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Faculty
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Clock className="mr-2 h-4 w-4" />
+            Manage Schedule
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setExportOpen(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Workload PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Mail className="mr-2 h-4 w-4" />
+            Send Email
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Faculty
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Export Workload Dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Export Workload — {faculty.name}
+            </DialogTitle>
+            <DialogDescription>
+              Generate a Course Offering PDF (FM-DOrSU-ODI-01) showing all courses assigned to this faculty member.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Program Name</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="e.g. Bachelor of Science in Agriculture"
+                value={exportProgramName}
+                onChange={(e) => setExportProgramName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Institute / Campus</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={exportInstitute}
+                onChange={(e) => setExportInstitute(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Semester</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={exportSemester}
+                  onChange={(e) => setExportSemester(e.target.value)}
+                >
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="Summer">Summer</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Academic Year</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={exportAcademicYear}
+                  onChange={(e) => setExportAcademicYear(e.target.value)}
+                >
+                  <option value="2024-2025">2024-2025</option>
+                  <option value="2025-2026">2025-2026</option>
+                  <option value="2026-2027">2026-2027</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)} disabled={exporting}>
+              Cancel
+            </Button>
+            <Button onClick={handleExport} disabled={exporting}>
+              {exporting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+              ) : (
+                <><Download className="mr-2 h-4 w-4" />Export PDF</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 // Enhanced column definitions with comprehensive metadata
 const columns: ColumnDef<Faculty>[] = [
@@ -156,22 +319,22 @@ const columns: ColumnDef<Faculty>[] = [
     },
   },
   {
-    id: "department",
-    accessorKey: "department",
+    id: "program",
+    accessorKey: "program",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Department" />
+      <DataTableColumnHeader column={column} title="Program" />
     ),
     cell: ({ row }) => (
       <div className="flex items-center space-x-2">
         <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <span className="truncate">{row.original.department}</span>
+        <span className="truncate">{row.original.program}</span>
       </div>
     ),
     enableSorting: true,
     enableColumnFilter: true,
     size: 180,
     meta: {
-      label: "Department",
+      label: "Program",
       variant: "select",
       icon: Building2,
       options: [], // Will be populated dynamically
@@ -351,41 +514,7 @@ const columns: ColumnDef<Faculty>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Faculty
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Clock className="mr-2 h-4 w-4" />
-            Manage Schedule
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Mail className="mr-2 h-4 w-4" />
-            Send Email
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Faculty
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+    cell: ({ row }) => <FacultyActionCell faculty={row.original} />,
     enableSorting: false,
     enableHiding: false,
     size: 50,
@@ -414,8 +543,8 @@ export default function FacultyPage() {
 
   // Update column meta with real data counts
   const updatedColumns = React.useMemo(() => {
-    const departmentCounts = faculties.reduce((acc, faculty) => {
-      acc[faculty.department] = (acc[faculty.department] || 0) + 1;
+    const programCounts = faculties.reduce((acc, faculty) => {
+      acc[faculty.program] = (acc[faculty.program] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -430,14 +559,14 @@ export default function FacultyPage() {
     }, {} as Record<string, number>);
 
     return columns.map((column) => {
-      if (column.id === "department" && column.meta) {
+      if (column.id === "program" && column.meta) {
         return {
           ...column,
           meta: {
             ...column.meta,
-            options: Object.entries(departmentCounts).map(([dept, count]) => ({
-              label: dept,
-              value: dept,
+            options: Object.entries(programCounts).map(([prog, count]) => ({
+              label: prog,
+              value: prog,
               count,
             })),
           },
@@ -611,11 +740,11 @@ export default function FacultyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            <CardTitle className="text-sm font-medium">Programs</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.departments.length}</div>
+            <div className="text-2xl font-bold">{stats.programs.length}</div>
             <p className="text-xs text-muted-foreground">Across all colleges</p>
           </CardContent>
         </Card>
@@ -663,7 +792,7 @@ export default function FacultyPage() {
             <DataTableAdvancedToolbar table={table}>
               <DataTableSearch
                 table={table}
-                placeholder="Search faculty names, departments, emails..."
+                placeholder="Search faculty names, programs, emails..."
                 className="max-w-sm"
               />
               <DataTableFilterList table={table} />

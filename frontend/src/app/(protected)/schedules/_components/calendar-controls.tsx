@@ -33,10 +33,16 @@ interface CalendarControlsProps {
     onGoToToday: () => void;
     departments: string[];
     semesters: string[];
+    programs: string[];
+    yearLevels: string[];
     selectedDepartment: string;
     selectedSemester: string;
+    selectedProgram: string;
+    selectedYearLevel: string;
     onDepartmentChange: (value: string) => void;
     onSemesterChange: (value: string) => void;
+    onProgramChange: (value: string) => void;
+    onYearLevelChange: (value: string) => void;
 }
 
 export function CalendarControls({
@@ -47,10 +53,16 @@ export function CalendarControls({
     onGoToToday,
     departments,
     semesters,
+    programs,
+    yearLevels,
     selectedDepartment,
     selectedSemester,
+    selectedProgram,
+    selectedYearLevel,
     onDepartmentChange,
     onSemesterChange,
+    onProgramChange,
+    onYearLevelChange,
 }: CalendarControlsProps) {
     return (
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -91,15 +103,31 @@ export function CalendarControls({
                     <PopoverContent className="w-80">
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Department</label>
-                                <Select value={selectedDepartment} onValueChange={onDepartmentChange}>
+                                <label className="text-sm font-medium">Program</label>
+                                <Select value={selectedProgram} onValueChange={onProgramChange}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Select department" />
+                                        <SelectValue placeholder="Select program" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {departments.map(dept => (
-                                            <SelectItem key={dept} value={dept}>
-                                                {dept === "all" ? "All Departments" : dept}
+                                        {programs.map(prog => (
+                                            <SelectItem key={prog} value={prog}>
+                                                {prog === "all" ? "All Programs" : prog}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <Select value={selectedYearLevel} onValueChange={onYearLevelChange}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select year level" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {yearLevels.map(level => (
+                                            <SelectItem key={level} value={level}>
+                                                {level === "all" ? "All Years" : level}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -116,6 +144,22 @@ export function CalendarControls({
                                         {semesters.map(sem => (
                                             <SelectItem key={sem} value={sem}>
                                                 {sem === "all" ? "All Semesters" : sem}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Department</label>
+                                <Select value={selectedDepartment} onValueChange={onDepartmentChange}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select department" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {departments.map(dept => (
+                                            <SelectItem key={dept} value={dept}>
+                                                {dept === "all" ? "All Departments" : dept}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

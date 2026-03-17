@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookOpen, FileText, Code, Hash, Building2 } from "lucide-react";
+import { BookOpen, FileText, Code } from "lucide-react";
 import { useState, useEffect } from "react";
 
 import { cn } from "@/lib/utils";
@@ -20,18 +20,10 @@ import {
   FieldDescription,
   FieldLabel,
 } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import { courseSchema } from "./schema";
 import type { CourseFormData, CourseFormProps } from "./types";
 import { useCourseForm } from "./useCourseForm";
-import { useDepartments } from "@/hooks/useDepartments";
 
 export function CourseForm({
   initialData,
@@ -43,17 +35,12 @@ export function CourseForm({
 }: CourseFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { createCourse, updateCourse } = useCourseForm();
-  const { departments, loading: loadingDepartments } = useDepartments();
 
   const form = useForm<CourseFormData>({
     resolver: zodResolver(courseSchema) as never,
     defaultValues: {
       courseCode: initialData?.courseCode || "",
       courseName: initialData?.courseName || "",
-      units: initialData?.units || 3,
-      department: typeof initialData?.department === 'string'
-        ? initialData.department
-        : (initialData?.department as any)?._id || (initialData?.department as any)?.id || "",
     },
   });
 
@@ -62,10 +49,7 @@ export function CourseForm({
     register,
     formState: { errors },
     setValue,
-    watch,
   } = form;
-
-  const selectedDepartment = watch("department");
 
   const onSubmit = async (data: CourseFormData) => {
     setIsSubmitting(true);
@@ -79,11 +63,11 @@ export function CourseForm({
       if (response?.success) {
         onSuccess?.(response);
       } else {
-        throw new Error("Failed to save course");
+        throw new Error("Failed to save program");
       }
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Failed to save course";
+        error instanceof Error ? error.message : "Failed to save program";
       onError?.(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -95,12 +79,12 @@ export function CourseForm({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
-            {mode === "create" ? "Add New Course" : "Edit Course"}
+            {mode === "create" ? "Add New Program" : "Edit Program"}
           </h2>
           <p className="text-muted-foreground">
             {mode === "create"
-              ? "Fill in the details to add a new course."
-              : "Update the course information."}
+              ? "Fill in the details to add a new program."
+              : "Update the program information."}
           </p>
         </div>
         {onCancel && (
@@ -116,10 +100,10 @@ export function CourseForm({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BookOpen className="h-5 w-5" />
-              Course Information
+              Program Information
             </CardTitle>
             <CardDescription>
-              Enter the course details.
+              Enter the program details.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -127,11 +111,11 @@ export function CourseForm({
             <Field>
               <FieldLabel htmlFor="courseCode" className="flex items-center gap-2">
                 <Code className="h-4 w-4" />
-                Course Code
+                Program Code
               </FieldLabel>
               <Input
                 id="courseCode"
-                placeholder="e.g., CS 101, MATH 201"
+                placeholder="e.g., BSA, BSAM, BSIT"
                 {...register("courseCode")}
                 onChange={(e) => {
                   const value = e.target.value.toUpperCase();
@@ -147,20 +131,20 @@ export function CourseForm({
               )}
               <FieldDescription>
                 {mode === "edit"
-                  ? "Course code cannot be changed"
-                  : "Enter a unique code for the course (letters, numbers, spaces, and hyphens)"}
+                  ? "Program code cannot be changed"
+                  : "Enter a unique code for the program (e.g., BSA, BSAM, BSIT)"}
               </FieldDescription>
             </Field>
 
-            {/* Course Name */}
+            {/* Program Name */}
             <Field>
               <FieldLabel htmlFor="courseName" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Course Name
+                Program Name
               </FieldLabel>
               <Input
                 id="courseName"
-                placeholder="e.g., Introduction to Computer Science"
+                placeholder="e.g., Bachelor of Science in Agriculture"
                 {...register("courseName")}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -179,77 +163,7 @@ export function CourseForm({
                 </FieldDescription>
               )}
               <FieldDescription>
-                Enter the full name of the course
-              </FieldDescription>
-            </Field>
-
-            {/* Units */}
-            <Field>
-              <FieldLabel htmlFor="units" className="flex items-center gap-2">
-                <Hash className="h-4 w-4" />
-                Units
-              </FieldLabel>
-              <Input
-                id="units"
-                type="number"
-                min={0}
-                max={10}
-                placeholder="3"
-                {...register("units", { valueAsNumber: true })}
-                aria-invalid={errors.units ? "true" : "false"}
-              />
-              {errors.units && (
-                <FieldDescription className="text-destructive text-sm">
-                  {errors.units.message}
-                </FieldDescription>
-              )}
-              <FieldDescription>
-                Enter the number of credit units (0-10)
-              </FieldDescription>
-            </Field>
-
-            {/* Department */}
-            <Field>
-              <FieldLabel htmlFor="department" className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                Department
-              </FieldLabel>
-              <Select
-                value={selectedDepartment}
-                onValueChange={(value) => setValue("department", value)}
-                disabled={loadingDepartments || isSubmitting}
-              >
-                <SelectTrigger id="department" aria-invalid={errors.department ? "true" : "false"}>
-                  <SelectValue placeholder="Select a department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {loadingDepartments ? (
-                    <SelectItem value="loading" disabled>
-                      Loading departments...
-                    </SelectItem>
-                  ) : departments.length === 0 ? (
-                    <SelectItem value="no-departments" disabled>
-                      No departments available
-                    </SelectItem>
-                  ) : (
-                    departments.map((dept) => (
-                      <SelectItem
-                        key={dept._id || dept.id}
-                        value={dept._id || dept.id || ""}
-                      >
-                        {dept.name} ({dept.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {errors.department && (
-                <FieldDescription className="text-destructive text-sm">
-                  {errors.department.message}
-                </FieldDescription>
-              )}
-              <FieldDescription>
-                Select the department this course belongs to
+                Enter the full name of the program
               </FieldDescription>
             </Field>
           </CardContent>
@@ -269,11 +183,11 @@ export function CourseForm({
           )}
           <Button
             type="submit"
-            disabled={isSubmitting || loadingDepartments}
+            disabled={isSubmitting}
           >
             {isSubmitting
               ? (mode === "create" ? "Creating..." : "Updating...")
-              : (mode === "create" ? "Create Course" : "Update Course")}
+              : (mode === "create" ? "Create Program" : "Update Program")}
           </Button>
         </div>
       </form>

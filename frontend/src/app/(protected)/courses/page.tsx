@@ -9,8 +9,6 @@ import {
     Edit,
     Trash2,
     BookOpen,
-    Building2,
-    Hash,
     Calendar,
     AlertCircle,
     Loader2,
@@ -27,7 +25,6 @@ import {DataTableActionBar} from "@/components/common/data-table/data-table-acti
 import {DataTableViewOptions} from "@/components/common/data-table/data-table-view-options";
 import {DataTableSearch} from "@/components/common/data-table/data-table-search";
 import {Button} from "@/components/ui/button";
-import {Badge} from "@/components/ui/badge";
 import {
     Card,
     CardContent,
@@ -54,8 +51,6 @@ interface Course {
     id: string;
     courseCode: string;
     courseName: string;
-    units: number;
-    department: { name: string, code: string, id: string };
     createdAt: string;
 }
 
@@ -64,8 +59,6 @@ const transformCourse = (course: ICourse): Course => ({
     id: course._id || course.id || "",
     courseCode: course.courseCode,
     courseName: course.courseName,
-    units: course.units,
-    department: course.department,
     createdAt: course.createdAt || new Date().toISOString(),
 });
 
@@ -97,7 +90,7 @@ const columns: ColumnDef<Course>[] = [
         id: "courseCode",
         accessorKey: "courseCode",
         header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Course Code"/>
+            <DataTableColumnHeader column={column} title="Program Code"/>
         ),
         cell: ({row}) => (
             <div className="flex items-center space-x-3 min-w-[150px]">
@@ -106,9 +99,6 @@ const columns: ColumnDef<Course>[] = [
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="font-medium font-mono truncate">{row.original.courseCode}</div>
-                    <div className="text-xs text-muted-foreground">
-                        {row.original.units} {row.original.units === 1 ? 'unit' : 'units'}
-                    </div>
                 </div>
             </div>
         ),
@@ -116,8 +106,8 @@ const columns: ColumnDef<Course>[] = [
         enableColumnFilter: true,
         size: 200,
         meta: {
-            label: "Course Code",
-            placeholder: "Search course codes...",
+            label: "Program Code",
+            placeholder: "Search program codes...",
             variant: "text",
             icon: Code,
         },
@@ -126,7 +116,7 @@ const columns: ColumnDef<Course>[] = [
         id: "courseName",
         accessorKey: "courseName",
         header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Course Name"/>
+            <DataTableColumnHeader column={column} title="Program Name"/>
         ),
         cell: ({row}) => (
             <div className="max-w-[300px]">
@@ -137,57 +127,10 @@ const columns: ColumnDef<Course>[] = [
         enableColumnFilter: true,
         size: 300,
         meta: {
-            label: "Course Name",
-            placeholder: "Search course names...",
+            label: "Program Name",
+            placeholder: "Search program names...",
             variant: "text",
             icon: BookOpen,
-        },
-    },
-    {
-        id: "units",
-        accessorKey: "units",
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Units"/>
-        ),
-        cell: ({row}) => (
-            <div className="flex items-center space-x-1">
-                <Hash className="h-4 w-4 text-muted-foreground"/>
-                <span className="font-medium">{row.original.units}</span>
-            </div>
-        ),
-        enableSorting: true,
-        enableColumnFilter: true,
-        size: 80,
-        meta: {
-            label: "Units",
-            variant: "range",
-            icon: Hash,
-            range: [0, 10],
-            unit: "units",
-        },
-    },
-    {
-        id: "department",
-        accessorKey: "departmentName",
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Department"/>
-        ),
-        cell: ({row}) => (
-            <div className="flex items-center space-x-2">
-                <Building2 className="h-4 w-4 text-muted-foreground"/>
-                <Badge variant="secondary" className="truncate max-w-[150px]">
-                    {row.original.department.name}
-                </Badge>
-            </div>
-        ),
-        enableSorting: true,
-        enableColumnFilter: true,
-        size: 180,
-        meta: {
-            label: "Department",
-            placeholder: "Search departments...",
-            variant: "text",
-            icon: Building2,
         },
     },
     {
@@ -306,7 +249,7 @@ export default function CoursesPage() {
                 select: 50,
                 courseCode: 200,
                 courseName: 300,
-                units: 80,
+
                 department: 180,
                 createdAt: 120,
                 actions: 50,
@@ -345,14 +288,14 @@ export default function CoursesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Courses</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">Programs</h1>
                     <p className="text-muted-foreground">
-                        Manage all courses and curriculum offerings
+                        Manage all degree programs and curriculum offerings
                     </p>
                 </div>
                 <Button onClick={() => router.push("/courses/add")}>
                     <Plus className="mr-2 h-4 w-4"/>
-                    Add Course
+                    Add Program
                 </Button>
             </div>
 
@@ -360,51 +303,12 @@ export default function CoursesPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
                         <BookOpen className="h-4 w-4 text-muted-foreground"/>
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">Across all departments</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Units</CardTitle>
-                        <Hash className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalUnits}</div>
-                        <p className="text-xs text-muted-foreground">Credit units offered</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Avg. Units</CardTitle>
-                        <Hash className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.total > 0
-                                ? (stats.totalUnits / stats.total).toFixed(1)
-                                : 0}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Per course</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Departments</CardTitle>
-                        <Building2 className="h-4 w-4 text-muted-foreground"/>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats.byDepartment?.length || 0}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Offering courses</p>
+                        <p className="text-xs text-muted-foreground">Active degree programs</p>
                     </CardContent>
                 </Card>
             </div>
@@ -423,7 +327,7 @@ export default function CoursesPage() {
                         <DataTableAdvancedToolbar table={table}>
                             <DataTableSearch
                                 table={table}
-                                placeholder="Search courses by code, name..."
+                                placeholder="Search programs by code, name..."
                                 className="max-w-sm"
                             />
                             <DataTableFilterList table={table}/>

@@ -20,8 +20,8 @@ export class FacultyController {
         return;
       }
 
-      const { department, status, employmentType, email } = queryValidation.data;
-      const faculty = await FacultyService.getAll({ department, status, employmentType, email });
+      const { program, status, employmentType, email } = queryValidation.data;
+      const faculty = await FacultyService.getAll({ program, status, employmentType, email });
 
       res.status(200).json({
         success: true,
@@ -307,8 +307,8 @@ export class FacultyController {
    */
   static async getStats(req: Request, res: Response): Promise<void> {
     try {
-      const { department } = req.query;
-      const stats = await FacultyService.getStats(department as string);
+      const { program } = req.query;
+      const stats = await FacultyService.getStats(program as string);
 
       res.status(200).json({
         success: true,

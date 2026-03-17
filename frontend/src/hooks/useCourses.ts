@@ -7,7 +7,6 @@ interface UseCourses {
   error: string | null;
   stats: {
     total: number;
-    totalUnits: number;
     byDepartment: Array<{
       department: string;
       count: number;
@@ -22,7 +21,6 @@ export const useCourses = (params?: CourseQueryParams): UseCourses => {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     total: 0,
-    totalUnits: 0,
     byDepartment: [] as Array<{
       department: string;
       count: number;
@@ -43,7 +41,6 @@ export const useCourses = (params?: CourseQueryParams): UseCourses => {
         const statsResponse = await CourseAPI.getStats();
         setStats(statsResponse.data || {
           total: 0,
-          totalUnits: 0,
           byDepartment: [],
         });
       } catch (statsError) {
@@ -51,7 +48,6 @@ export const useCourses = (params?: CourseQueryParams): UseCourses => {
         // Calculate basic stats from courses
         setStats({
           total: response.data?.length || 0,
-          totalUnits: response.data?.reduce((sum, course) => sum + (course.units || 0), 0) || 0,
           byDepartment: [],
         });
       }

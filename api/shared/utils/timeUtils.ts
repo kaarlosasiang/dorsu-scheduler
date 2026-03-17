@@ -70,3 +70,21 @@ export const VALID_DAYS = [
 export const isValidDay = (day: string): boolean => {
   return VALID_DAYS.includes(day as typeof VALID_DAYS[number]);
 };
+
+/**
+ * Convert a 24-hour "HH:mm" string to 12-hour "h:mm AM/PM" format.
+ * Internal storage and all calculations remain in 24-hour format;
+ * this is used only for display/API responses.
+ *
+ * @example formatTime12h('08:00') // '8:00 AM'
+ * @example formatTime12h('13:30') // '1:30 PM'
+ */
+export const formatTime12h = (time: string): string => {
+  const [hourStr, minuteStr] = time.split(':');
+  let hour = parseInt(hourStr, 10);
+  const minute = minuteStr;
+  const period = hour >= 12 ? 'PM' : 'AM';
+  if (hour === 0)  hour = 12;
+  else if (hour > 12) hour -= 12;
+  return `${hour}:${minute} ${period}`;
+};

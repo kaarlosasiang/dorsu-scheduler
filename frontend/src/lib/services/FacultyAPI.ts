@@ -13,18 +13,18 @@ export interface IFaculty {
   id?: string;
   name: IName;
   email: string;
-  department: string | {
+  program: string | {
     _id: string;
-    name: string;
-    code: string;
-    college?: string;
-    status?: string;
+    courseCode: string;
+    courseName: string;
   };
   employmentType: "full-time" | "part-time";
+  designation?: string;
   image?: string;
   minLoad: number;
   maxLoad: number;
   currentLoad: number;
+  adminLoad?: number;
   maxPreparations: number;
   currentPreparations: number;
   status: "active" | "inactive";
@@ -33,6 +33,8 @@ export interface IFaculty {
   fullName?: string;
   availableLoad?: number;
   availablePreparations?: number;
+  totalLoad?: number;
+  overload?: number;
 }
 
 export interface FacultyListResponse {
@@ -61,12 +63,12 @@ export interface FacultyStatsResponse {
     averageWorkload: number;
     totalPreparations: number;
     averagePreparations: number;
-    departments: string[];
+    programs: string[];
   };
 }
 
 export interface FacultyQueryParams {
-  department?: string;
+  program?: string;
   status?: "active" | "inactive";
   employmentType?: "full-time" | "part-time";
   email?: string;
@@ -77,8 +79,10 @@ export interface FacultyQueryParams {
 export interface FacultyCreateData {
   name: IName;
   email: string;
-  department: string;
+  program: string;
   employmentType: "full-time" | "part-time";
+  designation?: string;
+  adminLoad?: number;
   image?: string;
   minLoad: number;
   maxLoad: number;
@@ -88,8 +92,10 @@ export interface FacultyCreateData {
 export interface FacultyUpdateData {
   name?: IName;
   email?: string;
-  department?: string;
+  program?: string;
   employmentType?: "full-time" | "part-time";
+  designation?: string;
+  adminLoad?: number;
   image?: string;
   minLoad?: number;
   maxLoad?: number;
@@ -191,9 +197,9 @@ export const FacultyAPI = {
   /**
    * Get faculty statistics
    */
-  getStats: async (department?: string) => {
-    const endpoint = department 
-      ? `${APP_CONFIG.ENDPOINTS.FACULTY.STATS}?department=${encodeURIComponent(department)}`
+  getStats: async (program?: string) => {
+    const endpoint = program 
+      ? `${APP_CONFIG.ENDPOINTS.FACULTY.STATS}?program=${encodeURIComponent(program)}`
       : APP_CONFIG.ENDPOINTS.FACULTY.STATS;
     
     const response = await APIService.get(endpoint);
@@ -201,10 +207,10 @@ export const FacultyAPI = {
   },
 
   /**
-   * Get faculty by department
+   * Get faculty by program
    */
-  getByDepartment: async (department: string) => {
-    return await FacultyAPI.getAll({ department, status: "active" });
+  getByProgram: async (program: string) => {
+    return await FacultyAPI.getAll({ program, status: "active" });
   },
 
   /**
@@ -230,13 +236,13 @@ export const FacultyAPI = {
     const response = await FacultyAPI.getAll();
     const filteredFaculty = response.data.filter(faculty => {
       const fullName = `${faculty.name.first} ${faculty.name.middle || ''} ${faculty.name.last} ${faculty.name.ext || ''}`.toLowerCase();
-      const departmentName = typeof faculty.department === 'string' 
-        ? faculty.department 
-        : faculty.department.name;
+      const programName = typeof faculty.program === 'string' 
+        ? faculty.program 
+        : `${faculty.program.courseCode} ${faculty.program.courseName}`;
       
       return fullName.includes(query.toLowerCase()) ||
              faculty.email.toLowerCase().includes(query.toLowerCase()) ||
-             departmentName.toLowerCase().includes(query.toLowerCase());
+             programName.toLowerCase().includes(query.toLowerCase());
     });
     
     return {

@@ -13,10 +13,6 @@ export const createCourseSchema = z.object({
     .max(200, 'Course name cannot exceed 200 characters')
     .trim(),
 
-  units: z.number()
-    .min(0, 'Units must be at least 0')
-    .max(12, 'Units cannot exceed 12'),
-
   description: z.string()
     .max(500, 'Course description cannot exceed 500 characters')
     .trim()
@@ -42,11 +38,6 @@ export const updateCourseSchema = z.object({
     .trim()
     .optional(),
 
-  units: z.number()
-    .min(0, 'Units must be at least 0')
-    .max(12, 'Units cannot exceed 12')
-    .optional(),
-
   description: z.string()
     .max(500, 'Course description cannot exceed 500 characters')
     .trim()
@@ -64,7 +55,7 @@ export const courseQuerySchema = z.object({
   department: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID').optional(),
   page: z.string().transform(Number).optional(),
   limit: z.string().transform(Number).optional(),
-  sortBy: z.enum(['courseCode', 'courseName', 'units', 'createdAt']).optional(),
+  sortBy: z.enum(['courseCode', 'courseName', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional()
 });
 

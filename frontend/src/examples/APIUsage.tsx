@@ -32,7 +32,7 @@ const handleFacultyOperations = async () => {
         ext: "Dr."
       },
       email: "john.smith@example.com",
-      department: "507f1f77bcf86cd799439011", // Department ID
+      program: "507f1f77bcf86cd799439011", // Program (Course) ID
       employmentType: "full-time",
       minLoad: 18,
       maxLoad: 24,
