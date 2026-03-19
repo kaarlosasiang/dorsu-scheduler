@@ -19,9 +19,10 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/common/sidebar/app-sidebar";
+import { canAccessDashboard, getDefaultRouteForRole } from "@/lib/role-routes";
 
 // Routes faculty members are allowed to access
-const FACULTY_ALLOWED_PATHS = ["/dashboard", "/schedules"];
+const FACULTY_ALLOWED_PATHS = ["/schedules"];
 
 export default function ProtectedLayout({
   children,
@@ -38,13 +39,18 @@ export default function ProtectedLayout({
       return;
     }
 
+    if (!isLoading && isAuthenticated && pathname.startsWith("/dashboard") && !canAccessDashboard(user?.role)) {
+      router.push(getDefaultRouteForRole(user?.role));
+      return;
+    }
+
     // Redirect faculty away from admin-only routes
     if (!isLoading && isAuthenticated && user?.role === "faculty") {
       const isAllowed = FACULTY_ALLOWED_PATHS.some((path) =>
         pathname === path || pathname.startsWith(path + "/")
       );
       if (!isAllowed) {
-        router.push("/dashboard");
+        router.push(getDefaultRouteForRole(user.role));
       }
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);

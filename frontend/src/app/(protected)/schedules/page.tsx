@@ -20,7 +20,6 @@ import {
     Sparkles,
     PlayCircle,
     LayoutGrid,
-    List,
     CalendarRange,
     TableProperties,
     Download,
@@ -64,10 +63,9 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useRouter } from "next/navigation";
 import { type ISchedule, ScheduleAPI } from "@/lib/services/ScheduleAPI";
 import { toast } from "sonner";
-import { exportCourseOffering } from "@/lib/utils/exportCourseOffering";
+import { exportCourseOffering, type ExportSchedule } from "@/lib/utils/exportCourseOffering";
 import { useCourses } from "@/hooks/useCourses";
 import { ScheduleCalendar } from "@/components/common/schedule-calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/authContext";
 import { FacultyAPI } from "@/lib/services/FacultyAPI";
 import { useQueryState } from "nuqs";
@@ -92,6 +90,50 @@ interface Schedule {
     departmentName: string;
 }
 
+interface ScheduleSubjectCourse {
+    courseName?: string;
+    courseCode?: string;
+}
+
+interface ScheduleSubject {
+    subjectName?: string;
+    name?: string;
+    subjectCode?: string;
+    code?: string;
+    yearLevel?: string;
+    course?: string | ScheduleSubjectCourse;
+}
+
+interface ScheduleFaculty {
+    name?: {
+        first?: string;
+        last?: string;
+    };
+    firstName?: string;
+    lastName?: string;
+}
+
+interface ScheduleClassroom {
+    roomNumber?: string;
+    displayName?: string;
+    name?: string;
+}
+
+interface ScheduleDepartment {
+    name?: string;
+    departmentName?: string;
+}
+
+interface ScheduleSection {
+    name?: string;
+    sectionCode?: string;
+}
+
+type FilterableScheduleColumn = ColumnDef<Schedule> & {
+    id?: string;
+    enableColumnFilter?: boolean;
+};
+
 const SCHOOL_YEAR_OPTION_COUNT = 4;
 
 const getCurrentSchoolYearStart = () => {
@@ -115,14 +157,17 @@ const buildAcademicYearOptions = (count: number) => {
 const transformSchedule = (schedule: ISchedule): Schedule => {
     // When Mongoose populates, it replaces the ID string with the full object
     // So schedule.subject could be either a string (ID) or an object (populated)
-    const subject = typeof schedule.subject === 'object' ? schedule.subject : null;
-    const subjectCourse = subject && typeof (subject as any).course === 'object'
-        ? (subject as any).course
+    const subject = typeof schedule.subject === 'object' ? (schedule.subject as ScheduleSubject) : null;
+    const subjectCourse = subject && typeof subject.course === 'object'
+        ? subject.course
         : null;
-    const faculty = typeof schedule.faculty === 'object' ? schedule.faculty : null;
-    const classroom = typeof schedule.classroom === 'object' ? schedule.classroom : null;
-    const department = typeof schedule.department === 'object' ? schedule.department : null;
-    const section = typeof schedule.section === 'object' ? schedule.section : null;
+    const faculty = typeof schedule.faculty === 'object' ? (schedule.faculty as ScheduleFaculty) : null;
+    const classroom = typeof schedule.classroom === 'object' ? (schedule.classroom as ScheduleClassroom) : null;
+    const department = typeof schedule.department === 'object' ? (schedule.department as ScheduleDepartment) : null;
+    const section = typeof schedule.section === 'object' ? (schedule.section as ScheduleSection) : null;
+    const sectionDetails = typeof schedule.sectionDetails === "object"
+        ? (schedule.sectionDetails as ScheduleSection)
+        : null;
 
     // Debug logging (remove after testing)
     if (!subject) {
@@ -147,34 +192,34 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
 
     return {
         id: schedule._id || schedule.id || "",
-        courseName: (subject as any)?.subjectName || (subject as any)?.name || "Unknown Course",
-        courseCode: (subject as any)?.subjectCode || (subject as any)?.code || "N/A",
-        facultyName: (faculty as any)?.name
-            ? `${(faculty as any).name.first || ''} ${(faculty as any).name.last || ''}`.trim()
-            : (faculty as any)?.firstName && (faculty as any)?.lastName
-            ? `${(faculty as any).firstName} ${(faculty as any).lastName}`
+        courseName: subject?.subjectName || subject?.name || "Unknown Course",
+        courseCode: subject?.subjectCode || subject?.code || "N/A",
+        facultyName: faculty?.name
+            ? `${faculty.name.first || ''} ${faculty.name.last || ''}`.trim()
+            : faculty?.firstName && faculty?.lastName
+            ? `${faculty.firstName} ${faculty.lastName}`
             : "Unknown Faculty",
-        classroom: (classroom as any)?.roomNumber || (classroom as any)?.displayName || (classroom as any)?.name || "Unknown Room",
+        classroom: classroom?.roomNumber || classroom?.displayName || classroom?.name || "Unknown Room",
         day: dayDisplay,
         timeSlot: schedule.timeSlot?.startTime && schedule.timeSlot?.endTime
             ? `${schedule.timeSlot.startTime} - ${schedule.timeSlot.endTime}`
             : "N/A",
         semester: schedule.semester || "N/A",
         academicYear: schedule.academicYear || "N/A",
-        yearLevel: schedule.yearLevel || (subject as any)?.yearLevel || "N/A",
+        yearLevel: schedule.yearLevel || subject?.yearLevel || "N/A",
         section:
-            (section as any)?.name ||
-            (section as any)?.sectionCode ||
-            (schedule as any).sectionDetails?.name ||
-            (schedule as any).sectionDetails?.sectionCode ||
+            section?.name ||
+            section?.sectionCode ||
+            sectionDetails?.name ||
+            sectionDetails?.sectionCode ||
             "",
         status: schedule.status || "draft",
         isGenerated: schedule.isGenerated || false,
         departmentName:
-            (subjectCourse as any)?.courseName ||
-            (subjectCourse as any)?.courseCode ||
-            (department as any)?.name ||
-            (department as any)?.departmentName ||
+            subjectCourse?.courseName ||
+            subjectCourse?.courseCode ||
+            department?.name ||
+            department?.departmentName ||
             "Unknown Program",
     };
 };
@@ -503,7 +548,7 @@ const baseColumns: ColumnDef<Schedule>[] = [
     },
 ];
 
-function ScheduleActionCell({ schedule }: { schedule: any }) {
+function ScheduleActionCell({ schedule }: { schedule: Schedule }) {
     const router = useRouter();
 
     return (
@@ -544,6 +589,7 @@ export default function SchedulesPage() {
     const router = useRouter();
     const { user } = useAuth();
     const isFaculty = user?.role === "faculty";
+    const isAdmin = user?.role === "admin";
 
     // For faculty users, fetch their linked Faculty record to get the ID for filtering
     const [facultyId, setFacultyId] = React.useState<string | undefined>(undefined);
@@ -579,6 +625,9 @@ export default function SchedulesPage() {
     );
     const [generateDialogOpen, setGenerateDialogOpen] = React.useState(false);
     const [generating, setGenerating] = React.useState(false);
+    const [publishing, setPublishing] = React.useState(false);
+    const [publishConfirmOpen, setPublishConfirmOpen] = React.useState(false);
+    const [publishConfirmMode, setPublishConfirmMode] = React.useState<"selected" | "all">("selected");
     const [selectedSemester, setSelectedSemester] = React.useState("1st Semester");
     const [selectedAcademicYear, setSelectedAcademicYear] = React.useState(() => academicYearOptions[0] ?? "");
     const [selectedProgramId, setSelectedProgramId] = React.useState("all");
@@ -775,6 +824,32 @@ export default function SchedulesPage() {
         getRowId: (row) => row.id,
     });
 
+    const selectedDraftScheduleIds = React.useMemo(() => {
+        return table
+            .getFilteredSelectedRowModel()
+            .rows.map((row) => row.original)
+            .filter((schedule) => schedule.status === "draft")
+            .map((schedule) => schedule.id)
+            .filter(Boolean);
+    }, [table]);
+
+    const allFilteredDraftIds = React.useMemo(() => {
+        return schedules
+            .filter((schedule) => schedule.status === "draft")
+            .map((schedule) => schedule.id)
+            .filter(Boolean);
+    }, [schedules]);
+
+    const publishAllScopeLabel = React.useMemo(() => {
+        const drafts = schedules.filter((s) => s.status === "draft");
+        const semesters = new Set(drafts.map((s) => s.semester));
+        const years = new Set(drafts.map((s) => s.academicYear));
+        if (semesters.size === 1 && years.size === 1) {
+            return `${[...semesters][0]} ${[...years][0]}`;
+        }
+        return "the current view";
+    }, [schedules]);
+
     const [advancedFilters] = useQueryState(
         "filters",
         getFiltersStateParser<Schedule>()
@@ -783,12 +858,16 @@ export default function SchedulesPage() {
     );
 
     React.useEffect(() => {
-        const filterableColumnIds = updatedColumns
-            .filter((column) => (column as any).enableColumnFilter)
-            .map((column) => (column as any).id as string)
+        const filterableColumnIds = (updatedColumns as FilterableScheduleColumn[])
+            .filter((column) => column.enableColumnFilter)
+            .map((column) => column.id)
             .filter(Boolean);
 
         filterableColumnIds.forEach((columnId) => {
+            if (!columnId) {
+                return;
+            }
+
             const filter = advancedFilters.find((item) => item.id === columnId);
 
             if (!filter || filter.operator === "isEmpty" || filter.operator === "isNotEmpty") {
@@ -836,6 +915,45 @@ export default function SchedulesPage() {
         }
     };
 
+    const handlePublishSelected = () => {
+        if (!selectedDraftScheduleIds.length) {
+            toast.error("Select at least one draft schedule to publish.");
+            return;
+        }
+        setPublishConfirmMode("selected");
+        setPublishConfirmOpen(true);
+    };
+
+    const handlePublishAll = () => {
+        if (!allFilteredDraftIds.length) {
+            toast.error("No draft schedules found in the current view.");
+            return;
+        }
+        setPublishConfirmMode("all");
+        setPublishConfirmOpen(true);
+    };
+
+    const handleConfirmPublish = async () => {
+        const ids = publishConfirmMode === "selected" ? selectedDraftScheduleIds : allFilteredDraftIds;
+        setPublishConfirmOpen(false);
+        setPublishing(true);
+        try {
+            const result = await ScheduleAPI.publishSchedules(ids);
+
+            if (result.success) {
+                toast.success(result.message || `Published ${result.count} schedule(s) successfully.`);
+                table.resetRowSelection();
+                await refetch();
+            } else {
+                toast.error(result.message || "Failed to publish schedules");
+            }
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to publish schedules");
+        } finally {
+            setPublishing(false);
+        }
+    };
+
     const handleExportCourseOffering = async () => {
         setExporting(true);
         try {
@@ -852,7 +970,7 @@ export default function SchedulesPage() {
                 return;
             }
 
-            let schedulesForExport = result.data as any[];
+            let schedulesForExport = result.data as ExportSchedule[];
 
             if (exportProgramId !== "all") {
                 const subjectResult = exportYearLevel !== "all"
@@ -895,7 +1013,7 @@ export default function SchedulesPage() {
                 institute: exportInstitute,
                 semester: exportSemester,
                 academicYear: exportAcademicYear,
-                schedules: schedulesForExport as any[],
+                schedules: schedulesForExport,
             });
 
             toast.success("Course offering PDF exported successfully!");
@@ -968,17 +1086,37 @@ export default function SchedulesPage() {
                         <Download className="mr-2 h-4 w-4" />
                         Export
                     </Button>
-                    <Button
-                        variant="outline"
-                        onClick={() => router.push("/schedules/add")}
-                    >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Schedule
-                    </Button>
-                    <Button onClick={() => setGenerateDialogOpen(true)}>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Generate Schedules
-                    </Button>
+                    {isAdmin ? (
+                        <>
+                            <Button
+                                variant="outline"
+                                onClick={handlePublishSelected}
+                                disabled={publishing || selectedDraftScheduleIds.length === 0}
+                            >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Publish Selected ({selectedDraftScheduleIds.length})
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handlePublishAll}
+                                disabled={publishing || allFilteredDraftIds.length === 0}
+                            >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Publish All Drafts ({allFilteredDraftIds.length})
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => router.push("/schedules/add")}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Schedule
+                            </Button>
+                            <Button onClick={() => setGenerateDialogOpen(true)}>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Generate Schedules
+                            </Button>
+                        </>
+                    ) : null}
                 </div>
             </div>
 
@@ -1184,6 +1322,40 @@ export default function SchedulesPage() {
                                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating PDF...</>
                             ) : (
                                 <><Download className="mr-2 h-4 w-4" />Export PDF</>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Publish Confirmation Dialog */}
+            <Dialog open={publishConfirmOpen} onOpenChange={setPublishConfirmOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <CheckCircle2 className="h-5 w-5" />
+                            Confirm Publish
+                        </DialogTitle>
+                        <DialogDescription>
+                            {publishConfirmMode === "selected"
+                                ? `You are about to publish ${selectedDraftScheduleIds.length} selected draft schedule(s). Once published, they will be visible to all users.`
+                                : `You are about to publish all ${allFilteredDraftIds.length} draft schedule(s) in ${publishAllScopeLabel}. Once published, they will be visible to all users.`
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setPublishConfirmOpen(false)}
+                            disabled={publishing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleConfirmPublish} disabled={publishing}>
+                            {publishing ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Publishing...</>
+                            ) : (
+                                <><CheckCircle2 className="mr-2 h-4 w-4" />Publish</>
                             )}
                         </Button>
                     </DialogFooter>

@@ -60,7 +60,7 @@ function hasOverlap(range: TimeRange, startMin: number, endMin: number): boolean
 /** Check whether a faculty member or classroom is free for the given time slot (in-memory). */
 function isSlotFree(
   store: InMemoryScheduleStore,
-  entityType: 'faculty' | 'classroom',
+  entityType: 'faculty' | 'classroom' | 'section',
   entityId: string,
   timeSlot: ITimeSlot
 ): boolean {
@@ -79,7 +79,7 @@ function isSlotFree(
 /** Mark a faculty member or classroom as occupied for the given time slot (in-memory). */
 function markSlotOccupied(
   store: InMemoryScheduleStore,
-  entityType: 'faculty' | 'classroom',
+  entityType: 'faculty' | 'classroom' | 'section',
   entityId: string,
   timeSlot: ITimeSlot
 ): void {

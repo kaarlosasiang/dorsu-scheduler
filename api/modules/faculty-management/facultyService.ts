@@ -466,7 +466,7 @@ export class FacultyService {
   }> {
     try {
       const query = program ? { program: program } : {};
-      const faculty = await Faculty.find(query);
+      const faculty = await Faculty.find(query).populate('program', 'courseCode courseName');
 
       const stats = {
         total: faculty.length,
@@ -478,7 +478,16 @@ export class FacultyService {
         averageWorkload: 0,
         totalPreparations: faculty.reduce((sum, f) => sum + (f.currentPreparations || 0), 0),
         averagePreparations: 0,
-        programs: [...new Set(faculty.map(f => f.program))]
+        programs: [...new Set(
+          faculty
+            .map(f => {
+              const p = f.program as any;
+              if (!p) return null;
+              if (typeof p === 'object') return p.courseCode || p.courseName || null;
+              return null;
+            })
+            .filter(Boolean)
+        )] as string[]
       };
 
       stats.averageWorkload = stats.total > 0 ? stats.totalWorkload / stats.total : 0;

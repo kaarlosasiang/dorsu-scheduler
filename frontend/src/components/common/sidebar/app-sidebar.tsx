@@ -84,17 +84,13 @@ const adminNav = [
 
 const facultyNav = [
     {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: LayoutDashboard,
-        isActive: true,
-    },
-    {
         title: "My Schedule",
         url: "/schedules",
         icon: CalendarRange,
     },
 ];
+
+const staffNav = adminNav.filter((item) => item.url !== "/dashboard");
 
 const teams = [
     {
@@ -106,7 +102,7 @@ const teams = [
 
 export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
     const { user } = useAuth();
-    const navItems = user?.role === "faculty" ? facultyNav : adminNav;
+    const navItems = user?.role === "admin" ? adminNav : user?.role === "faculty" ? facultyNav : staffNav;
 
     return (
         <Sidebar collapsible="icon" variant="floating" {...props}>
