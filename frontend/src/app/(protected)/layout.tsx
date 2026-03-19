@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/authContext";
 import { Loader2 } from "lucide-react";
 import {
@@ -20,19 +20,34 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/common/sidebar/app-sidebar";
 
+// Routes faculty members are allowed to access
+const FACULTY_ALLOWED_PATHS = ["/dashboard", "/schedules"];
+
 export default function ProtectedLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+
+    // Redirect faculty away from admin-only routes
+    if (!isLoading && isAuthenticated && user?.role === "faculty") {
+      const isAllowed = FACULTY_ALLOWED_PATHS.some((path) =>
+        pathname === path || pathname.startsWith(path + "/")
+      );
+      if (!isAllowed) {
+        router.push("/dashboard");
+      }
+    }
+  }, [isAuthenticated, isLoading, user, pathname, router]);
 
   // Show loading spinner while checking authentication
   if (isLoading) {

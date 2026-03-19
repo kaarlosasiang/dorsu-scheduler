@@ -287,6 +287,64 @@ export class AuthController {
   }
 
   /**
+   * Create faculty user account (admin only)
+   * POST /api/auth/faculty/create
+   */
+  static async createFacultyUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { email, password, facultyId } = req.body;
+
+      // Validation
+      if (!email || !password) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.VALIDATION.REQUIRED_FIELD('Email and password')
+        });
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        res.status(400).json({
+          success: false,
+          message: 'Please provide a valid email address'
+        });
+        return;
+      }
+
+      if (password.length < PASSWORD_CONFIG.MIN_LENGTH) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.VALIDATION.MIN_LENGTH('Password', PASSWORD_CONFIG.MIN_LENGTH)
+        });
+        return;
+      }
+
+      // Create faculty user
+      const result = await AuthService.createFacultyUser(email, password, facultyId);
+
+      res.status(201).json({
+        success: true,
+        message: 'Faculty user created successfully',
+        data: result
+      });
+
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error'
+        });
+      }
+    }
+  }
+
+  /**
    * Get current user profile
    * GET /api/auth/profile
    */

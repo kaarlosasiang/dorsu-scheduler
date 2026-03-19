@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { User, Building2, Activity, Clock, Briefcase, Mail, Image, Shield } from "lucide-react";
+import { User, Building2, Activity, Clock, Briefcase, Mail, Image, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -48,6 +48,8 @@ export function FacultyForm({
   className,
 }: FacultyFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { createFaculty, updateFaculty } = useFacultyForm();
   const { courses, loading: programsLoading, error: programsError } = useCourses();
 
@@ -71,6 +73,8 @@ export function FacultyForm({
       minLoad: initialData?.minLoad || 18,
       maxLoad: initialData?.maxLoad || 26,
       status: initialData?.status || "active",
+      password: "faculty123",
+      confirmPassword: "faculty123",
     },
   });
 
@@ -556,6 +560,74 @@ export function FacultyForm({
             </div>
           </CardContent>
         </Card>
+
+        {/* Login Access - only shown in create mode */}
+        {mode === "create" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Login Access (Optional)
+              </CardTitle>
+              <CardDescription>
+                Set a password to allow this faculty member to log in and view their schedule. You can skip this now and set it up later.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Min. 6 characters"
+                    {...register("password")}
+                    aria-invalid={errors.password ? "true" : "false"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <FieldDescription className="text-destructive text-sm">
+                    {errors.password.message}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    {...register("confirmPassword")}
+                    aria-invalid={errors.confirmPassword ? "true" : "false"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <FieldDescription className="text-destructive text-sm">
+                    {errors.confirmPassword.message}
+                  </FieldDescription>
+                )}
+              </Field>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 

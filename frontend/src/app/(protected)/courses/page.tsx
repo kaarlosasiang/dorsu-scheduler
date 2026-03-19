@@ -14,6 +14,7 @@ import {
     Loader2,
     Code,
     Mail,
+    Layers,
 } from "lucide-react";
 
 import {DataTable} from "@/components/common/data-table/data-table";
@@ -118,11 +119,7 @@ const columns: ColumnDef<Course>[] = [
         header: ({column}) => (
             <DataTableColumnHeader column={column} title="Program Name"/>
         ),
-        cell: ({row}) => (
-            <div className="max-w-[300px]">
-                <div className="font-medium truncate">{row.original.courseName}</div>
-            </div>
-        ),
+        cell: ({row}) => <CourseNameCell course={row.original} />,
         enableSorting: true,
         enableColumnFilter: true,
         size: 300,
@@ -168,6 +165,23 @@ const columns: ColumnDef<Course>[] = [
     },
 ];
 
+function CourseNameCell({ course }: { course: Course }) {
+    const router = useRouter();
+    return (
+        <button
+            className="max-w-[300px] text-left group"
+            onClick={() => router.push(`/courses/${course.id}/sections`)}
+        >
+            <div className="font-medium truncate group-hover:text-primary group-hover:underline underline-offset-4 transition-colors">
+                {course.courseName}
+            </div>
+            <div className="text-xs text-muted-foreground group-hover:text-primary/70 transition-colors">
+                View sections →
+            </div>
+        </button>
+    );
+}
+
 function CourseActionCell({ course }: { course: any }) {
     const router = useRouter();
 
@@ -190,6 +204,10 @@ function CourseActionCell({ course }: { course: any }) {
                         <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}`)}>
                             <Eye className="mr-2 h-4 w-4"/>
                             View details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/sections`)}>
+                            <Layers className="mr-2 h-4 w-4"/>
+                            Manage Sections
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/edit`)}>
                             <Edit className="mr-2 h-4 w-4"/>

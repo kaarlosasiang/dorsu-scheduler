@@ -236,19 +236,27 @@ export const FacultyAPI = {
     const response = await FacultyAPI.getAll();
     const filteredFaculty = response.data.filter(faculty => {
       const fullName = `${faculty.name.first} ${faculty.name.middle || ''} ${faculty.name.last} ${faculty.name.ext || ''}`.toLowerCase();
-      const programName = typeof faculty.program === 'string' 
-        ? faculty.program 
+      const programName = typeof faculty.program === 'string'
+        ? faculty.program
         : `${faculty.program.courseCode} ${faculty.program.courseName}`;
-      
+
       return fullName.includes(query.toLowerCase()) ||
              faculty.email.toLowerCase().includes(query.toLowerCase()) ||
              programName.toLowerCase().includes(query.toLowerCase());
     });
-    
+
     return {
       ...response,
       data: filteredFaculty,
       count: filteredFaculty.length,
     };
+  },
+
+  /**
+   * Get the faculty record linked to the currently logged-in user
+   */
+  getMe: async (): Promise<FacultyResponse> => {
+    const response = await APIService.get(APP_CONFIG.ENDPOINTS.FACULTY.ME);
+    return response.data as FacultyResponse;
   },
 };

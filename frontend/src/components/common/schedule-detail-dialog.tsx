@@ -21,6 +21,7 @@ import {
     Edit,
     Trash2,
     Sparkles,
+    Layers,
 } from "lucide-react";
 
 interface ScheduleEvent {
@@ -34,6 +35,8 @@ interface ScheduleEvent {
     endTime: string;
     semester: string;
     academicYear: string;
+    yearLevel: string;
+    section?: string;
     status: string;
     departmentName: string;
     isGenerated: boolean;
@@ -164,7 +167,7 @@ export function ScheduleDetailDialog({
                             <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
                                 <Building2 className="h-5 w-5 text-primary mt-0.5" />
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium">Department</p>
+                                    <p className="text-sm font-medium">Program</p>
                                     <p className="text-sm text-muted-foreground">{schedule.departmentName}</p>
                                 </div>
                             </div>
@@ -181,6 +184,18 @@ export function ScheduleDetailDialog({
                                     </p>
                                 </div>
                             </div>
+
+                            {schedule.section && (
+                                <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+                                    <Layers className="h-5 w-5 text-primary mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium">Section</p>
+                                        <p className="text-sm font-mono font-semibold text-foreground">
+                                            {schedule.section}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

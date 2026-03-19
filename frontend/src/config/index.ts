@@ -30,9 +30,11 @@ const APP_CONFIG = {
       REFRESH_TOKEN: "auth/refresh",
       ME: "auth/profile",
       REGISTER: "auth/register",
+      CREATE_FACULTY_USER: "auth/faculty/create",
     },
     FACULTY: {
       BASE: "faculty",
+      ME: "faculty/me",
       STATS: "faculty/stats",
       WORKLOAD: (id: string) => `faculty/${id}/workload`,
       STATUS: (id: string) => `faculty/${id}/status`,

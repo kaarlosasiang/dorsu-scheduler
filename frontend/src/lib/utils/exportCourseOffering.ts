@@ -63,7 +63,20 @@ export interface ExportSchedule {
   semester: string;
   academicYear: string;
   yearLevel?: string;
-  section?: string;
+  section?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        name?: string;
+        sectionCode?: string;
+      };
+  sectionDetails?: {
+    _id?: string;
+    id?: string;
+    name?: string;
+    sectionCode?: string;
+  };
   status?: string;
 }
 
@@ -101,13 +114,25 @@ function formatDays(timeSlot: ExportSchedule["timeSlot"]): string {
 }
 
 function to12h(time: string): string {
-  const [hStr, mStr] = time.split(":");
-  let h = parseInt(hStr, 10);
-  const m = mStr ?? "00";
-  const suffix = h >= 12 ? "PM" : "AM";
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  return `${h}:${m}${suffix}`;
+  const raw = (time || "").trim().toUpperCase();
+
+  const ampmMatch = raw.match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/);
+  if (ampmMatch) {
+    const [, hour, minute, suffix] = ampmMatch;
+    return `${parseInt(hour, 10)}:${minute}${suffix}`;
+  }
+
+  const twentyFourMatch = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourMatch) {
+    const [, hour, minute] = twentyFourMatch;
+    let h = parseInt(hour, 10);
+    const suffix = h >= 12 ? "PM" : "AM";
+    if (h === 0) h = 12;
+    else if (h > 12) h -= 12;
+    return `${h}:${minute}${suffix}`;
+  }
+
+  return raw;
 }
 
 function formatTimeRange(ts: ExportSchedule["timeSlot"]): string {
@@ -127,6 +152,25 @@ function getSubject(subject: ExportSchedule["subject"]) {
 function getClassroom(classroom: ExportSchedule["classroom"]) {
   if (typeof classroom === "string") return null;
   return classroom;
+}
+
+function getSectionDisplay(schedule: ExportSchedule): string {
+  const directSection = schedule.section;
+  const detailSection = schedule.sectionDetails;
+
+  if (directSection && typeof directSection === "object") {
+    return (directSection.name || directSection.sectionCode || "").toUpperCase();
+  }
+
+  if (detailSection) {
+    return (detailSection.name || detailSection.sectionCode || "").toUpperCase();
+  }
+
+  if (typeof directSection === "string") {
+    return directSection;
+  }
+
+  return "";
 }
 
 async function loadImageAsBase64(url: string): Promise<string | null> {
@@ -366,7 +410,7 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
   const sectionMap = new Map<string, ExportSchedule[]>();
 
   for (const sched of schedules) {
-    const key = `${sched.yearLevel ?? "Unknown"}|||${sched.section ?? ""}`;
+    const key = `${sched.yearLevel ?? "Unknown"}|||${getSectionDisplay(sched)}`;
     if (!sectionMap.has(key)) sectionMap.set(key, []);
     sectionMap.get(key)!.push(sched);
   }
@@ -630,19 +674,580 @@ export interface FacultyWorkloadExportOptions {
   facultyName: string;
   programName?: string;
   institute?: string;
+  designation?: string;
+  employmentType?: "full-time" | "part-time";
+  maxLoad?: number;
+  adminLoad?: number;
   semester: string;
   academicYear: string;
   schedules: ExportSchedule[];
 }
 
+export interface FacultyWorkloadBatchEntry {
+  facultyName: string;
+  programName?: string;
+  designation?: string;
+  employmentType?: "full-time" | "part-time";
+  maxLoad?: number;
+  adminLoad?: number;
+  schedules: ExportSchedule[];
+}
+
+export interface FacultyWorkloadBatchExportOptions {
+  institute?: string;
+  semester: string;
+  academicYear: string;
+  entries: FacultyWorkloadBatchEntry[];
+}
+
+// ─── Faculty Workload: shared column styles ───────────────────────────────────
+
+const FW_COL_STYLES: Record<number, { cellWidth: number }> = {
+  0: { cellWidth: 15 },
+  1: { cellWidth: 33 },
+  2: { cellWidth: 10 },
+  3: { cellWidth: 10 },
+  4: { cellWidth: 10 },
+  5: { cellWidth: 14 },
+  6: { cellWidth: 13 },
+  7: { cellWidth: 10 },
+  8: { cellWidth: 20 },
+  9: { cellWidth: 12 },
+  10: { cellWidth: 14 },
+  11: { cellWidth: 14 },
+};
+
+// ─── Faculty Workload: page header ────────────────────────────────────────────
+
+interface FWHeaderInfo {
+  page: number;
+  boxX: number;
+  r4Y: number;
+  subCW: number;
+  boxBottom: number;
+  nextY: number;
+}
+
+/**
+ * Draws the FM-DOrSU-ODI-02 page header (logo, university name, doc-code box,
+ * FACULTY WORKLOAD title, Institute / Semester / Academic Year info lines).
+ *
+ * Returns coordinates needed to later overwrite the page number once the
+ * total page count is known, plus `nextY` — the Y position where faculty
+ * content blocks should begin.
+ */
+function renderFWHeader(
+  doc: jsPDF,
+  logoBase64: string | null,
+  page: number,
+  opts: {
+    institute: string;
+    semester: string;
+    academicYear: string;
+    programName?: string;
+  }
+): FWHeaderInfo {
+  const { institute, semester, academicYear, programName } = opts;
+
+  const semLabel =
+    semester === "1st Semester"
+      ? "FIRST"
+      : semester === "2nd Semester"
+      ? "SECOND"
+      : semester.toUpperCase();
+
+  const LOGO_SIZE = 30;
+  const BOX_W = 52;
+  const BOX_H = 20;
+
+  const logoX = PAGE_W / 2 - LOGO_SIZE / 2;
+  const logoY = MARGIN_TOP;
+  const boxX = PAGE_W - MARGIN_RIGHT - BOX_W;
+  const boxCX = boxX + BOX_W / 2;
+  const leftRightX = logoX - 2;
+
+  const motto = '"A University of excellence, innovation, and inclusion"';
+  const mottoMaxW = logoX - MARGIN_LEFT - 3;
+  doc.setFont("times", "italic");
+  doc.setFontSize(7.5);
+  const mottoLines = doc.splitTextToSize(motto, mottoMaxW);
+  const mottoLineH = 3.5;
+  const mottoStartY = logoY + 21;
+  const bottomLineY = mottoStartY + (mottoLines.length - 1) * mottoLineH + 4;
+  const blockHeight = bottomLineY - logoY;
+  const boxY = logoY + (blockHeight - BOX_H) / 2;
+
+  doc.setDrawColor(...HEADER_BLUE);
+  doc.setLineWidth(0.8);
+  doc.line(MARGIN_LEFT, logoY, leftRightX, logoY);
+
+  let y = logoY + 7;
+  doc.setFont("times", "bold");
+  doc.setFontSize(19);
+  doc.setTextColor(...HEADER_BLUE);
+  doc.text("DAVAO ORIENTAL", MARGIN_LEFT, y);
+  y += 8;
+  doc.text("STATE UNIVERSITY", MARGIN_LEFT, y);
+  y += 6;
+  doc.setFont("times", "italic");
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text(mottoLines, MARGIN_LEFT, y);
+  doc.setDrawColor(...HEADER_BLUE);
+  doc.setLineWidth(0.8);
+  doc.line(MARGIN_LEFT, bottomLineY, leftRightX, bottomLineY);
+
+  if (logoBase64) {
+    try {
+      doc.addImage(logoBase64, "PNG", logoX, logoY - 3, LOGO_SIZE, LOGO_SIZE);
+    } catch {
+      // skip invalid logo
+    }
+  }
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.35);
+  doc.rect(boxX, boxY, BOX_W, BOX_H);
+
+  const r1H = 4.5;
+  doc.setFillColor(...HEADER_BLUE);
+  doc.rect(boxX, boxY, BOX_W, r1H, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Document Code No.", boxCX, boxY + 3.2, { align: "center" });
+  doc.setTextColor(0, 0, 0);
+  doc.line(boxX, boxY + r1H, boxX + BOX_W, boxY + r1H);
+
+  const r2Y = boxY + r1H;
+  const r2H = 5.5;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.text("FM-DOrSU-ODI-02", boxCX, r2Y + 4, { align: "center" });
+  doc.line(boxX, r2Y + r2H, boxX + BOX_W, r2Y + r2H);
+
+  const subLabels = ["Issue Status", "Rev No.", "Effective Date", "Page No."];
+  const subCW = BOX_W / 4;
+  const r3Y = r2Y + r2H;
+  const r3H = 4;
+  const r4Y = r3Y + r3H;
+  const boxBottom = boxY + BOX_H;
+
+  for (let i = 1; i < 4; i++) {
+    doc.setLineWidth(0.3);
+    doc.line(boxX + subCW * i, r3Y, boxX + subCW * i, boxBottom);
+  }
+
+  doc.setFillColor(...HEADER_BLUE);
+  doc.rect(boxX, r3Y, BOX_W, r3H, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(5.5);
+  doc.setTextColor(255, 255, 255);
+  subLabels.forEach((lbl, i) => {
+    doc.text(lbl, boxX + subCW * i + subCW / 2, r3Y + 3, { align: "center" });
+  });
+  doc.setTextColor(0, 0, 0);
+  doc.setLineWidth(0.3);
+  doc.line(boxX, r4Y, boxX + BOX_W, r4Y);
+
+  // Static sub-values; page number is a placeholder updated after all pages are rendered
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  ["01", "00", "07.22.2022"].forEach((val, i) => {
+    doc.text(val, boxX + subCW * i + subCW / 2, r4Y + 3.5, { align: "center" });
+  });
+  doc.text(String(page), boxX + subCW * 3 + subCW / 2, r4Y + 3.5, { align: "center" });
+
+  const titleY = logoY + LOGO_SIZE + 10;
+  doc.setFont("times", "bold");
+  doc.setFontSize(17);
+  doc.setTextColor(...BRAND_BLUE);
+  doc.text("FACULTY WORKLOAD", PAGE_W / 2, titleY, { align: "center" });
+
+  const infoY = titleY + 8;
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+
+  const drawInfoField = (label: string, value: string, x: number, y: number) => {
+    doc.setFont("times", "normal");
+    doc.text(label, x, y);
+    doc.setFont("times", "bold");
+    doc.text(value, x + doc.getTextWidth(label) + 1.2, y);
+  };
+
+  drawInfoField("Institute: ", institute, MARGIN_LEFT, infoY);
+  drawInfoField("Semester: ", semLabel, MARGIN_LEFT + 118, infoY);
+  drawInfoField("Programs: ", programName || "", MARGIN_LEFT, infoY + 4.8);
+  drawInfoField("Academic Year: ", academicYear, MARGIN_LEFT + 118, infoY + 4.8);
+
+  const nextY = infoY + 10.2;
+  return { page, boxX, r4Y, subCW, boxBottom, nextY };
+}
+
+// ─── Faculty Workload: per-faculty content block ──────────────────────────────
+
+/**
+ * Renders one faculty numbered block (category label + metadata table +
+ * schedule table) starting at `startY`.  Returns the Y position after the
+ * last table, so the caller can decide where the next block begins.
+ */
+function renderFWEntry(
+  doc: jsPDF,
+  startY: number,
+  entryNumber: number,
+  payload: {
+    facultyName: string;
+    designation?: string;
+    employmentType?: "full-time" | "part-time";
+    maxLoad: number;
+    adminLoad: number;
+    schedules: ExportSchedule[];
+    programName?: string;
+  }
+): number {
+  const {
+    facultyName,
+    designation = "",
+    employmentType,
+    maxLoad,
+    adminLoad,
+    schedules,
+  } = payload;
+
+  const normalizedSchedules = [...schedules].sort((a, b) => {
+    const aSubj = getSubject(a.subject)?.subjectCode ?? "";
+    const bSubj = getSubject(b.subject)?.subjectCode ?? "";
+    if (aSubj !== bSubj) return aSubj.localeCompare(bSubj);
+    const aDay = formatDays(a.timeSlot);
+    const bDay = formatDays(b.timeSlot);
+    if (aDay !== bDay) return aDay.localeCompare(bDay);
+    return a.timeSlot.startTime.localeCompare(b.timeSlot.startTime);
+  });
+
+  const uniquePreparations = new Set(
+    normalizedSchedules.map((s) => {
+      const subj = getSubject(s.subject);
+      return subj?._id ?? subj?.subjectCode ?? String(s.subject);
+    })
+  ).size;
+
+  const totalTeachingLoad = normalizedSchedules.reduce((sum, s) => {
+    const subj = getSubject(s.subject);
+    return sum + (subj?.units ?? 0);
+  }, 0);
+  const totalLoad = totalTeachingLoad + adminLoad;
+  const overload = Math.max(totalLoad - maxLoad, 0);
+
+  const facultyCategoryLabel =
+    employmentType === "full-time"
+      ? "A. Full-Time/Regular Faculty Members"
+      : employmentType === "part-time"
+      ? "B. Part-Time Faculty Members"
+      : "";
+
+  let y = startY;
+  if (facultyCategoryLabel) {
+    doc.setFont("times", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text(facultyCategoryLabel, MARGIN_LEFT, y);
+    y += 5.5;
+  }
+
+  const tableRows = normalizedSchedules.map((schedule) => {
+    const subject = getSubject(schedule.subject);
+    const classroom = getClassroom(schedule.classroom);
+    const section = getSectionDisplay(schedule);
+    const courseCode = subject?.subjectCode ?? "";
+    const courseDescription = subject?.subjectName ?? "";
+    const lec = subject?.lectureUnits ?? 0;
+    const lab = subject?.labUnits ?? 0;
+    const totalUnits = subject?.units ?? lec + lab;
+    const program =
+      typeof schedule.subject !== "string" && (schedule.subject as any)?.course
+        ? (schedule.subject as any).course.courseCode || (schedule.subject as any).course.courseName || ""
+        : "";
+    const days = formatDays(schedule.timeSlot);
+    const time = `${to12h(schedule.timeSlot.startTime)}-${to12h(schedule.timeSlot.endTime)}`;
+    const room = classroom?.roomNumber ?? "";
+    const students = classroom?.capacity ? String(classroom.capacity) : "";
+
+    return [
+      courseCode,
+      courseDescription,
+      lec > 0 ? String(lec) : "0",
+      lab > 0 ? String(lab) : "0",
+      String(totalUnits),
+      program,
+      section,
+      days,
+      time,
+      room,
+      students,
+      "",
+    ];
+  });
+
+  const metadataRows: Array<Array<any>> = [
+    [
+      { content: `${entryNumber}.`, styles: { halign: "center", valign: "middle", fontStyle: "bold" } },
+      { content: `Name: ${facultyName}`, colSpan: 5, styles: { fontStyle: "bold", valign: "middle" } },
+      { content: `Administrative Designation: ${designation || "N/A"}`, colSpan: 6, styles: { fontStyle: "bold", valign: "middle" } },
+    ],
+    [
+      { content: `No. of Preparations: ${uniquePreparations}`, colSpan: 2, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+      { content: `Total Teaching Load: ${totalTeachingLoad.toFixed(2)}`, colSpan: 3, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+      { content: `Admin Load: ${adminLoad.toFixed(2)}`, colSpan: 2, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+      { content: `Overload: ${overload.toFixed(2)}`, colSpan: 2, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+      { content: `Total Load: ${totalLoad.toFixed(2)}`, colSpan: 2, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+      { content: "Total EUs:", colSpan: 1, styles: { valign: "middle", fontSize: 7.2, cellPadding: 1 } },
+    ],
+  ];
+
+  const tableStartY = y + 2.5;
+
+  autoTable(doc, {
+    startY: tableStartY,
+    margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
+    tableWidth: CONTENT_W,
+    body: metadataRows,
+    columnStyles: FW_COL_STYLES,
+    bodyStyles: {
+      font: "times",
+      fontSize: 8,
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0],
+      textColor: [0, 0, 0],
+      minCellHeight: 6,
+    },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    tableLineColor: [0, 0, 0],
+    tableLineWidth: 0.15,
+  });
+
+  const metadataEndY: number = (doc as any).lastAutoTable?.finalY ?? tableStartY;
+
+  autoTable(doc, {
+    startY: metadataEndY,
+    margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
+    tableWidth: CONTENT_W,
+    head: [
+      [
+        { content: "Course No.", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Course Description", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Units", colSpan: 3, styles: { halign: "center" } },
+        { content: "Program", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Section", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Days", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Time", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "Room", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "No. of Students", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+        { content: "EUs", rowSpan: 2, styles: { halign: "center", valign: "middle" } },
+      ],
+      [
+        { content: "Lec", styles: { halign: "center" } },
+        { content: "Lab", styles: { halign: "center" } },
+        { content: "Total", styles: { halign: "center" } },
+      ],
+    ],
+    body: tableRows,
+    columnStyles: FW_COL_STYLES,
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: "bold",
+      font: "times",
+      fontSize: 8,
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0],
+      minCellHeight: 5,
+    },
+    bodyStyles: {
+      font: "times",
+      fontSize: 8,
+      lineWidth: 0.1,
+      lineColor: [0, 0, 0],
+      textColor: [0, 0, 0],
+      minCellHeight: 6,
+    },
+    alternateRowStyles: { fillColor: [255, 255, 255] },
+    tableLineColor: [0, 0, 0],
+    tableLineWidth: 0.15,
+  });
+
+  return (doc as any).lastAutoTable?.finalY ?? metadataEndY;
+}
+
+// ─── Faculty Workload: single-page wrapper (used by single-faculty export) ────
+
+function renderFacultyWorkloadPage(
+  doc: jsPDF,
+  logoBase64: string | null,
+  pageNum: number,
+  totalPages: number,
+  payload: {
+    facultyName: string;
+    programName?: string;
+    institute: string;
+    designation?: string;
+    employmentType?: "full-time" | "part-time";
+    maxLoad: number;
+    adminLoad: number;
+    semester: string;
+    academicYear: string;
+    schedules: ExportSchedule[];
+  }
+): void {
+  const headerInfo = renderFWHeader(doc, logoBase64, pageNum, {
+    institute: payload.institute,
+    semester: payload.semester,
+    academicYear: payload.academicYear,
+    programName: payload.programName,
+  });
+
+  renderFWEntry(doc, headerInfo.nextY, 1, {
+    facultyName: payload.facultyName,
+    designation: payload.designation,
+    employmentType: payload.employmentType,
+    maxLoad: payload.maxLoad,
+    adminLoad: payload.adminLoad,
+    schedules: payload.schedules,
+    programName: payload.programName,
+  });
+
+  // Overwrite placeholder page number with the actual value
+  const total = Math.max(totalPages, doc.getNumberOfPages());
+  doc.setPage(pageNum);
+  doc.setFillColor(255, 255, 255);
+  doc.rect(
+    headerInfo.boxX + headerInfo.subCW * 3,
+    headerInfo.r4Y,
+    headerInfo.subCW,
+    headerInfo.boxBottom - headerInfo.r4Y,
+    "F"
+  );
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(6.5);
+  doc.setTextColor(0, 0, 0);
+  doc.text(
+    `${pageNum} of ${total}`,
+    headerInfo.boxX + headerInfo.subCW * 3 + headerInfo.subCW / 2,
+    headerInfo.r4Y + 3.5,
+    { align: "center" }
+  );
+}
+
 export async function exportFacultyWorkload(opts: FacultyWorkloadExportOptions): Promise<void> {
-  return exportCourseOffering({
-    programName: opts.programName ?? opts.facultyName,
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const logoBase64 = await loadImageAsBase64("/dorsu-icon.png");
+
+  renderFacultyWorkloadPage(doc, logoBase64, 1, 1, {
+    facultyName: opts.facultyName,
+    programName: opts.programName,
     institute: opts.institute ?? "Baganga Campus",
+    designation: opts.designation,
+    employmentType: opts.employmentType,
+    maxLoad: opts.maxLoad ?? 18,
+    adminLoad: opts.adminLoad ?? 0,
     semester: opts.semester,
     academicYear: opts.academicYear,
     schedules: opts.schedules,
   });
+
+  const safeName = opts.facultyName.replace(/[^a-zA-Z0-9 _-]/g, "").trim().replace(/\s+/g, "_");
+  doc.save(`Faculty_Workload_${safeName}_${opts.semester.replace(/\s+/g, "_")}_${opts.academicYear}.pdf`);
+}
+
+export async function exportFacultyWorkloadBatch(
+  opts: FacultyWorkloadBatchExportOptions
+): Promise<void> {
+  const { institute = "Baganga Campus", semester, academicYear, entries } = opts;
+  if (!entries.length) {
+    throw new Error("No faculty entries available for export");
+  }
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const logoBase64 = await loadImageAsBase64("/dorsu-icon.png");
+  const allPrograms = [...new Set(entries.map((entry) => entry.programName?.trim()).filter(Boolean))].join(", ");
+
+  // Minimum vertical space (mm) needed to start a new faculty block on the
+  // current page before we decide to open a fresh page instead.
+  const MIN_SPACE = 50;
+  // Vertical gap between consecutive faculty blocks on the same page.
+  const ENTRY_GAP = 5;
+
+  const headerInfoList: FWHeaderInfo[] = [];
+  let currentPageNum = 1;
+
+  // Render the first-page header
+  let headerInfo = renderFWHeader(doc, logoBase64, currentPageNum, {
+    institute,
+    semester,
+    academicYear,
+    programName: allPrograms,
+  });
+  headerInfoList.push(headerInfo);
+  let currentY = headerInfo.nextY;
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+
+    // If remaining vertical space is too small for a faculty block, start a new page
+    if (PAGE_H - MARGIN_BOTTOM - currentY < MIN_SPACE) {
+      doc.addPage();
+      currentPageNum = doc.getNumberOfPages();
+      headerInfo = renderFWHeader(doc, logoBase64, currentPageNum, {
+        institute,
+        semester,
+        academicYear,
+        programName: allPrograms,
+      });
+      headerInfoList.push(headerInfo);
+      currentY = headerInfo.nextY;
+    }
+
+    const finalY = renderFWEntry(doc, currentY, i + 1, {
+      facultyName: entry.facultyName,
+      designation: entry.designation,
+      employmentType: entry.employmentType,
+      maxLoad: entry.maxLoad ?? 18,
+      adminLoad: entry.adminLoad ?? 0,
+      schedules: entry.schedules,
+      programName: entry.programName,
+    });
+
+    // autoTable may have created additional pages for a faculty with many rows
+    currentPageNum = doc.getNumberOfPages();
+    currentY = finalY + ENTRY_GAP;
+  }
+
+  // Now that we know the true total page count, go back and update every
+  // page-number cell that was rendered with a placeholder.
+  const totalPages = doc.getNumberOfPages();
+  for (const info of headerInfoList) {
+    doc.setPage(info.page);
+    // Erase placeholder
+    doc.setFillColor(255, 255, 255);
+    doc.rect(
+      info.boxX + info.subCW * 3,
+      info.r4Y,
+      info.subCW,
+      info.boxBottom - info.r4Y,
+      "F"
+    );
+    // Draw correct page number
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(
+      `${info.page} of ${totalPages}`,
+      info.boxX + info.subCW * 3 + info.subCW / 2,
+      info.r4Y + 3.5,
+      { align: "center" }
+    );
+  }
+
+  doc.save(`Faculty_Workload_Batch_${semester.replace(/\s+/g, "_")}_${academicYear}.pdf`);
 }
 
 function drawApprovalSection(doc: jsPDF, y: number): void {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as ScheduleService from './scheduleService.js';
+import { Faculty } from '../../models/facultyModel.js';
 import {
   validateScheduleQuery,
   validateCreateSchedule,
@@ -254,6 +255,28 @@ export class ScheduleController {
           message: 'Semester and academic year are required'
         });
         return;
+      }
+
+      // Access control: faculty can only view their own schedule
+      if (req.user && req.user.role === 'faculty') {
+        const faculty = await Faculty.findById(facultyId);
+
+        if (!faculty) {
+          res.status(404).json({
+            success: false,
+            message: 'Faculty not found'
+          });
+          return;
+        }
+
+        // Check if this faculty user owns this faculty record
+        if (faculty.userId?.toString() !== req.user.id) {
+          res.status(403).json({
+            success: false,
+            message: 'You can only view your own schedule'
+          });
+          return;
+        }
       }
 
       const schedules = await ScheduleService.getByFaculty(

@@ -1,3 +1,5 @@
+import { ISection } from './ISection.js';
+
 export interface ITimeSlot {
   day: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
   days?: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday')[]; // Multiple days for patterns like MW, TTh
@@ -16,7 +18,7 @@ export interface ISchedule {
   semester: string; // e.g., "1st Semester 2024-2025"
   academicYear: string; // e.g., "2024-2025"
   yearLevel?: string; // e.g., "1st Year", "2nd Year", "3rd Year", "4th Year"
-  section?: string; // e.g., "A", "B", "C"
+  section?: string; // Section ObjectId reference
   status?: 'draft' | 'published' | 'archived';
   isGenerated?: boolean; // True if auto-generated, false if manual
   createdAt?: Date;
@@ -27,6 +29,7 @@ export interface ISchedule {
   facultyDetails?: any;
   classroomDetails?: any;
   departmentDetails?: any;
+  sectionDetails?: ISection;
 }
 
 export interface IScheduleFilter {
@@ -43,7 +46,7 @@ export interface IScheduleFilter {
 }
 
 export interface IScheduleConflict {
-  type: 'faculty' | 'classroom' | 'time' | 'workload';
+  type: 'faculty' | 'classroom' | 'time' | 'workload' | 'section';
   severity: 'error' | 'warning';
   message: string;
   schedules: string[]; // Array of schedule IDs involved

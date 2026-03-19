@@ -52,6 +52,8 @@ import { SubjectAPI } from "@/lib/services/SubjectAPI";
 import { toast } from "sonner";
 import { useDataTable } from "@/hooks/use-data-table";
 import type { ISubject } from "@/components/forms/subjects/types";
+import { useQueryState } from "nuqs";
+import { getFiltersStateParser } from "@/lib/parsers";
 
 // ─── Display shape ────────────────────────────────────────────────────────────
 
@@ -212,8 +214,11 @@ const columns: ColumnDef<Subject>[] = [
     enableSorting: true,
     enableColumnFilter: true,
     size: 130,
+    filterFn: (row, _id, filterValue: string[]) => {
+      if (!filterValue?.length) return true;
+      return filterValue.includes(row.getValue("yearLevel") as string);
+    },
     meta: {
-      label: "Year Level",
       variant: "select",
       icon: Layers,
       options: [
@@ -242,6 +247,10 @@ const columns: ColumnDef<Subject>[] = [
     enableSorting: true,
     enableColumnFilter: true,
     size: 140,
+    filterFn: (row, _id, filterValue: string[]) => {
+      if (!filterValue?.length) return true;
+      return filterValue.includes(row.getValue("semester") as string);
+    },
     meta: {
       label: "Semester",
       variant: "select",
@@ -519,10 +528,48 @@ export default function SubjectsPage() {
       sorting: [{ id: "subjectCode", desc: false }],
       columnVisibility: { createdAt: false },
     },
-    enableAdvancedFilter: true,
+    enableAdvancedFilter: false,
     enableGlobalFilter: true,
     getRowId: (row) => row.id,
   });
+
+  // Bridge: sync DataTableFilterList's advanced URL filter state to TanStack Table column filters.
+  // DataTableFilterList stores complex filter state in the "filters" URL param (JSON array).
+  // use-data-table with enableAdvancedFilter:false uses individual column URL params.
+  // This bridge reads the "filters" param and applies each filter via column.setFilterValue().
+  const [advancedFilters] = useQueryState(
+    "filters",
+    getFiltersStateParser<Subject>()
+      .withDefault([])
+      .withOptions({ shallow: true, clearOnDefault: true })
+  );
+
+  React.useEffect(() => {
+    // Clear all column filters, then apply the current advanced filter state
+    const filterableColIds = updatedColumns
+      .filter((c) => (c as any).enableColumnFilter)
+      .map((c) => (c as any).id as string)
+      .filter(Boolean);
+
+    filterableColIds.forEach((colId) => {
+      const filter = advancedFilters.find((f) => f.id === colId);
+      if (!filter || filter.operator === "isEmpty" || filter.operator === "isNotEmpty") {
+        table.getColumn(colId)?.setFilterValue(undefined);
+        return;
+      }
+      const value = filter.value;
+      if (!value || (Array.isArray(value) && value.length === 0) || value === "") {
+        table.getColumn(colId)?.setFilterValue(undefined);
+        return;
+      }
+      // For select/multiSelect variants, value is already string[]; for text/number, it's a string
+      const isSelectVariant = filter.variant === "select" || filter.variant === "multiSelect";
+      table.getColumn(colId)?.setFilterValue(
+        isSelectVariant && !Array.isArray(value) ? [value] : value
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advancedFilters]);
 
   // Stats
   const stats = React.useMemo(() => {

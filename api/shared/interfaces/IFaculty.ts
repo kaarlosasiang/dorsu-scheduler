@@ -7,6 +7,7 @@ export interface IName {
 
 export interface IFaculty {
   _id?: string;
+  userId?: string; // Reference to User account
   name: IName;
   email: string;
   program: string; // Course (Program) ObjectId as string

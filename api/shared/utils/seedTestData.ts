@@ -23,6 +23,7 @@ import { Faculty } from '../../models/facultyModel.js';
 import { Subject } from '../../models/subjectModel.js';
 import { Classroom } from '../../models/classroomModel.js';
 import { Schedule } from '../../models/scheduleModel.js';
+import { Section } from '../../models/sectionModel.js';
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
@@ -90,13 +91,51 @@ const CLASSROOMS_SEED: ClassroomSeed[] = [
 ];
 
 const PROGRAMS = [
-  { courseCode: 'BSA',   courseName: 'Bachelor of Science in Agriculture' },
-  { courseCode: 'BSAM',  courseName: 'Bachelor of Science in Agribusiness Management' },
-  { courseCode: 'BSES',  courseName: 'Bachelor of Science in Environmental Science' },
   { courseCode: 'BSIT',  courseName: 'Bachelor of Science in Information Technology' },
+  { courseCode: 'BSA',   courseName: 'Bachelor of Science in Agriculture' },
   { courseCode: 'BSBA',  courseName: 'Bachelor of Science in Business Administration' },
-  { courseCode: 'BEEd',  courseName: 'Bachelor of Elementary Education' },
   { courseCode: 'BSEd',  courseName: 'Bachelor of Secondary Education' },
+];
+
+// ─── Section Seed Data ───────────────────────────────────────────────────────
+// 2 sections per year level for 1st–3rd Year, 1 section for 4th Year
+
+type SectionSeed = {
+  program: string; // courseCode
+  yearLevel: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
+  sectionCode: string;
+};
+
+const SECTIONS_SEED: SectionSeed[] = [
+  // ── BSIT ─────────────────────────────────────────────────────────────────
+  { program: 'BSIT', yearLevel: '1st Year', sectionCode: 'A' },
+  { program: 'BSIT', yearLevel: '1st Year', sectionCode: 'B' },
+  { program: 'BSIT', yearLevel: '2nd Year', sectionCode: 'A' },
+  { program: 'BSIT', yearLevel: '2nd Year', sectionCode: 'B' },
+  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'A' },
+  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'B' },
+  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'A' },
+  // ── BSA ──────────────────────────────────────────────────────────────────
+  { program: 'BSA', yearLevel: '1st Year', sectionCode: 'A' },
+  { program: 'BSA', yearLevel: '1st Year', sectionCode: 'B' },
+  { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'A' },
+  { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'B' },
+  { program: 'BSA', yearLevel: '3rd Year', sectionCode: 'A' },
+  { program: 'BSA', yearLevel: '4th Year', sectionCode: 'A' },
+  // ── BSBA ─────────────────────────────────────────────────────────────────
+  { program: 'BSBA', yearLevel: '1st Year', sectionCode: 'A' },
+  { program: 'BSBA', yearLevel: '1st Year', sectionCode: 'B' },
+  { program: 'BSBA', yearLevel: '2nd Year', sectionCode: 'A' },
+  { program: 'BSBA', yearLevel: '2nd Year', sectionCode: 'B' },
+  { program: 'BSBA', yearLevel: '3rd Year', sectionCode: 'A' },
+  { program: 'BSBA', yearLevel: '4th Year', sectionCode: 'A' },
+  // ── BSEd ─────────────────────────────────────────────────────────────────
+  { program: 'BSEd', yearLevel: '1st Year', sectionCode: 'A' },
+  { program: 'BSEd', yearLevel: '1st Year', sectionCode: 'B' },
+  { program: 'BSEd', yearLevel: '2nd Year', sectionCode: 'A' },
+  { program: 'BSEd', yearLevel: '2nd Year', sectionCode: 'B' },
+  { program: 'BSEd', yearLevel: '3rd Year', sectionCode: 'A' },
+  { program: 'BSEd', yearLevel: '4th Year', sectionCode: 'A' },
 ];
 
 // ─── Subject Seed Data ───────────────────────────────────────────────────────
@@ -223,75 +262,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'IT406',   subjectName: 'Systems Integration and Architecture', lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
-  // BSAM — Bachelor of Science in Agribusiness Management
-  // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM101',   subjectName: 'Principles of Microeconomics',        lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM102',   subjectName: 'Business Mathematics',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'MATH102', subjectName: 'Statistics and Probability',           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM103',   subjectName: 'Principles of Macroeconomics',        lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM104',   subjectName: 'Introduction to Agribusiness',        lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM201',   subjectName: 'Agricultural Marketing',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM202',   subjectName: 'Farm Management',                     lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM203',   subjectName: 'Agricultural Finance',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM204',   subjectName: 'Business Statistics',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM205',   subjectName: 'Agricultural Production Economics',  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM206',   subjectName: 'Agricultural Policy',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM207',   subjectName: 'Supply Chain Management',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM301',   subjectName: 'International Trade and Agribusiness', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM302',   subjectName: 'Agricultural Entrepreneurship',       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM303',   subjectName: 'Research Methods in Agribusiness',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM304',   subjectName: 'Thesis Writing',                      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM305',   subjectName: 'Agribusiness Practicum 1',            lectureUnits: 0, labUnits: 3 },
-  { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM401',   subjectName: 'Agribusiness Strategic Management',  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM402',   subjectName: 'Special Topics in Agribusiness',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM403',   subjectName: 'Practicum / OJT',                     lectureUnits: 0, labUnits: 6 },
-
-  // ════════════════════════════════════════════════════════════════════════
-  // BSES — Bachelor of Science in Environmental Science
-  // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ES101',   subjectName: 'Introduction to Environmental Science', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ES102',   subjectName: 'General Biology',                     lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'ES103',   subjectName: 'General Chemistry',                   lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'ES104',   subjectName: 'Earth Science',                       lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ES201',   subjectName: 'Ecology',                             lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ES202',   subjectName: 'Soil and Water Conservation',         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ES203',   subjectName: 'Environmental Statistics',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ES204',   subjectName: 'Principles of Hydrology',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ES205',   subjectName: 'Biodiversity and Conservation',       lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ES206',   subjectName: 'Environmental Chemistry',             lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ES207',   subjectName: 'GIS and Remote Sensing',              lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ES301',   subjectName: 'Environmental Impact Assessment',     lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ES302',   subjectName: 'Pollution Control and Management',    lectureUnits: 2, labUnits: 1 },
-  { program: 'BSES', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ES303',   subjectName: 'Climate Change and Adaptation',       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ES304',   subjectName: 'Research Methods in Environmental Science', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'ES401',   subjectName: 'Environmental Legislation',           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'ES402',   subjectName: 'Thesis Writing 1',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ES403',   subjectName: 'Thesis Writing 2',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ES404',   subjectName: 'Practicum / On-the-Job Training',     lectureUnits: 0, labUnits: 6 },
-
-  // ════════════════════════════════════════════════════════════════════════
   // BSBA — Bachelor of Science in Business Administration
   // ════════════════════════════════════════════════════════════════════════
   { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
@@ -322,39 +292,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSBA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'BA401',   subjectName: 'Thesis Writing 1',                    lectureUnits: 3, labUnits: 0 },
   { program: 'BSBA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BA402',   subjectName: 'Thesis Writing 2',                    lectureUnits: 3, labUnits: 0 },
   { program: 'BSBA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BA403',   subjectName: 'OJT / Practicum',                     lectureUnits: 0, labUnits: 6 },
-
-  // ════════════════════════════════════════════════════════════════════════
-  // BEEd — Bachelor of Elementary Education
-  // ════════════════════════════════════════════════════════════════════════
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ED101',   subjectName: 'Child and Adolescent Development',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ED102',   subjectName: 'The Teaching Profession',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE104',   subjectName: 'The Contemporary World',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'ED103',   subjectName: 'Foundation of Special and Inclusive Education', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'ED104',   subjectName: 'The Teacher and the School Curriculum', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ED201',   subjectName: 'Facilitating Learner-Centered Teaching', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ED202',   subjectName: 'Assessment in Learning 1',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'ED203',   subjectName: 'Technology for Teaching and Learning 1', lectureUnits: 2, labUnits: 1 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ED204',   subjectName: 'Assessment in Learning 2',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ED205',   subjectName: 'Technology for Teaching and Learning 2', lectureUnits: 2, labUnits: 1 },
-  { program: 'BEEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'ED206',   subjectName: 'Field Study 1',                       lectureUnits: 1, labUnits: 2 },
-  { program: 'BEEd', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ED301',   subjectName: 'Teaching Math in Elementary Grades',  lectureUnits: 2, labUnits: 1 },
-  { program: 'BEEd', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ED302',   subjectName: 'Teaching Science in Elementary Grades', lectureUnits: 2, labUnits: 1 },
-  { program: 'BEEd', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ED303',   subjectName: 'Teaching Language Arts in Elementary', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ED304',   subjectName: 'Principles and Strategies of Teaching', lectureUnits: 3, labUnits: 0 },
-  { program: 'BEEd', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'ED401',   subjectName: 'Practice Teaching 1',                 lectureUnits: 0, labUnits: 6 },
-  { program: 'BEEd', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ED402',   subjectName: 'Practice Teaching 2',                 lectureUnits: 0, labUnits: 6 },
-  { program: 'BEEd', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ED403',   subjectName: 'Issues and Trends in Education',      lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSEd — Bachelor of Secondary Education
@@ -422,49 +359,6 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
 
-  // ── BSAM ─────────────────────────────────────────────────────────────────
-  {
-    name: { first: 'Dionisio', middle: 'R', last: 'Montano' },
-    email: 'dionisio.montano@dorsu.edu.ph',
-    program: 'BSAM',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Cecilia', middle: 'B', last: 'Gumapac' },
-    email: 'cecilia.gumapac@dorsu.edu.ph',
-    program: 'BSAM',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Arnel', middle: 'T', last: 'Palencia' },
-    email: 'arnel.palencia@dorsu.edu.ph',
-    program: 'BSAM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-
-  // ── BSES ─────────────────────────────────────────────────────────────────
-  {
-    name: { first: 'Lourdes', middle: 'F', last: 'Recede' },
-    email: 'lourdes.recede@dorsu.edu.ph',
-    program: 'BSES',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Ramon', middle: 'D', last: 'Ilustre' },
-    email: 'ramon.ilustre@dorsu.edu.ph',
-    program: 'BSES',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-
   // ── BSIT ─────────────────────────────────────────────────────────────────
   {
     name: { first: 'Jerome', middle: 'P', last: 'Magno' },
@@ -522,24 +416,6 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
 
-  // ── BEEd ─────────────────────────────────────────────────────────────────
-  {
-    name: { first: 'Fortunata', middle: 'H', last: 'Sagun' },
-    email: 'fortunata.sagun@dorsu.edu.ph',
-    program: 'BEEd',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Dominador', middle: 'J', last: 'Enriquez' },
-    email: 'dominador.enriquez@dorsu.edu.ph',
-    program: 'BEEd',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-
   // ── BSEd ─────────────────────────────────────────────────────────────────
   {
     name: { first: 'Ricardo', middle: 'U', last: 'Amodia' },
@@ -580,10 +456,11 @@ async function seed() {
 
   // ── Optional reset ────────────────────────────────────────────────────────
   if (shouldReset) {
-    console.log('🗑️  Resetting faculty and schedules…');
+    console.log('🗑️  Resetting faculty, schedules, and sections…');
     const { deletedCount: schedDel } = await Schedule.deleteMany({});
     const { deletedCount: facDel  } = await Faculty.deleteMany({});
-    console.log(`   Deleted ${schedDel} schedule(s) and ${facDel} faculty member(s)\n`);
+    const { deletedCount: sectDel } = await Section.deleteMany({});
+    console.log(`   Deleted ${schedDel} schedule(s), ${facDel} faculty member(s), and ${sectDel} section(s)\n`);
   }
 
   // ── 1. Upsert programs ────────────────────────────────────────────────────
@@ -679,10 +556,38 @@ async function seed() {
     }
   }
 
+  // ── 5. Seed sections ──────────────────────────────────────────────────────
+  console.log('\n🗂️  Seeding sections…');
+  let sectCreated = 0;
+  let sectSkipped = 0;
+
+  for (const s of SECTIONS_SEED) {
+    const programId = programMap[s.program];
+    if (!programId) {
+      console.warn(`   ⚠  No program found for code "${s.program}", skipping section`);
+      continue;
+    }
+
+    const existing = await Section.findOne({ program: programId, yearLevel: s.yearLevel, sectionCode: s.sectionCode });
+    if (existing) {
+      console.log(`   ⏭  Skipped  ${existing.name} (already exists)`);
+      sectSkipped++;
+      continue;
+    }
+
+    const section = new Section({ program: programId, yearLevel: s.yearLevel, sectionCode: s.sectionCode });
+    await section.save();
+    console.log(`   ✅  Created  ${section.name}  (${s.program} ${s.yearLevel})`);
+    sectCreated++;
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────
-  console.log(`\n🎉 Done — ${created} faculty created, ${skipped} skipped.`);
-  console.log(`       ${subjCreated} subjects created, ${subjSkipped} skipped.`);
-  console.log(`       ${roomCreated} classrooms created, ${roomSkipped} skipped.`);
+  console.log(`\n🎉 Done!`);
+  console.log(`   Programs:   ${Object.keys(programMap).length} upserted`);
+  console.log(`   Faculty:    ${created} created, ${skipped} skipped`);
+  console.log(`   Subjects:   ${subjCreated} created, ${subjSkipped} skipped`);
+  console.log(`   Classrooms: ${roomCreated} created, ${roomSkipped} skipped`);
+  console.log(`   Sections:   ${sectCreated} created, ${sectSkipped} skipped`);
   await mongoose.disconnect();
   process.exit(0);
 }

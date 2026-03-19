@@ -7,6 +7,14 @@ import { WeekCalendarView } from "@/app/(protected)/schedules/_components/week-c
 import { CalendarControls } from "@/app/(protected)/schedules/_components/calendar-controls";
 import { CalendarLegend } from "@/app/(protected)/schedules/_components/calendar-legend";
 
+interface Course {
+    _id?: string;
+    courseCode: string;
+    courseName: string;
+    department?: string;
+    [key: string]: any;
+}
+
 interface ScheduleEvent {
     id: string;
     courseName: string;
@@ -19,6 +27,7 @@ interface ScheduleEvent {
     semester: string;
     academicYear: string;
     yearLevel: string;
+    section?: string;
     status: string;
     departmentName: string;
     isGenerated: boolean;
@@ -26,12 +35,13 @@ interface ScheduleEvent {
 
 interface ScheduleCalendarProps {
     schedules: ScheduleEvent[];
+    courses?: Course[];
     onEventClick?: (schedule: ScheduleEvent) => void;
 }
 
 type ViewMode = "month" | "week";
 
-export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarProps) {
+export function ScheduleCalendar({ schedules, courses, onEventClick }: ScheduleCalendarProps) {
     const [selectedDepartment, setSelectedDepartment] = React.useState<string>("all");
     const [selectedSemester, setSelectedSemester] = React.useState<string>("all");
     const [selectedProgram, setSelectedProgram] = React.useState<string>("all");
@@ -53,9 +63,13 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
     }, [schedules]);
 
     const programs = React.useMemo(() => {
+        if (courses && courses.length > 0) {
+            const courseNames = courses.map(c => c.courseName).filter(Boolean);
+            return ["all", ...courseNames.sort()];
+        }
         const progs = new Set(schedules.map(s => s.courseName).filter(Boolean));
         return ["all", ...Array.from(progs).sort()];
-    }, [schedules]);
+    }, [schedules, courses]);
 
     const yearLevels = React.useMemo(() => {
         const levels = new Set(schedules.map(s => s.yearLevel).filter(Boolean));
@@ -82,10 +96,14 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
         });
     }, [schedules, selectedDepartment, selectedSemester, selectedProgram, selectedYearLevel]);
 
-    const navigateMonth = (direction: number) => {
+    const navigatePeriod = (direction: number) => {
         setCurrentDate(prev => {
             const newDate = new Date(prev);
-            newDate.setMonth(newDate.getMonth() + direction);
+            if (viewMode === "week") {
+                newDate.setDate(newDate.getDate() + (direction * 7));
+            } else {
+                newDate.setMonth(newDate.getMonth() + direction);
+            }
             return newDate;
         });
     };
@@ -106,7 +124,7 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 currentDate={currentDate}
-                onNavigateMonth={navigateMonth}
+                onNavigatePeriod={navigatePeriod}
                 onGoToToday={goToToday}
                 departments={departments}
                 semesters={semesters}
@@ -132,6 +150,7 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
             ) : (
                 <WeekCalendarView
                     schedules={filteredSchedules}
+                    currentDate={currentDate}
                     onScheduleClick={handleScheduleClick}
                 />
             )}

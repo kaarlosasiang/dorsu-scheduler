@@ -77,6 +77,17 @@ export const facultySchema = z.object({
   
   status: z
     .enum(["active", "inactive"]),
+
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters long")
+    .optional()
+    .or(z.literal("")),
+
+  confirmPassword: z
+    .string()
+    .optional()
+    .or(z.literal("")),
 }).refine((data) => {
   return data.minLoad <= data.maxLoad;
 }, {
@@ -89,4 +100,12 @@ export const facultySchema = z.object({
 }, {
   message: "Admin load can only be set when a designation is assigned",
   path: ["adminLoad"],
+}).refine((data) => {
+  if (data.password && data.password.trim() !== "" && data.password !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });

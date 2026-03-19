@@ -36,6 +36,13 @@ const nameSchema = new Schema<IName>({
 
 // Faculty schema
 const facultySchema = new Schema<IFacultyDocument>({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
+    sparse: true,
+    index: true
+  },
   name: {
     type: nameSchema,
     required: [true, 'Faculty name is required']

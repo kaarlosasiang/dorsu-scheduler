@@ -59,7 +59,10 @@ import { useFaculty } from "@/hooks/useFaculty";
 import { useRouter } from "next/navigation";
 import { type IFaculty } from "@/lib/services/FacultyAPI";
 import { ScheduleAPI } from "@/lib/services/ScheduleAPI";
-import { exportFacultyWorkload } from "@/lib/utils/exportCourseOffering";
+import {
+  exportFacultyWorkload,
+  exportFacultyWorkloadBatch,
+} from "@/lib/utils/exportCourseOffering";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -77,12 +80,14 @@ interface Faculty {
   firstName: string;
   lastName: string;
   program: string;
+  designation?: string;
   email: string;
   status: "active" | "inactive";
   employmentType: "full-time" | "part-time";
   maxLoad: number;
   minLoad: number;
   currentLoad: number;
+  adminLoad: number;
   maxPreparations: number;
   currentPreparations: number;
   createdAt: string;
@@ -90,7 +95,7 @@ interface Faculty {
 
 // Transform function to convert IFaculty to Faculty
 const transformFaculty = (faculty: IFaculty): Faculty => ({
-  id: faculty._id || "",
+  id: faculty._id || faculty.id || "",
   name: `${faculty.name.first} ${
     faculty.name.middle ? faculty.name.middle + " " : ""
   }${faculty.name.last}${faculty.name.ext ? " " + faculty.name.ext : ""}`,
@@ -99,16 +104,37 @@ const transformFaculty = (faculty: IFaculty): Faculty => ({
   program: typeof faculty.program === 'string' 
     ? faculty.program 
     : (faculty.program as any)?.courseCode || '',
+  designation: faculty.designation,
   email: faculty.email,
   status: faculty.status,
   employmentType: faculty.employmentType,
   maxLoad: faculty.maxLoad,
   minLoad: faculty.minLoad,
   currentLoad: faculty.currentLoad || 0,
+  adminLoad: faculty.adminLoad || 0,
   maxPreparations: faculty.maxPreparations || 4,
   currentPreparations: faculty.currentPreparations || 0,
   createdAt: faculty.createdAt || new Date().toISOString(),
 });
+
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-based
+  const startYear = month >= 5 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
+function buildAcademicYearOptions(count = 4): string[] {
+  const current = getCurrentAcademicYear();
+  const [startStr] = current.split("-");
+  const start = parseInt(startStr, 10);
+
+  return Array.from({ length: count }, (_, index) => {
+    const y = start + index;
+    return `${y}-${y + 1}`;
+  });
+}
 
 // ─── Faculty Action Cell with Per-Faculty Workload Export ────────────────────
 
@@ -117,7 +143,8 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exportSemester, setExportSemester] = React.useState("2nd Semester");
-  const [exportAcademicYear, setExportAcademicYear] = React.useState("2025-2026");
+  const academicYearOptions = React.useMemo(() => buildAcademicYearOptions(4), []);
+  const [exportAcademicYear, setExportAcademicYear] = React.useState(getCurrentAcademicYear());
   const [exportProgramName, setExportProgramName] = React.useState(faculty.program || "");
   const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
 
@@ -133,6 +160,10 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
         facultyName: faculty.name,
         programName: exportProgramName || faculty.program,
         institute: exportInstitute,
+        designation: faculty.designation,
+        employmentType: faculty.employmentType,
+        maxLoad: faculty.maxLoad,
+        adminLoad: faculty.adminLoad,
         semester: exportSemester,
         academicYear: exportAcademicYear,
         schedules: result.data as any[],
@@ -195,7 +226,7 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
               Export Workload — {faculty.name}
             </DialogTitle>
             <DialogDescription>
-              Generate a Course Offering PDF (FM-DOrSU-ODI-01) showing all courses assigned to this faculty member.
+              Generate a Faculty Workload PDF (FM-DOrSU-ODI-02) showing all assigned classes for this faculty member.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -236,9 +267,11 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
                   value={exportAcademicYear}
                   onChange={(e) => setExportAcademicYear(e.target.value)}
                 >
-                  <option value="2024-2025">2024-2025</option>
-                  <option value="2025-2026">2025-2026</option>
-                  <option value="2026-2027">2026-2027</option>
+                  {academicYearOptions.map((academicYear) => (
+                    <option key={academicYear} value={academicYear}>
+                      {academicYear}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -631,6 +664,94 @@ export default function FacultyPage() {
     getRowId: (row) => row.id,
   });
 
+  const [batchExportOpen, setBatchExportOpen] = React.useState(false);
+  const [batchExporting, setBatchExporting] = React.useState(false);
+  const [batchExportScope, setBatchExportScope] = React.useState<"selected" | "all">("selected");
+  const [batchSemester, setBatchSemester] = React.useState("2nd Semester");
+  const batchAcademicYearOptions = React.useMemo(() => buildAcademicYearOptions(4), []);
+  const [batchAcademicYear, setBatchAcademicYear] = React.useState(getCurrentAcademicYear());
+  const [batchInstitute, setBatchInstitute] = React.useState("Baganga Campus");
+
+  const handleBatchExport = React.useCallback(async () => {
+    const selectedFaculty = table
+      .getFilteredSelectedRowModel()
+      .rows.map((row) => row.original as Faculty);
+
+    const sourceFaculty = batchExportScope === "all" ? faculties : selectedFaculty;
+
+    if (sourceFaculty.length === 0) {
+      toast.error(
+        batchExportScope === "all"
+          ? "No faculty records available for export"
+          : "Select at least one faculty member first"
+      );
+      return;
+    }
+
+    setBatchExporting(true);
+    try {
+      const entries: Array<{
+        facultyName: string;
+        programName?: string;
+        designation?: string;
+        maxLoad?: number;
+        adminLoad?: number;
+        schedules: any[];
+      }> = [];
+
+      let skipped = 0;
+      for (const faculty of sourceFaculty) {
+        if (!faculty.id) {
+          skipped += 1;
+          continue;
+        }
+
+        const response = await ScheduleAPI.getByFaculty(
+          faculty.id,
+          batchSemester,
+          batchAcademicYear
+        );
+
+        if (response.success && response.data && response.data.length > 0) {
+          entries.push({
+            facultyName: faculty.name,
+            programName: faculty.program,
+            designation: faculty.designation,
+            employmentType: faculty.employmentType,
+            maxLoad: faculty.maxLoad,
+            adminLoad: faculty.adminLoad,
+            schedules: response.data,
+          });
+        } else {
+          skipped += 1;
+        }
+      }
+
+      if (!entries.length) {
+        toast.error("No schedules found for selected faculty in the chosen period");
+        return;
+      }
+
+      await exportFacultyWorkloadBatch({
+        institute: batchInstitute,
+        semester: batchSemester,
+        academicYear: batchAcademicYear,
+        entries,
+      });
+
+      toast.success(
+        `Batch workload PDF exported (${entries.length} faculty${
+          skipped ? `, ${skipped} skipped` : ""
+        })`
+      );
+      setBatchExportOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Batch export failed");
+    } finally {
+      setBatchExporting(false);
+    }
+  }, [table, faculties, batchExportScope, batchSemester, batchAcademicYear, batchInstitute]);
+
   // Handle search
   const handleSearch = React.useCallback(
     async (query: string) => {
@@ -665,6 +786,18 @@ export default function FacultyPage() {
   // Custom action bar content
   const CustomActionBar = () => (
     <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setBatchExportScope("selected");
+          setBatchExportOpen(true);
+        }}
+        disabled={isLoading || table.getFilteredSelectedRowModel().rows.length === 0}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        Export Selected Workloads
+      </Button>
       <Button variant="outline" size="sm" disabled={isLoading}>
         <Edit className="mr-2 h-4 w-4" />
         Bulk Edit
@@ -697,6 +830,17 @@ export default function FacultyPage() {
           <Button variant="outline" onClick={refresh} disabled={isLoading}>
             <Activity className="mr-2 h-4 w-4" />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setBatchExportScope("all");
+              setBatchExportOpen(true);
+            }}
+            disabled={isLoading}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export All Workloads
           </Button>
           <Button onClick={() => navigate.push("/faculty/add")}>
             <Plus className="mr-2 h-4 w-4" />
@@ -801,6 +945,99 @@ export default function FacultyPage() {
           </DataTable>
         </CardContent>
       </Card>
+
+      <Dialog open={batchExportOpen} onOpenChange={setBatchExportOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Export Selected Faculty Workloads
+            </DialogTitle>
+            <DialogDescription>
+              Generate one combined Faculty Workload PDF for selected faculty rows.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Export Scope</label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={batchExportScope}
+                onChange={(e) =>
+                  setBatchExportScope(e.target.value as "selected" | "all")
+                }
+                disabled={batchExporting}
+              >
+                <option value="selected">Selected Faculty</option>
+                <option value="all">All Faculty</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Institute / Campus</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={batchInstitute}
+                onChange={(e) => setBatchInstitute(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Semester</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={batchSemester}
+                  onChange={(e) => setBatchSemester(e.target.value)}
+                >
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="Summer">Summer</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Academic Year</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={batchAcademicYear}
+                  onChange={(e) => setBatchAcademicYear(e.target.value)}
+                >
+                  {batchAcademicYearOptions.map((academicYear) => (
+                    <option key={academicYear} value={academicYear}>
+                      {academicYear}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {batchExportScope === "all"
+                ? `Faculty to export: ${faculties.length}`
+                : `Selected faculty: ${table.getFilteredSelectedRowModel().rows.length}`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBatchExportOpen(false)}
+              disabled={batchExporting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBatchExport} disabled={batchExporting}>
+              {batchExporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Batch PDF
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

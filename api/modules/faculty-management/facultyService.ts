@@ -489,4 +489,17 @@ export class FacultyService {
       throw new Error(`Failed to get faculty statistics: ${error}`);
     }
   }
+
+  /**
+   * Get faculty record linked to a specific user ID
+   */
+  static async getByUserId(userId: string): Promise<IFacultyDocument | null> {
+    try {
+      const faculty = await Faculty.findOne({ userId })
+        .populate('program', 'courseCode courseName');
+      return faculty;
+    } catch (error) {
+      throw new Error(`Failed to get faculty by user ID: ${error}`);
+    }
+  }
 }

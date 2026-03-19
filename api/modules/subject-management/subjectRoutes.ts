@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { SubjectController } from './subjectController.js';
-import { authenticateToken } from '../../shared/middlewares/authMiddleware.js';
+import { authenticateToken, requireRoles } from '../../shared/middlewares/authMiddleware.js';
 
 const router: Router = Router();
 
@@ -14,9 +14,9 @@ router.get('/course/:courseId', SubjectController.getByCourse);
 // Main CRUD routes
 router.get('/', SubjectController.getAll);
 router.get('/:id', SubjectController.getById);
-router.post('/', SubjectController.create);
-router.put('/:id', SubjectController.update);
-router.delete('/:id', SubjectController.delete);
+router.post('/', requireRoles(['admin']), SubjectController.create);
+router.put('/:id', requireRoles(['admin']), SubjectController.update);
+router.delete('/:id', requireRoles(['admin']), SubjectController.delete);
 
 export default router;
 

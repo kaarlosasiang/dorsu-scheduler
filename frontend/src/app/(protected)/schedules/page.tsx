@@ -68,6 +68,11 @@ import { exportCourseOffering } from "@/lib/utils/exportCourseOffering";
 import { useCourses } from "@/hooks/useCourses";
 import { ScheduleCalendar } from "@/components/common/schedule-calendar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/authContext";
+import { FacultyAPI } from "@/lib/services/FacultyAPI";
+import { useQueryState } from "nuqs";
+import { getFiltersStateParser } from "@/lib/parsers";
+import { SubjectAPI } from "@/lib/services/SubjectAPI";
 
 // Transform ISchedule to display format
 interface Schedule {
@@ -81,19 +86,43 @@ interface Schedule {
     semester: string;
     academicYear: string;
     yearLevel: string;
+    section: string;
     status: string;
     isGenerated: boolean;
     departmentName: string;
 }
+
+const SCHOOL_YEAR_OPTION_COUNT = 4;
+
+const getCurrentSchoolYearStart = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    return month >= 6 ? year : year - 1;
+};
+
+const buildAcademicYearOptions = (count: number) => {
+    const startYear = getCurrentSchoolYearStart();
+
+    return Array.from({ length: count }, (_, index) => {
+        const year = startYear + index;
+        return `${year}-${year + 1}`;
+    });
+};
 
 // Transform function
 const transformSchedule = (schedule: ISchedule): Schedule => {
     // When Mongoose populates, it replaces the ID string with the full object
     // So schedule.subject could be either a string (ID) or an object (populated)
     const subject = typeof schedule.subject === 'object' ? schedule.subject : null;
+    const subjectCourse = subject && typeof (subject as any).course === 'object'
+        ? (subject as any).course
+        : null;
     const faculty = typeof schedule.faculty === 'object' ? schedule.faculty : null;
     const classroom = typeof schedule.classroom === 'object' ? schedule.classroom : null;
     const department = typeof schedule.department === 'object' ? schedule.department : null;
+    const section = typeof schedule.section === 'object' ? schedule.section : null;
 
     // Debug logging (remove after testing)
     if (!subject) {
@@ -133,9 +162,20 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
         semester: schedule.semester || "N/A",
         academicYear: schedule.academicYear || "N/A",
         yearLevel: schedule.yearLevel || (subject as any)?.yearLevel || "N/A",
+        section:
+            (section as any)?.name ||
+            (section as any)?.sectionCode ||
+            (schedule as any).sectionDetails?.name ||
+            (schedule as any).sectionDetails?.sectionCode ||
+            "",
         status: schedule.status || "draft",
         isGenerated: schedule.isGenerated || false,
-        departmentName: (department as any)?.name || (department as any)?.departmentName || "Unknown Department",
+        departmentName:
+            (subjectCourse as any)?.courseName ||
+            (subjectCourse as any)?.courseCode ||
+            (department as any)?.name ||
+            (department as any)?.departmentName ||
+            "Unknown Program",
     };
 };
 
@@ -166,7 +206,7 @@ const DayBadge = ({ day }: { day: string }) => {
 };
 
 // Enhanced column definitions
-const columns: ColumnDef<Schedule>[] = [
+const baseColumns: ColumnDef<Schedule>[] = [
     {
         id: "select",
         header: ({ table }) => (
@@ -215,11 +255,22 @@ const columns: ColumnDef<Schedule>[] = [
         enableSorting: true,
         enableColumnFilter: true,
         filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.courseCode);
+            }
+
             const searchValue = value.toLowerCase();
             return (
                 row.original.courseName.toLowerCase().includes(searchValue) ||
                 row.original.courseCode.toLowerCase().includes(searchValue)
             );
+        },
+        meta: {
+            label: "Course",
+            placeholder: "Select course...",
+            variant: "select",
+            icon: BookOpen,
+            options: [],
         },
         size: 260,
         minSize: 160,
@@ -240,7 +291,18 @@ const columns: ColumnDef<Schedule>[] = [
         enableSorting: true,
         enableColumnFilter: true,
         filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.facultyName);
+            }
+
             return row.original.facultyName.toLowerCase().includes(value.toLowerCase());
+        },
+        meta: {
+            label: "Faculty",
+            placeholder: "Select faculty...",
+            variant: "select",
+            icon: Users,
+            options: [],
         },
         size: 160,
         minSize: 120,
@@ -259,6 +321,21 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.classroom);
+            }
+
+            return row.original.classroom.toLowerCase().includes(value.toLowerCase());
+        },
+        meta: {
+            label: "Classroom",
+            placeholder: "Select classroom...",
+            variant: "select",
+            icon: DoorOpen,
+            options: [],
+        },
         size: 120,
         minSize: 80,
         maxSize: 200,
@@ -279,6 +356,27 @@ const columns: ColumnDef<Schedule>[] = [
             </div>
         ),
         enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            const scheduleValue = `${row.original.day} | ${row.original.timeSlot}`;
+
+            if (Array.isArray(value)) {
+                return value.includes(scheduleValue);
+            }
+
+            const searchValue = value.toLowerCase();
+            return (
+                row.original.day.toLowerCase().includes(searchValue) ||
+                row.original.timeSlot.toLowerCase().includes(searchValue)
+            );
+        },
+        meta: {
+            label: "Schedule",
+            placeholder: "Select schedule...",
+            variant: "select",
+            icon: Clock,
+            options: [],
+        },
         size: 160,
         minSize: 120,
         maxSize: 220,
@@ -303,9 +401,52 @@ const columns: ColumnDef<Schedule>[] = [
             }
             return row.original.semester.toLowerCase().includes(value.toLowerCase());
         },
+        meta: {
+            label: "Semester",
+            placeholder: "Select semester...",
+            variant: "select",
+            icon: Calendar,
+            options: [
+                { label: "1st Semester", value: "1st Semester" },
+                { label: "2nd Semester", value: "2nd Semester" },
+                { label: "Summer", value: "Summer" },
+            ],
+        },
         size: 140,
         minSize: 110,
         maxSize: 200,
+    },
+    {
+        id: "section",
+        accessorKey: "section",
+        header: ({ column }) => (
+            <DataTableColumnHeader column={column} title="Section" />
+        ),
+        cell: ({ row }) => (
+            row.original.section
+                ? <Badge variant="outline" className="font-mono">{row.original.section}</Badge>
+                : <span className="text-muted-foreground text-sm">—</span>
+        ),
+        enableSorting: true,
+        enableColumnFilter: true,
+        filterFn: (row, id, value) => {
+            if (Array.isArray(value)) {
+                return value.includes(row.original.section);
+            }
+
+            const sectionValue = row.original.section.toLowerCase();
+            return sectionValue.includes(value.toLowerCase());
+        },
+        meta: {
+            label: "Section",
+            placeholder: "Select section...",
+            variant: "select",
+            icon: LayoutGrid,
+            options: [],
+        },
+        size: 110,
+        minSize: 80,
+        maxSize: 160,
     },
     {
         id: "status",
@@ -333,6 +474,10 @@ const columns: ColumnDef<Schedule>[] = [
             return row.original.status === value;
         },
         meta: {
+            label: "Status",
+            placeholder: "Select status...",
+            variant: "select",
+            icon: CheckCircle2,
             options: [
                 { label: "Draft", value: "draft" },
                 { label: "Published", value: "published" },
@@ -397,19 +542,55 @@ function ScheduleActionCell({ schedule }: { schedule: any }) {
 
 export default function SchedulesPage() {
     const router = useRouter();
-    const { schedules: rawSchedules, loading, error, stats, refetch } = useSchedules();
+    const { user } = useAuth();
+    const isFaculty = user?.role === "faculty";
+
+    // For faculty users, fetch their linked Faculty record to get the ID for filtering
+    const [facultyId, setFacultyId] = React.useState<string | undefined>(undefined);
+    const [facultyLoading, setFacultyLoading] = React.useState(isFaculty);
+
+    React.useEffect(() => {
+        if (!isFaculty) return;
+        FacultyAPI.getMe()
+            .then((res) => {
+                const id = res.data?._id || res.data?.id;
+                setFacultyId(id);
+            })
+            .catch(() => {
+                // Faculty record not linked — show empty list
+            })
+            .finally(() => setFacultyLoading(false));
+    }, [isFaculty]);
+
+    const scheduleParams = React.useMemo(
+        () => (isFaculty && facultyId ? { faculty: facultyId } : isFaculty ? null : {}),
+        [isFaculty, facultyId]
+    );
+
+    const { schedules: rawSchedules, loading: schedulesLoading, error, stats, refetch } = useSchedules(
+        scheduleParams ?? undefined
+    );
+
+    const loading = facultyLoading || schedulesLoading;
     const { courses } = useCourses();
+    const academicYearOptions = React.useMemo(
+        () => buildAcademicYearOptions(SCHOOL_YEAR_OPTION_COUNT),
+        []
+    );
     const [generateDialogOpen, setGenerateDialogOpen] = React.useState(false);
     const [generating, setGenerating] = React.useState(false);
     const [selectedSemester, setSelectedSemester] = React.useState("1st Semester");
-    const [selectedAcademicYear, setSelectedAcademicYear] = React.useState("2024-2025");
+    const [selectedAcademicYear, setSelectedAcademicYear] = React.useState(() => academicYearOptions[0] ?? "");
+    const [selectedProgramId, setSelectedProgramId] = React.useState("all");
 
     // Export state
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
     const [exporting, setExporting] = React.useState(false);
     const [exportSemester, setExportSemester] = React.useState("2nd Semester");
-    const [exportAcademicYear, setExportAcademicYear] = React.useState("2025-2026");
-    const [exportProgramName, setExportProgramName] = React.useState("");
+    const [exportAcademicYear, setExportAcademicYear] = React.useState(() => academicYearOptions[0] ?? "");
+    const [exportProgramId, setExportProgramId] = React.useState("all");
+    const [exportYearLevel, setExportYearLevel] = React.useState("all");
+    const [exportSection, setExportSection] = React.useState("all");
     const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
     const [view, setView] = React.useState<"table" | "calendar">("table");
 
@@ -428,10 +609,160 @@ export default function SchedulesPage() {
         }));
     }, [schedules]);
 
+    const updatedColumns = React.useMemo(() => {
+        const buildCountMap = (values: string[]) => {
+            return values.reduce((acc, value) => {
+                if (!value) {
+                    return acc;
+                }
+
+                acc[value] = (acc[value] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>);
+        };
+
+        const courseCounts = buildCountMap(schedules.map((schedule) => schedule.courseCode));
+        const facultyCounts = buildCountMap(schedules.map((schedule) => schedule.facultyName));
+        const classroomCounts = buildCountMap(schedules.map((schedule) => schedule.classroom));
+        const scheduleCounts = buildCountMap(
+            schedules.map((schedule) => `${schedule.day} | ${schedule.timeSlot}`)
+        );
+        const semesterCounts = buildCountMap(schedules.map((schedule) => schedule.semester));
+        const sectionCounts = buildCountMap(schedules.map((schedule) => schedule.section).filter(Boolean));
+        const statusCounts = buildCountMap(schedules.map((schedule) => schedule.status));
+
+        return baseColumns.map((column) => {
+            if (!column.meta) {
+                return column;
+            }
+
+            if (column.id === "course") {
+                const courseLookup = new Map(
+                    schedules.map((schedule) => [
+                        schedule.courseCode,
+                        `${schedule.courseCode} - ${schedule.courseName}`,
+                    ])
+                );
+
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(courseCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({
+                                label: courseLookup.get(value) ?? value,
+                                value,
+                                count,
+                            })),
+                    },
+                };
+            }
+
+            if (column.id === "faculty") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(facultyCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({ label: value, value, count })),
+                    },
+                };
+            }
+
+            if (column.id === "classroom") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(classroomCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({ label: value, value, count })),
+                    },
+                };
+            }
+
+            if (column.id === "schedule") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(scheduleCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({ label: value, value, count })),
+                    },
+                };
+            }
+
+            if (column.id === "semester") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: [
+                            { label: "1st Semester", value: "1st Semester", count: semesterCounts["1st Semester"] || 0 },
+                            { label: "2nd Semester", value: "2nd Semester", count: semesterCounts["2nd Semester"] || 0 },
+                            { label: "Summer", value: "Summer", count: semesterCounts["Summer"] || 0 },
+                        ],
+                    },
+                };
+            }
+
+            if (column.id === "section") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(sectionCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({ label: value, value, count })),
+                    },
+                };
+            }
+
+            if (column.id === "status") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: [
+                            { label: "Draft", value: "draft", count: statusCounts.draft || 0 },
+                            { label: "Published", value: "published", count: statusCounts.published || 0 },
+                            { label: "Archived", value: "archived", count: statusCounts.archived || 0 },
+                        ],
+                    },
+                };
+            }
+
+            return column;
+        });
+    }, [schedules]);
+
+    const selectedProgram = React.useMemo(
+        () => courses.find((course) => (course._id || course.id) === selectedProgramId),
+        [courses, selectedProgramId]
+    );
+
+    const exportSectionOptions = React.useMemo(() => {
+        const sectionSet = new Set(
+            schedules
+                .map((schedule) => schedule.section)
+                .filter((section): section is string => Boolean(section && section.trim()))
+        );
+
+        return ["all", ...Array.from(sectionSet).sort((left, right) => left.localeCompare(right))];
+    }, [schedules]);
+
+    const exportProgram = React.useMemo(
+        () => courses.find((course) => (course._id || course.id) === exportProgramId),
+        [courses, exportProgramId]
+    );
+
     // Initialize data table
     const { table } = useDataTable<Schedule>({
         data: schedules,
-        columns: columns,
+        columns: updatedColumns,
         pageCount: Math.ceil(schedules.length / 10),
         initialState: {
             pagination: { pageIndex: 0, pageSize: 10 },
@@ -444,17 +775,55 @@ export default function SchedulesPage() {
         getRowId: (row) => row.id,
     });
 
+    const [advancedFilters] = useQueryState(
+        "filters",
+        getFiltersStateParser<Schedule>()
+            .withDefault([])
+            .withOptions({ shallow: true, clearOnDefault: true })
+    );
+
+    React.useEffect(() => {
+        const filterableColumnIds = updatedColumns
+            .filter((column) => (column as any).enableColumnFilter)
+            .map((column) => (column as any).id as string)
+            .filter(Boolean);
+
+        filterableColumnIds.forEach((columnId) => {
+            const filter = advancedFilters.find((item) => item.id === columnId);
+
+            if (!filter || filter.operator === "isEmpty" || filter.operator === "isNotEmpty") {
+                table.getColumn(columnId)?.setFilterValue(undefined);
+                return;
+            }
+
+            const { value } = filter;
+            if (!value || (Array.isArray(value) && value.length === 0) || value === "") {
+                table.getColumn(columnId)?.setFilterValue(undefined);
+                return;
+            }
+
+            const isSelectVariant = filter.variant === "select" || filter.variant === "multiSelect";
+
+            table.getColumn(columnId)?.setFilterValue(
+                isSelectVariant && !Array.isArray(value) ? [value] : value
+            );
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [advancedFilters, updatedColumns]);
+
     const handleGenerateSchedules = async () => {
         setGenerating(true);
         try {
             const result = await ScheduleAPI.generateSchedules({
                 semester: selectedSemester,
                 academicYear: selectedAcademicYear,
+                courses: selectedProgramId !== "all" ? [selectedProgramId] : undefined,
                 overwriteExisting: false,
             });
 
             if (result.success) {
-                toast.success(`Successfully generated ${result.generated} schedules for ${selectedSemester} ${selectedAcademicYear}!`);
+                const scopeLabel = selectedProgram?.courseName || "all programs";
+                toast.success(`Successfully generated ${result.generated} schedules for ${scopeLabel} in ${selectedSemester} ${selectedAcademicYear}.`);
                 setGenerateDialogOpen(false);
                 refetch();
             } else {
@@ -468,16 +837,13 @@ export default function SchedulesPage() {
     };
 
     const handleExportCourseOffering = async () => {
-        if (!exportProgramName.trim()) {
-            toast.error("Please enter a program name");
-            return;
-        }
         setExporting(true);
         try {
-            // Fetch schedules for the selected semester/academic year/department
+            // Fetch schedules for selected semester/academic year/year-level
             const params: import("@/lib/services/ScheduleAPI").ScheduleQueryParams = {
                 semester: exportSemester,
                 academicYear: exportAcademicYear,
+                yearLevel: exportYearLevel !== "all" ? exportYearLevel : undefined,
             };
 
             const result = await ScheduleAPI.getAll(params);
@@ -486,12 +852,50 @@ export default function SchedulesPage() {
                 return;
             }
 
+            let schedulesForExport = result.data as any[];
+
+            if (exportProgramId !== "all") {
+                const subjectResult = exportYearLevel !== "all"
+                    ? await SubjectAPI.getByYearAndSemester(exportProgramId, exportYearLevel, exportSemester)
+                    : await SubjectAPI.getByCourse(exportProgramId);
+
+                const subjectIds = new Set(
+                    (subjectResult.data || [])
+                        .map((subject) => subject._id || subject.id)
+                        .filter(Boolean)
+                );
+
+                schedulesForExport = schedulesForExport.filter((schedule) => {
+                    const subjectValue = schedule.subject;
+                    const subjectId = typeof subjectValue === "object"
+                        ? subjectValue?._id || subjectValue?.id
+                        : subjectValue;
+
+                    return subjectId ? subjectIds.has(subjectId) : false;
+                });
+            }
+
+            if (exportSection !== "all") {
+                schedulesForExport = schedulesForExport.filter((schedule) => {
+                    const sectionValue = typeof schedule.section === "object"
+                        ? schedule.section?.name || schedule.section?.sectionCode
+                        : "";
+
+                    return sectionValue === exportSection;
+                });
+            }
+
+            if (schedulesForExport.length === 0) {
+                toast.error("No schedules found for the selected program/year level/section/semester");
+                return;
+            }
+
             await exportCourseOffering({
-                programName: exportProgramName,
+                programName: exportProgram?.courseName || "All Programs",
                 institute: exportInstitute,
                 semester: exportSemester,
                 academicYear: exportAcademicYear,
-                schedules: result.data as any[],
+                schedules: schedulesForExport as any[],
             });
 
             toast.success("Course offering PDF exported successfully!");
@@ -545,6 +949,7 @@ export default function SchedulesPage() {
                             className="rounded-r-none"
                         >
                             <TableProperties className="h-4 w-4" />
+                            Table
                         </Button>
                         <Button
                             variant={view === "calendar" ? "secondary" : "ghost"}
@@ -553,6 +958,7 @@ export default function SchedulesPage() {
                             className="rounded-l-none"
                         >
                             <CalendarRange className="h-4 w-4" />
+                            Calendar
                         </Button>
                     </div>
                     <Button
@@ -646,6 +1052,7 @@ export default function SchedulesPage() {
             ) : (
                 <ScheduleCalendar
                     schedules={calendarSchedules}
+                    courses={courses}
                     onEventClick={(schedule) => router.push(`/schedules/${schedule.id}`)}
                 />
             )}
@@ -664,18 +1071,26 @@ export default function SchedulesPage() {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Program Name <span className="text-destructive">*</span></label>
+                            <label className="text-sm font-medium">Program</label>
                             <select
                                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                value={exportProgramName}
-                                onChange={(e) => setExportProgramName(e.target.value)}
+                                value={exportProgramId}
+                                onChange={(e) => setExportProgramId(e.target.value)}
                             >
-                                <option value="">Select a program...</option>
-                                {courses.map((c) => (
-                                    <option key={c._id ?? c.courseCode} value={c.courseName}>
-                                        {c.courseName}
-                                    </option>
-                                ))}
+                                <option value="all">All programs</option>
+                                {courses.map((c) => {
+                                    const courseId = c._id || c.id;
+
+                                    if (!courseId) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <option key={courseId} value={courseId}>
+                                            {c.courseCode} - {c.courseName}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
 
@@ -703,18 +1118,62 @@ export default function SchedulesPage() {
                                 </select>
                             </div>
                             <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={exportYearLevel}
+                                    onChange={(e) => setExportYearLevel(e.target.value)}
+                                >
+                                    <option value="all">All Year Levels</option>
+                                    <option value="1st Year">1st Year</option>
+                                    <option value="2nd Year">2nd Year</option>
+                                    <option value="3rd Year">3rd Year</option>
+                                    <option value="4th Year">4th Year</option>
+                                    <option value="5th Year">5th Year</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Section</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={exportSection}
+                                    onChange={(e) => setExportSection(e.target.value)}
+                                >
+                                    <option value="all">All Sections</option>
+                                    {exportSectionOptions
+                                        .filter((section) => section !== "all")
+                                        .map((section) => (
+                                            <option key={section} value={section}>
+                                                {section}
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
                                 <label className="text-sm font-medium">Academic Year</label>
                                 <select
                                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                     value={exportAcademicYear}
                                     onChange={(e) => setExportAcademicYear(e.target.value)}
                                 >
-                                    <option value="2024-2025">2024-2025</option>
-                                    <option value="2025-2026">2025-2026</option>
-                                    <option value="2026-2027">2026-2027</option>
+                                    {academicYearOptions.map((academicYear) => (
+                                        <option key={academicYear} value={academicYear}>
+                                            {academicYear}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
+
+                        <Alert>
+                            <AlertDescription>
+                                Export scope: <strong>{exportProgram?.courseName || "All Programs"}</strong>
+                                {" • "}<strong>{exportYearLevel === "all" ? "All Year Levels" : exportYearLevel}</strong>
+                                {" • "}<strong>{exportSection === "all" ? "All Sections" : exportSection}</strong>
+                                {" • "}<strong>{exportSemester}</strong>
+                                {" • "}<strong>{exportAcademicYear}</strong>
+                            </AlertDescription>
+                        </Alert>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setExportDialogOpen(false)} disabled={exporting}>
@@ -771,16 +1230,46 @@ export default function SchedulesPage() {
                                 value={selectedAcademicYear}
                                 onChange={(e) => setSelectedAcademicYear(e.target.value)}
                             >
-                                <option value="2024-2025">2024-2025</option>
-                                <option value="2025-2026">2025-2026</option>
-                                <option value="2026-2027">2026-2027</option>
+                                {academicYearOptions.map((academicYear) => (
+                                    <option key={academicYear} value={academicYear}>
+                                        {academicYear}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label htmlFor="program" className="text-sm font-medium">
+                                Program
+                            </label>
+                            <select
+                                id="program"
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={selectedProgramId}
+                                onChange={(e) => setSelectedProgramId(e.target.value)}
+                            >
+                                <option value="all">All programs</option>
+                                {courses.map((course) => {
+                                    const courseId = course._id || course.id;
+
+                                    if (!courseId) {
+                                        return null;
+                                    }
+
+                                    return (
+                                        <option key={courseId} value={courseId}>
+                                            {course.courseCode} - {course.courseName}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
 
                         <Alert>
                             <PlayCircle className="h-4 w-4" />
                             <AlertDescription>
-                                This will generate schedules for <strong>{selectedSemester} {selectedAcademicYear}</strong>.
+                                This will generate schedules for <strong>{selectedProgram?.courseName || "all programs"}</strong>
+                                {" "}during <strong>{selectedSemester} {selectedAcademicYear}</strong>.
                                 Existing schedules will be preserved unless overwrite is enabled.
                             </AlertDescription>
                         </Alert>
