@@ -20,8 +20,8 @@ export class FacultyController {
         return;
       }
 
-      const { department, status, employmentType, email } = queryValidation.data;
-      const faculty = await FacultyService.getAll({ department, status, employmentType, email });
+      const { program, status, employmentType, email } = queryValidation.data;
+      const faculty = await FacultyService.getAll({ program, status, employmentType, email });
 
       res.status(200).json({
         success: true,
@@ -307,13 +307,46 @@ export class FacultyController {
    */
   static async getStats(req: Request, res: Response): Promise<void> {
     try {
-      const { department } = req.query;
-      const stats = await FacultyService.getStats(department as string);
+      const { program } = req.query;
+      const stats = await FacultyService.getStats(program as string);
 
       res.status(200).json({
         success: true,
         message: 'Faculty statistics retrieved successfully',
         data: stats
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Internal server error'
+      });
+    }
+  }
+
+  /**
+   * GET /api/faculty/me - Get the faculty record of the currently logged-in faculty user
+   */
+  static async getMe(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ success: false, message: 'Unauthorized' });
+        return;
+      }
+
+      const faculty = await FacultyService.getByUserId(req.user.id);
+
+      if (!faculty) {
+        res.status(404).json({
+          success: false,
+          message: 'No faculty record linked to this account'
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Faculty record retrieved successfully',
+        data: faculty
       });
     } catch (error) {
       res.status(500).json({

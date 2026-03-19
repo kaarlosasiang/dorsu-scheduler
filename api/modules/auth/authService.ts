@@ -1,15 +1,16 @@
 import User from '../../models/userModel.js';
-import { 
-  IRegisterData, 
-  ILoginCredentials, 
-  ILoginResponse, 
+import { Faculty } from '../../models/facultyModel.js';
+import {
+  IRegisterData,
+  ILoginCredentials,
+  ILoginResponse,
   IUser,
-  IUserPayload 
+  IUserPayload
 } from '../../shared/interfaces/IUser.js';
-import { 
-  generateAccessToken, 
-  generateRefreshToken, 
-  verifyRefreshToken 
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken
 } from '../../shared/utils/tokenUtils.js';
 
 export class AuthService {
@@ -32,7 +33,7 @@ export class AuthService {
       const user = new User({
         email: data.email.toLowerCase(),
         password: data.password,
-        role: data.role || 'admin'
+        role: data.role || 'staff'
       });
 
       await user.save();
@@ -193,12 +194,75 @@ export class AuthService {
     try {
       const user = await User.findById(id).select('-password');
       return user;
-      
+
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Failed to fetch user: ${error.message}`);
       }
       throw new Error('Failed to fetch user: Unknown error');
+    }
+  }
+
+  /**
+   * Create faculty user account with linked Faculty record
+   */
+  static async createFacultyUser(
+    email: string,
+    password: string,
+    facultyId?: string
+  ): Promise<ILoginResponse> {
+    try {
+      // Check if user already exists
+      const existingUser = await User.findOne({
+        email: email.toLowerCase()
+      });
+
+      if (existingUser) {
+        throw new Error('Email already exists');
+      }
+
+      // Create new user with faculty role
+      const user = new User({
+        email: email.toLowerCase(),
+        password: password,
+        role: 'faculty'
+      });
+
+      await user.save();
+
+      // Link to existing Faculty record if provided
+      if (facultyId) {
+        await Faculty.findByIdAndUpdate(
+          facultyId,
+          { userId: user._id },
+          { new: true }
+        );
+      }
+
+      // Generate tokens
+      const payload: IUserPayload = {
+        id: user._id.toString(),
+        email: user.email,
+        role: user.role
+      };
+
+      const accessToken = generateAccessToken(payload);
+      const refreshToken = generateRefreshToken(payload);
+
+      return {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user._id.toString(),
+          email: user.email,
+          role: user.role
+        }
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to create faculty user: ${error.message}`);
+      }
+      throw new Error('Failed to create faculty user: Unknown error');
     }
   }
 }

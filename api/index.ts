@@ -10,6 +10,7 @@ import { courseRoutes } from "./modules/course-management/courseRoutes.js";
 import subjectRoutes from "./modules/subject-management/subjectRoutes.js";
 import { classroomRoutes } from "./modules/classroom-management/classroomRoutes.js";
 import { scheduleRoutes } from "./modules/schedule-management/scheduleRoutes.js";
+import { sectionRoutes } from "./modules/section-management/sectionRoutes.js";
 import {
   errorHandler,
   notFoundHandler,
@@ -75,6 +76,7 @@ app.use(`${API_CONFIG.PREFIX}/subjects`, subjectRoutes);
 app.use(`${API_CONFIG.PREFIX}/courses`, courseRoutes);
 app.use(`${API_CONFIG.PREFIX}/classrooms`, classroomRoutes);
 app.use(`${API_CONFIG.PREFIX}/schedules`, scheduleRoutes);
+app.use(`${API_CONFIG.PREFIX}/sections`, sectionRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

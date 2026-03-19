@@ -31,10 +31,9 @@ export const facultySchema = z.object({
     .email("Please enter a valid email address")
     .toLowerCase(),
   
-  department: z
+  program: z
     .string()
-    .min(2, "Department must be at least 2 characters long")
-    .max(50, "Department cannot exceed 50 characters"),
+    .min(2, "Program must be a valid selection"),
   
   employmentType: z
     .enum(["full-time", "part-time"]),
@@ -54,6 +53,18 @@ export const facultySchema = z.object({
       message: "Please enter a valid URL"
     }),
   
+  designation: z
+    .string()
+    .max(150, "Designation cannot exceed 150 characters")
+    .optional()
+    .or(z.literal(""))
+    .transform((val) => (!val || val.trim() === '' ? undefined : val.trim())),
+
+  adminLoad: z
+    .number()
+    .min(0, "Admin load cannot be negative")
+    .default(0),
+
   minLoad: z
     .number()
     .min(18, "Minimum load must be at least 18 units")
@@ -66,9 +77,35 @@ export const facultySchema = z.object({
   
   status: z
     .enum(["active", "inactive"]),
+
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters long")
+    .optional()
+    .or(z.literal("")),
+
+  confirmPassword: z
+    .string()
+    .optional()
+    .or(z.literal("")),
 }).refine((data) => {
   return data.minLoad <= data.maxLoad;
 }, {
   message: "Minimum load cannot exceed maximum load",
   path: ["minLoad"],
+}).refine((data) => {
+  const adminLoad = data.adminLoad || 0;
+  if (adminLoad > 0 && !data.designation) return false;
+  return true;
+}, {
+  message: "Admin load can only be set when a designation is assigned",
+  path: ["adminLoad"],
+}).refine((data) => {
+  if (data.password && data.password.trim() !== "" && data.password !== data.confirmPassword) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });

@@ -16,8 +16,6 @@ export function useCourseForm() {
       const response = await CourseAPI.create({
         courseCode: data.courseCode,
         courseName: data.courseName,
-        units: data.units,
-        department: data.department,
       });
 
       return response;
@@ -38,8 +36,6 @@ export function useCourseForm() {
       const response = await CourseAPI.update(id, {
         courseCode: data.courseCode,
         courseName: data.courseName,
-        units: data.units,
-        department: data.department,
       });
 
       return response;

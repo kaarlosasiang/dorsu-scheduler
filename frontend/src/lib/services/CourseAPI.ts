@@ -5,8 +5,7 @@ export interface ICourse {
     id?: string;
     courseCode: string;
     courseName: string;
-    units: number;
-    department: { name: string, code: string, id: string };
+    description?: string;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -29,7 +28,6 @@ export interface CourseStatsResponse {
     message: string;
     data: {
         total: number;
-        totalUnits: number;
         byDepartment: Array<{
             department: string;
             count: number;
@@ -40,24 +38,23 @@ export interface CourseStatsResponse {
 export interface CourseQueryParams {
     courseCode?: string;
     courseName?: string;
-    department?: string;
     page?: number;
     limit?: number;
-    sortBy?: 'courseCode' | 'courseName' | 'units' | 'createdAt';
+    sortBy?: 'courseCode' | 'courseName' | 'createdAt';
     sortOrder?: 'asc' | 'desc';
 }
 
 export interface CourseCreateData {
     courseCode: string;
     courseName: string;
-    units: number;
-    department: string;
+    description?: string;
+    department?: string;
 }
 
 export interface CourseUpdateData {
     courseCode?: string;
     courseName?: string;
-    units?: number;
+    description?: string;
     department?: string;
 }
 

@@ -2,7 +2,7 @@ import { Schedule } from '../../models/scheduleModel.js';
 import { Subject } from '../../models/subjectModel.js';
 import { Faculty } from '../../models/facultyModel.js';
 import { Classroom } from '../../models/classroomModel.js';
-import { detectConflicts } from './conflictDetector.js';
+import { Section } from '../../models/sectionModel.js';
 import {
   ISchedule,
   IScheduleConstraints,
@@ -24,6 +24,186 @@ import {
  * Automated Schedule Generator
  * Objectives 1 & 2: Design and develop automated system with intelligent algorithms
  */
+
+// ─── In-Memory Schedule Store ─────────────────────────────────────────────────
+// Pre-loaded once per generation run. All conflict and workload checks operate
+// against this store instead of firing individual DB queries in the hot loop.
+
+interface TimeRange {
+  startMinutes: number;
+  endMinutes: number;
+}
+
+interface InMemoryScheduleStore {
+  /** "faculty:<id>:<day>" | "classroom:<id>:<day>" | "section:<id>:<day>" → occupied time ranges */
+  occupiedSlots: Map<string, TimeRange[]>;
+  /** facultyId → accumulated teaching hours for the semester */
+  facultyHoursMap: Map<string, number>;
+  /** facultyId → Set of unique subjectIds (preparation count) */
+  facultyPrepsMap: Map<string, Set<string>>;
+  /**
+   * Day-pattern key (e.g. "monday,wednesday") → number of schedules assigned.
+   * Used to round-robin across patterns so no single pattern gets overloaded.
+   */
+  patternUsageMap: Map<string, number>;
+}
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function hasOverlap(range: TimeRange, startMin: number, endMin: number): boolean {
+  return range.startMinutes < endMin && range.endMinutes > startMin;
+}
+
+/** Check whether a faculty member or classroom is free for the given time slot (in-memory). */
+function isSlotFree(
+  store: InMemoryScheduleStore,
+  entityType: 'faculty' | 'classroom' | 'section',
+  entityId: string,
+  timeSlot: ITimeSlot
+): boolean {
+  const days = timeSlot.days && timeSlot.days.length > 0 ? timeSlot.days : [timeSlot.day];
+  const startMin = toMinutes(timeSlot.startTime);
+  const endMin   = toMinutes(timeSlot.endTime);
+
+  for (const day of days) {
+    const key    = `${entityType}:${entityId}:${day}`;
+    const ranges = store.occupiedSlots.get(key) ?? [];
+    if (ranges.some(r => hasOverlap(r, startMin, endMin))) return false;
+  }
+  return true;
+}
+
+/** Mark a faculty member or classroom as occupied for the given time slot (in-memory). */
+function markSlotOccupied(
+  store: InMemoryScheduleStore,
+  entityType: 'faculty' | 'classroom' | 'section',
+  entityId: string,
+  timeSlot: ITimeSlot
+): void {
+  const days = timeSlot.days && timeSlot.days.length > 0 ? timeSlot.days : [timeSlot.day];
+  const range: TimeRange = {
+    startMinutes: toMinutes(timeSlot.startTime),
+    endMinutes:   toMinutes(timeSlot.endTime)
+  };
+
+  for (const day of days) {
+    const key = `${entityType}:${entityId}:${day}`;
+    const existing = store.occupiedSlots.get(key) ?? [];
+    existing.push(range);
+    store.occupiedSlots.set(key, existing);
+  }
+}
+
+/** Canonical sort key for a time slot's day pattern (e.g. "monday,wednesday"). */
+function patternKey(timeSlot: ITimeSlot): string {
+  const days = timeSlot.days && timeSlot.days.length > 0 ? timeSlot.days : [timeSlot.day];
+  return [...days].sort().join(',');
+}
+
+/**
+ * Re-order a time-slot list so the least-used day patterns are tried first.
+ * Within the same usage tier, original relative order is preserved (stable).
+ * This ensures load is round-robined across MW / MF / WF rather than all
+ * subjects piling onto MW just because it happens to be listed first.
+ */
+function sortSlotsByPatternUsage(slots: ITimeSlot[], store: InMemoryScheduleStore): ITimeSlot[] {
+  return [...slots].sort((a, b) => {
+    const usageA = store.patternUsageMap.get(patternKey(a)) ?? 0;
+    const usageB = store.patternUsageMap.get(patternKey(b)) ?? 0;
+    return usageA - usageB;
+  });
+}
+
+/**
+ * Pre-load ONE query worth of schedule data into the in-memory store.
+ * All subsequent workload / conflict checks for this generation run use this
+ * store instead of individual DB round-trips.
+ */
+async function buildScheduleStore(semester: string, academicYear: string): Promise<InMemoryScheduleStore> {
+  const store: InMemoryScheduleStore = {
+    occupiedSlots:   new Map(),
+    facultyHoursMap: new Map(),
+    facultyPrepsMap: new Map(),
+    patternUsageMap: new Map()
+  };
+
+  const existing = await Schedule.find({
+    semester,
+    academicYear,
+    status: { $ne: 'archived' }
+  })
+    .populate('subject', 'lectureUnits labUnits')
+    .lean();
+
+  for (const s of existing) {
+    const facultyId   = s.faculty?.toString();
+    const classroomId = s.classroom?.toString();
+    const sectionId   = s.section?.toString();
+    const subjectId   = s.subject?._id?.toString() ?? s.subject?.toString();
+    const timeSlot    = s.timeSlot as ITimeSlot;
+
+    if (!timeSlot) continue;
+
+    // Occupied slot tracking for faculty and classroom
+    if (facultyId)   markSlotOccupied(store, 'faculty',   facultyId,   timeSlot);
+    if (classroomId) markSlotOccupied(store, 'classroom', classroomId, timeSlot);
+    if (sectionId)   markSlotOccupied(store, 'section',   sectionId,   timeSlot);
+
+    // Pattern usage — count from existing schedules so we don't bias new ones
+    const key = patternKey(timeSlot);
+    store.patternUsageMap.set(key, (store.patternUsageMap.get(key) ?? 0) + 1);
+
+    // Teaching hours accumulation
+    if (facultyId) {
+      const subjectData = s.subject as any;
+      let hours = 0;
+      if ((s as any).scheduleType === 'lecture') {
+        hours = calculateLectureHours(subjectData?.lectureUnits ?? 0);
+      } else if ((s as any).scheduleType === 'laboratory') {
+        hours = calculateLabHours(subjectData?.labUnits ?? 0);
+      }
+      store.facultyHoursMap.set(facultyId, (store.facultyHoursMap.get(facultyId) ?? 0) + hours);
+    }
+
+    // Preparations (unique subjects) tracking
+    if (facultyId && subjectId) {
+      const preps = store.facultyPrepsMap.get(facultyId) ?? new Set<string>();
+      preps.add(subjectId);
+      store.facultyPrepsMap.set(facultyId, preps);
+    }
+  }
+
+  console.log(`   📦 Built schedule store from ${existing.length} existing schedule(s)`);
+  return store;
+}
+
+async function getActiveSectionsMap(programIds?: string[]): Promise<Map<string, any[]>> {
+  const query: any = { status: 'active' };
+
+  if (programIds && programIds.length > 0) {
+    query.program = { $in: programIds };
+  }
+
+  const sections = await Section.find(query)
+    .select('program yearLevel sectionCode name status')
+    .lean();
+
+  const sectionMap = new Map<string, any[]>();
+
+  for (const section of sections) {
+    const key = `${section.program?.toString()}:${section.yearLevel}`;
+    const existing = sectionMap.get(key) ?? [];
+    existing.push(section);
+    sectionMap.set(key, existing);
+  }
+
+  return sectionMap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Get subjects to schedule
@@ -66,14 +246,14 @@ async function getSubjectsToSchedule(
 /**
  * Get available faculty
  */
-async function getAvailableFaculty(departments?: string[]): Promise<any[]> {
+async function getAvailableFaculty(programs?: string[]): Promise<any[]> {
   const query: any = { status: 'active' };
 
-  if (departments && departments.length > 0) {
-    query.department = { $in: departments };
+  if (programs && programs.length > 0) {
+    query.program = { $in: programs };
   }
 
-  return await Faculty.find(query).populate('department', 'name code');
+  return await Faculty.find(query).populate('program', 'courseCode courseName');
 }
 
 /**
@@ -94,71 +274,52 @@ async function updateFacultyLoad(facultyId: string, teachingHours: number): Prom
 }
 
 /**
- * Find suitable faculty for a subject
- * Objective 3: Consider availability, workload, and preferences
+ * Find suitable faculty for a subject.
+ * Objective 3: Consider availability, workload, and preferences.
+ * Uses the pre-loaded InMemoryScheduleStore — zero DB queries.
  */
-async function findSuitableFaculty(
+function findSuitableFaculty(
   subject: any,
   availableFaculty: any[],
-  semester: string,
-  academicYear: string,
-  constraints: IScheduleConstraints
-): Promise<any[]> {
+  constraints: IScheduleConstraints,
+  store: InMemoryScheduleStore
+): any[] {
   const suitable: any[] = [];
 
   for (const faculty of availableFaculty) {
-    // Check if faculty belongs to same department
-    if (subject.department && faculty.department.toString() !== subject.department.toString()) {
+    // Faculty must belong to the same program as the subject's course
+    if (subject.course && faculty.program && faculty.program.toString() !== subject.course.toString()) {
       continue;
     }
 
-    // Get faculty's current schedules
-    const facultySchedules = await Schedule.find({
-      faculty: faculty._id,
-      semester,
-      academicYear,
-      status: { $ne: 'archived' }
-    }).populate('subject', 'lectureUnits labUnits');
+    const facultyId = faculty._id.toString();
 
-    // Calculate current load in teaching hours
-    let currentHours = 0;
-    const uniqueSubjects = new Set();
+    // Pull workload data from the in-memory store (no DB round-trip)
+    const currentHours = store.facultyHoursMap.get(facultyId) ?? 0;
+    const uniqueSubjects = store.facultyPrepsMap.get(facultyId) ?? new Set<string>();
 
-    for (const schedule of facultySchedules) {
-      const subjectData = (schedule as any).subject;
-      if (subjectData) {
-        const scheduleType = (schedule as any).scheduleType;
-        if (scheduleType === 'lecture') {
-          currentHours += calculateLectureHours(subjectData.lectureUnits || 0);
-        } else if (scheduleType === 'laboratory') {
-          currentHours += calculateLabHours(subjectData.labUnits || 0);
-        }
-        uniqueSubjects.add(schedule.subject.toString());
-      }
-    }
-
-    // Check workload constraints (now in hours, not units)
-    const maxLoad = constraints.maxHoursPerWeek || faculty.maxLoad || 26;
+    // Check workload constraints
+    const rawMaxLoad  = constraints.maxHoursPerWeek || faculty.maxLoad || 26;
+    const adminLoad   = faculty.adminLoad || 0;
+    const maxLoad     = rawMaxLoad - adminLoad;
     const maxPreparations = constraints.maxPreparations || faculty.maxPreparations || 4;
 
-    // Calculate teaching hours for this subject component
-    const subjectHours = subject.lectureUnits ? calculateLectureHours(subject.lectureUnits) : 0;
-    const labHours = subject.labUnits ? calculateLabHours(subject.labUnits) : 0;
+    // Teaching hours this subject component would add
+    const subjectHours      = subject.lectureUnits ? calculateLectureHours(subject.lectureUnits) : 0;
+    const labHours          = subject.labUnits     ? calculateLabHours(subject.labUnits)         : 0;
     const totalSubjectHours = subjectHours + labHours;
 
-    // Check if adding this subject would exceed limits
     if (currentHours + totalSubjectHours <= maxLoad && uniqueSubjects.size < maxPreparations) {
       suitable.push({
         ...faculty.toObject(),
-        currentLoad: currentHours,
+        currentLoad:  currentHours,
         preparations: uniqueSubjects.size,
-        // Priority: lower load = higher priority (for fair distribution)
+        // Lower load → higher priority (fair distribution)
         priority: maxLoad - currentHours
       });
     }
   }
 
-  // Sort by priority (faculty with lower load gets priority)
   return suitable.sort((a, b) => b.priority - a.priority);
 }
 
@@ -230,64 +391,48 @@ function findSuitableClassrooms(
 }
 
 /**
- * Find best faculty-classroom-time assignment pattern
- * Objective 2: Intelligent algorithm to minimize conflicts
- * Returns a pattern of time slots (e.g., MW at 8:00-9:00) instead of a single slot
+ * Find best faculty-classroom-time assignment.
+ * Objective 2: Intelligent algorithm to minimise conflicts.
+ * Now fully synchronous — uses the in-memory store for O(1) overlap checks.
  */
-async function findBestAssignmentPattern(
+function findBestAssignmentPattern(
   subject: any,
   suitableFaculty: any[],
   suitableClassrooms: any[],
   timeSlots: ITimeSlot[],
-  semester: string,
-  academicYear: string,
+  store: InMemoryScheduleStore,
+  sectionId?: string,
   scheduleType: 'lecture' | 'laboratory' = 'lecture'
-): Promise<{ faculty: any; classroom: any; timeSlots: ITimeSlot[] } | null> {
+): { faculty: any; classroom: any; timeSlots: ITimeSlot[] } | null {
 
-  // Time slots now come with days arrays already set (e.g., ['monday', 'wednesday'])
-  // So we don't need to reconstruct patterns - just use them directly
-
-  let attemptCount = 0;
+  let attemptCount  = 0;
   let conflictCount = 0;
 
   for (const faculty of suitableFaculty) {
+    const facultyId = faculty._id.toString();
+
     for (const classroom of suitableClassrooms) {
-      // Try each time slot pattern
+      const classroomId = classroom._id.toString();
+
       for (const timeSlot of timeSlots) {
         attemptCount++;
 
-        // Check for conflicts on this pattern
-        const testSchedule = {
-          subject: subject._id,
-          faculty: faculty._id,
-          classroom: classroom._id,
-          timeSlot, // This already has days array
-          scheduleType,
-          semester,
-          academicYear
-        };
+        const facultyFree   = isSlotFree(store, 'faculty',   facultyId,   timeSlot);
+        const classroomFree = isSlotFree(store, 'classroom', classroomId, timeSlot);
+        const sectionFree   = sectionId
+          ? isSlotFree(store, 'section', sectionId, timeSlot)
+          : true;
 
-        const conflicts = await detectConflicts(testSchedule);
-
-        if (conflicts.length > 0) {
+        if (!facultyFree || !classroomFree || !sectionFree) {
           conflictCount++;
-
-          // Log first conflict for debugging
-          if (attemptCount === 1) {
-            const days = timeSlot.days?.join(', ') || timeSlot.day;
-            console.log(`     DEBUG: First attempt conflict on ${days} ${timeSlot.startTime}:`);
-            conflicts.forEach(c => console.log(`       - ${c.type}: ${c.message}`));
-          }
-          continue; // Try next slot
+          continue;
         }
 
-        // No conflicts found! Return this assignment
-        console.log(`     ✓ SUCCESS! Found conflict-free slot after ${attemptCount} attempts`);
+        // Conflict-free — return this assignment
+        console.log(`     ✓ SUCCESS! Found conflict-free slot after ${attemptCount} attempt(s)`);
         if (conflictCount > 0) {
-          console.log(`       (${conflictCount} combinations had conflicts before this one)`);
+          console.log(`       (${conflictCount} combination(s) had conflicts before this one)`);
         }
-
-        // Return the slot as an array for compatibility with existing code
         return { faculty, classroom, timeSlots: [timeSlot] };
       }
     }
@@ -295,14 +440,12 @@ async function findBestAssignmentPattern(
 
   console.log(`     ✗ Tried ${attemptCount} combinations, all had conflicts (faculty: ${suitableFaculty.length}, rooms: ${suitableClassrooms.length})`);
   return null;
-
-  return null;
 }
 
 /**
- * Generate schedule for a single subject component (lecture or lab)
- * Uses intelligent algorithm to find best fit
- * Returns array of schedules because subjects meet on multiple days
+ * Generate schedule for a single subject component (lecture or lab).
+ * Uses the in-memory store for all conflict/workload checks, then updates
+ * the store after a successful save so subsequent subjects see the new slot.
  */
 async function generateScheduleComponent(
   subject: any,
@@ -313,44 +456,37 @@ async function generateScheduleComponent(
   academicYear: string,
   constraints: IScheduleConstraints,
   scheduleType: 'lecture' | 'laboratory',
-  units: number
+  units: number,
+  store: InMemoryScheduleStore,
+  section?: any
 ): Promise<ISchedule[]> {
 
-  // 1. Find suitable faculty (Objective 3: Fair distribution)
-  const suitableFaculty = await findSuitableFaculty(
-    subject,
-    availableFaculty,
-    semester,
-    academicYear,
-    constraints
-  );
+  // 1. Find suitable faculty — pure in-memory, zero DB queries
+  const suitableFaculty = findSuitableFaculty(subject, availableFaculty, constraints, store);
 
   console.log(`Found ${suitableFaculty.length} suitable faculty`);
   if (suitableFaculty.length === 0) {
     throw new Error(`No suitable faculty found for ${scheduleType} of subject ${subject.subjectCode}`);
   }
 
-  // 2. Find suitable classroom based on schedule type
-  const suitableClassrooms = findSuitableClassrooms(
-    subject,
-    availableClassrooms,
-    constraints,
-    scheduleType
-  );
+  // 2. Find suitable classrooms
+  const suitableClassrooms = findSuitableClassrooms(subject, availableClassrooms, constraints, scheduleType);
 
   console.log(`     Found ${suitableClassrooms.length} suitable ${scheduleType} classrooms`);
   if (suitableClassrooms.length === 0) {
     throw new Error(`No suitable ${scheduleType} classroom found for subject ${subject.subjectCode}`);
   }
 
-  // 3. Find best time slot pattern (e.g., MW, TTh) - returns multiple time slots
-  const bestAssignment = await findBestAssignmentPattern(
+  // 3. Find best time slot — sort by least-used pattern first, then check in-memory
+  const sortedTimeSlots = sortSlotsByPatternUsage(timeSlots, store);
+  const sectionId = section?._id?.toString() ?? section?.id?.toString() ?? undefined;
+  const bestAssignment = findBestAssignmentPattern(
     subject,
     suitableFaculty,
     suitableClassrooms,
-    timeSlots,
-    semester,
-    academicYear,
+    sortedTimeSlots,
+    store,
+    sectionId,
     scheduleType
   );
 
@@ -359,53 +495,70 @@ async function generateScheduleComponent(
     return [];
   }
 
-  const patternSlot = bestAssignment.timeSlots[0];
-  const daysDisplay = patternSlot.days?.join(', ') || patternSlot.day;
+  const patternSlot  = bestAssignment.timeSlots[0];
+  const daysDisplay  = patternSlot.days?.join(', ') || patternSlot.day;
   console.log(`     ✓ Found conflict-free assignment: ${daysDisplay} at ${patternSlot.startTime}`);
 
-  // 4. Create and save ONE schedule with the pattern
-  // Get department from subject or fallback to course's department
+  // 4. Persist the schedule
   const departmentId = subject.department?._id || subject.department ||
-                       subject.course?.department?._id || subject.course?.department;
+                       subject.course?.department?._id || subject.course?.department ||
+                       null;
 
-  if (!departmentId) {
-    throw new Error(`No department found for subject ${subject.subjectCode}. Please assign a department to the subject or its course.`);
-  }
-
-  // The slot already has days array sorted properly from timeSlotPatterns
   const schedule = new Schedule({
-    subject: subject._id,
-    faculty: bestAssignment.faculty._id,
-    classroom: bestAssignment.classroom._id,
-    department: departmentId,
+    ...(departmentId ? { department: departmentId } : {}),
+    subject:      subject._id,
+    faculty:      bestAssignment.faculty._id,
+    classroom:    bestAssignment.classroom._id,
+    ...(section?._id ? { section: section._id } : {}),
     timeSlot: {
-      day: patternSlot.day, // First day for backward compatibility
-      days: patternSlot.days, // Array of days in pattern (already sorted)
+      day:       patternSlot.day,
+      days:      patternSlot.days,
       startTime: patternSlot.startTime,
-      endTime: patternSlot.endTime
+      endTime:   patternSlot.endTime
     },
     scheduleType,
     semester,
     academicYear,
-    yearLevel: subject.yearLevel,
-    status: 'draft',
-    isGenerated: true
+    yearLevel:    subject.yearLevel,
+    status:       'draft',
+    isGenerated:  true
   });
 
   await schedule.save();
 
-  // 5. Update faculty current load ONCE (convert units to teaching hours based on type)
+  // 5. Update the in-memory store so subsequent subjects see this slot as taken
+  const facultyId   = bestAssignment.faculty._id.toString();
+  const classroomId = bestAssignment.classroom._id.toString();
+  const subjectId   = subject._id.toString();
+
+  markSlotOccupied(store, 'faculty',   facultyId,   patternSlot);
+  markSlotOccupied(store, 'classroom', classroomId, patternSlot);
+  if (sectionId) {
+    markSlotOccupied(store, 'section', sectionId, patternSlot);
+  }
+
+  // Increment pattern usage so the next subject avoids this pattern if others are free
+  const pKey = patternKey(patternSlot);
+  store.patternUsageMap.set(pKey, (store.patternUsageMap.get(pKey) ?? 0) + 1);
+
   const teachingHours = scheduleType === 'lecture'
     ? calculateLectureHours(units)
     : calculateLabHours(units);
-  await updateFacultyLoad(bestAssignment.faculty._id, teachingHours);
+
+  store.facultyHoursMap.set(facultyId, (store.facultyHoursMap.get(facultyId) ?? 0) + teachingHours);
+
+  const preps = store.facultyPrepsMap.get(facultyId) ?? new Set<string>();
+  preps.add(subjectId);
+  store.facultyPrepsMap.set(facultyId, preps);
+
+  // 6. Persist faculty load update to DB (fire-and-forget — non-blocking)
+  await updateFacultyLoad(facultyId, teachingHours);
 
   return [JSON.parse(JSON.stringify(schedule)) as ISchedule];
 }
 
 /**
- * Generate schedule for a single subject (may create lecture and/or lab schedules)
- * Uses intelligent algorithm to find best fit
+ * Generate schedule for a single subject (may create lecture and/or lab schedules).
  */
 async function generateSubjectSchedule(
   subject: any,
@@ -413,70 +566,64 @@ async function generateSubjectSchedule(
   availableClassrooms: any[],
   semester: string,
   academicYear: string,
-  constraints: IScheduleConstraints
+  constraints: IScheduleConstraints,
+  store: InMemoryScheduleStore,
+  sectionMap: Map<string, any[]>
 ): Promise<ISchedule[]> {
   const schedules: ISchedule[] = [];
 
-  // Generate lecture schedule if subject has lecture units
-  // Lectures use MW, MF, or WF patterns with 1 hour sessions per day
-  // Example: 2 lecture units = 2 hours total = 1 hour M + 1 hour W
-  if (subject.lectureUnits && subject.lectureUnits > 0) {
-    console.log(`  → Generating LECTURE schedule for ${subject.subjectCode} (${subject.lectureUnits} units)`);
-    const lectureTimeSlots = generateLectureTimeSlots();
-    console.log(`     Available lecture time slots: ${lectureTimeSlots.length}`);
+  const courseId = subject.course?._id?.toString?.() || subject.course?.toString?.() || '';
+  const sectionKey = `${courseId}:${subject.yearLevel}`;
+  const sectionsForSubject = sectionMap.get(sectionKey) ?? [];
+  const targetSections = sectionsForSubject.length > 0 ? sectionsForSubject : [null];
 
-    try {
-      const lectureSchedules = await generateScheduleComponent(
-        subject,
-        availableFaculty,
-        availableClassrooms,
-        lectureTimeSlots,
-        semester,
-        academicYear,
-        constraints,
-        'lecture',
-        subject.lectureUnits
-      );
+  for (const targetSection of targetSections) {
+    const sectionLabel = targetSection?.name || targetSection?.sectionCode || 'NO-SECTION';
 
-      if (lectureSchedules && lectureSchedules.length > 0) {
-        console.log(`     ✓ Successfully generated ${lectureSchedules.length} lecture schedule(s)`);
-        schedules.push(...lectureSchedules);
-      } else {
-        console.log(`     ✗ No lecture schedule generated (no conflicts found but no slots assigned)`);
+    if (subject.lectureUnits && subject.lectureUnits > 0) {
+      console.log(`  → Generating LECTURE schedule for ${subject.subjectCode} (${subject.lectureUnits} units) [${sectionLabel}]`);
+      const lectureTimeSlots = generateLectureTimeSlots();
+      console.log(`     Available lecture time slots: ${lectureTimeSlots.length}`);
+
+      try {
+        const lectureSchedules = await generateScheduleComponent(
+          subject, availableFaculty, availableClassrooms,
+          lectureTimeSlots, semester, academicYear,
+          constraints, 'lecture', subject.lectureUnits, store, targetSection
+        );
+
+        if (lectureSchedules && lectureSchedules.length > 0) {
+          console.log(`     ✓ Successfully generated ${lectureSchedules.length} lecture schedule(s)`);
+          schedules.push(...lectureSchedules);
+        } else {
+          console.log(`     ✗ No lecture schedule generated`);
+        }
+      } catch (error) {
+        console.log(`     ✗ Failed to generate lecture schedule: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-    } catch (error) {
-      console.log(`     ✗ Failed to generate lecture schedule: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }
 
-  // Generate laboratory schedule if subject has lab units
-  // Labs use TTh pattern with 1.5 hour sessions
-  if (subject.labUnits && subject.labUnits > 0) {
-    console.log(`  → Generating LAB schedule for ${subject.subjectCode} (${subject.labUnits} units)`);
-    const labTimeSlots = generateLabTimeSlots();
-    console.log(`     Available lab time slots: ${labTimeSlots.length}`);
+    if (subject.labUnits && subject.labUnits > 0) {
+      console.log(`  → Generating LAB schedule for ${subject.subjectCode} (${subject.labUnits} units) [${sectionLabel}]`);
+      const labTimeSlots = generateLabTimeSlots();
+      console.log(`     Available lab time slots: ${labTimeSlots.length}`);
 
-    try {
-      const labSchedules = await generateScheduleComponent(
-        subject,
-        availableFaculty,
-        availableClassrooms,
-        labTimeSlots,
-        semester,
-        academicYear,
-        constraints,
-        'laboratory',
-        subject.labUnits
-      );
+      try {
+        const labSchedules = await generateScheduleComponent(
+          subject, availableFaculty, availableClassrooms,
+          labTimeSlots, semester, academicYear,
+          constraints, 'laboratory', subject.labUnits, store, targetSection
+        );
 
-      if (labSchedules && labSchedules.length > 0) {
-        console.log(`     ✓ Successfully generated ${labSchedules.length} lab schedule(s)`);
-        schedules.push(...labSchedules);
-      } else {
-        console.log(`     ✗ No lab schedule generated (no conflicts found but no slots assigned)`);
+        if (labSchedules && labSchedules.length > 0) {
+          console.log(`     ✓ Successfully generated ${labSchedules.length} lab schedule(s)`);
+          schedules.push(...labSchedules);
+        } else {
+          console.log(`     ✗ No lab schedule generated`);
+        }
+      } catch (error) {
+        console.log(`     ✗ Failed to generate lab schedule: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-    } catch (error) {
-      console.log(`     ✗ Failed to generate lab schedule: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -529,8 +676,8 @@ async function calculateStatistics(
 }
 
 /**
- * Main schedule generation function
- * Implements all 4 project objectives
+ * Main schedule generation function.
+ * Implements all 4 project objectives.
  */
 export async function generateSchedules(request: ScheduleGenerationInput): Promise<IScheduleGenerationResult> {
   try {
@@ -543,28 +690,32 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
       constraints = {}
     } = request;
 
-    // Get data
-    const subjectsToSchedule = await getSubjectsToSchedule(semester, departments, subjects, courses);
-    const availableFaculty = await getAvailableFaculty(departments);
+    console.time('⏱  Schedule generation');
+
+    // 1. Fetch reference data (3 queries total for the entire run)
+    const subjectsToSchedule  = await getSubjectsToSchedule(semester, departments, subjects, courses);
+    const availableFaculty    = await getAvailableFaculty(courses);
     const availableClassrooms = await getAvailableClassrooms();
+    const sectionMap          = await getActiveSectionsMap(courses);
 
     if (subjectsToSchedule.length === 0) {
       throw new Error(`No subjects found to schedule for ${semester}. Please ensure subjects are assigned to this semester.`);
     }
-
     if (availableFaculty.length === 0) {
       throw new Error('No available faculty found');
     }
-
     if (availableClassrooms.length === 0) {
       throw new Error('No available classrooms found');
     }
 
-    const generatedSchedules: ISchedule[] = [];
-    const failedSubjects: Array<{ subject: any; reason: string }> = [];
-    const conflicts: IScheduleConflict[] = [];
+    // 2. Pre-load ALL existing schedules into memory — the only scheduling-related DB query
+    const store = await buildScheduleStore(semester, academicYear);
 
-    // Generate schedule for each subject
+    const generatedSchedules: ISchedule[]                              = [];
+    const failedSubjects: Array<{ subject: any; reason: string }>      = [];
+    const conflicts: IScheduleConflict[]                               = [];
+
+    // 3. Generate schedule for each subject — all conflict checks are in-memory from here
     for (const subject of subjectsToSchedule) {
       try {
         const schedules = await generateSubjectSchedule(
@@ -573,16 +724,15 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
           availableClassrooms,
           semester,
           academicYear,
-          constraints
+          constraints,
+          store,
+          sectionMap
         );
 
         if (schedules && schedules.length > 0) {
           generatedSchedules.push(...schedules);
         } else {
-          failedSubjects.push({
-            subject,
-            reason: 'No conflict-free time slot found'
-          });
+          failedSubjects.push({ subject, reason: 'No conflict-free time slot found' });
         }
       } catch (error) {
         failedSubjects.push({
@@ -592,12 +742,10 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
       }
     }
 
-    // Calculate statistics
-    const statistics = await calculateStatistics(
-      generatedSchedules,
-      availableFaculty,
-      availableClassrooms
-    );
+    console.timeEnd('⏱  Schedule generation');
+
+    // 4. Calculate statistics
+    const statistics = await calculateStatistics(generatedSchedules, availableFaculty, availableClassrooms);
 
     return {
       success: true,

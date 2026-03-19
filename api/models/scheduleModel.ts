@@ -1,13 +1,15 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 import { ISchedule, ITimeSlot } from "../shared/interfaces/ISchedule.js";
+import { formatTime12h } from "../shared/utils/timeUtils.js";
 
 // Extend ISchedule with Mongoose Document
-export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'subject' | 'faculty' | 'classroom' | 'department'>, Document {
+export interface IScheduleDocument extends Omit<ISchedule, '_id' | 'subject' | 'faculty' | 'classroom' | 'department' | 'section'>, Document {
   _id: mongoose.Types.ObjectId;
   subject: mongoose.Types.ObjectId;
   faculty: mongoose.Types.ObjectId;
   classroom: mongoose.Types.ObjectId;
   department: mongoose.Types.ObjectId;
+  section?: mongoose.Types.ObjectId;
 }
 
 // Static methods interface
@@ -64,7 +66,7 @@ const scheduleSchema = new Schema<IScheduleDocument>({
   department: {
     type: Schema.Types.ObjectId,
     ref: 'Department',
-    required: [true, 'Department is required'],
+    required: false,
     index: true
   },
   timeSlot: {
@@ -97,10 +99,10 @@ const scheduleSchema = new Schema<IScheduleDocument>({
     index: true
   },
   section: {
-    type: String,
-    trim: true,
-    uppercase: true,
-    maxlength: [10, 'Section cannot exceed 10 characters']
+    type: Schema.Types.ObjectId,
+    ref: 'Section',
+    required: false,
+    index: true,
   },
   status: {
     type: String,
@@ -120,6 +122,9 @@ const scheduleSchema = new Schema<IScheduleDocument>({
       ret.id = ret._id.toString();
       delete (ret as any)._id;
       delete (ret as any).__v;
+      // Format times as 12-hour for API responses; 24-hour stays in DB for calculations
+      if (ret.timeSlot?.startTime) ret.timeSlot.startTime = formatTime12h(ret.timeSlot.startTime);
+      if (ret.timeSlot?.endTime)   ret.timeSlot.endTime   = formatTime12h(ret.timeSlot.endTime);
       return ret;
     }
   },
@@ -131,6 +136,22 @@ scheduleSchema.index({ semester: 1, academicYear: 1 });
 scheduleSchema.index({ faculty: 1, 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
 scheduleSchema.index({ classroom: 1, 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
 scheduleSchema.index({ department: 1, yearLevel: 1, section: 1 });
+
+// Unique constraint: One section cannot be scheduled at the same time slot
+scheduleSchema.index(
+  {
+    section: 1,
+    'timeSlot.day': 1,
+    'timeSlot.startTime': 1,
+    semester: 1,
+    academicYear: 1,
+  },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { status: { $ne: 'archived' }, section: { $exists: true, $ne: null } },
+  }
+);
 
 // Unique constraint: One classroom can only be used once at a time
 scheduleSchema.index(

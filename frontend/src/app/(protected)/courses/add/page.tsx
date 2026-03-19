@@ -26,7 +26,7 @@ export default function AddCoursePage() {
               className="p-0 h-auto !px-0"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to Courses
+              Back to Programs
             </Button>
           </div>
         </div>
@@ -36,7 +36,7 @@ export default function AddCoursePage() {
       <CourseForm
         mode="create"
         onSuccess={(response) => {
-          toast.success("Course created successfully!");
+          toast.success("Program created successfully!");
           router.push("/courses");
         }}
         onError={(error) => {

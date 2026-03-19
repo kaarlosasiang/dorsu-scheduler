@@ -40,7 +40,7 @@ function checkTimeOverlap(slot1: ITimeSlot, slot2: ITimeSlot): boolean {
 export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise<IScheduleConflict[]> {
   const conflicts: IScheduleConflict[] = [];
   
-  const { faculty, classroom, timeSlot, semester, academicYear, _id, subject } = scheduleData;
+  const { faculty, classroom, section, timeSlot, semester, academicYear, _id, subject } = scheduleData;
   
   if (!timeSlot || !semester || !academicYear) {
     return conflicts;
@@ -108,6 +108,22 @@ export async function detectConflicts(scheduleData: Partial<ISchedule>): Promise
           subject: existingSubject,
           timeSlot: existing.timeSlot,
           faculty: existingFaculty
+        }
+      });
+    }
+
+    // 3. Section conflict
+    if (section && existing.section && existing.section.toString() === section.toString()) {
+      conflicts.push({
+        type: 'section',
+        severity: 'error',
+        message: `This section is already scheduled for ${existingSubject.subjectCode} at this time`,
+        schedules: [existing._id.toString()],
+        details: {
+          subject: existingSubject,
+          timeSlot: existing.timeSlot,
+          faculty: existingFaculty,
+          classroom: existingClassroom
         }
       });
     }

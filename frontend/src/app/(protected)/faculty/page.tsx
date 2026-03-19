@@ -22,6 +22,7 @@ import {
   Activity,
   AlertCircle,
   Loader2,
+  Download,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -57,6 +58,20 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { useFaculty } from "@/hooks/useFaculty";
 import { useRouter } from "next/navigation";
 import { type IFaculty } from "@/lib/services/FacultyAPI";
+import { ScheduleAPI } from "@/lib/services/ScheduleAPI";
+import {
+  exportFacultyWorkload,
+  exportFacultyWorkloadBatch,
+} from "@/lib/utils/exportCourseOffering";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Transform IFaculty to display format
 interface Faculty {
@@ -64,13 +79,15 @@ interface Faculty {
   name: string;
   firstName: string;
   lastName: string;
-  department: string;
+  program: string;
+  designation?: string;
   email: string;
   status: "active" | "inactive";
   employmentType: "full-time" | "part-time";
   maxLoad: number;
   minLoad: number;
   currentLoad: number;
+  adminLoad: number;
   maxPreparations: number;
   currentPreparations: number;
   createdAt: string;
@@ -78,25 +95,204 @@ interface Faculty {
 
 // Transform function to convert IFaculty to Faculty
 const transformFaculty = (faculty: IFaculty): Faculty => ({
-  id: faculty._id || "",
+  id: faculty._id || faculty.id || "",
   name: `${faculty.name.first} ${
     faculty.name.middle ? faculty.name.middle + " " : ""
   }${faculty.name.last}${faculty.name.ext ? " " + faculty.name.ext : ""}`,
   firstName: faculty.name.first,
   lastName: faculty.name.last,
-  department: typeof faculty.department === 'string' 
-    ? faculty.department 
-    : faculty.department.name,
+  program: typeof faculty.program === 'string' 
+    ? faculty.program 
+    : (faculty.program as any)?.courseCode || '',
+  designation: faculty.designation,
   email: faculty.email,
   status: faculty.status,
   employmentType: faculty.employmentType,
   maxLoad: faculty.maxLoad,
   minLoad: faculty.minLoad,
   currentLoad: faculty.currentLoad || 0,
+  adminLoad: faculty.adminLoad || 0,
   maxPreparations: faculty.maxPreparations || 4,
   currentPreparations: faculty.currentPreparations || 0,
   createdAt: faculty.createdAt || new Date().toISOString(),
 });
+
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-based
+  const startYear = month >= 5 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
+function buildAcademicYearOptions(count = 4): string[] {
+  const current = getCurrentAcademicYear();
+  const [startStr] = current.split("-");
+  const start = parseInt(startStr, 10);
+
+  return Array.from({ length: count }, (_, index) => {
+    const y = start + index;
+    return `${y}-${y + 1}`;
+  });
+}
+
+// ─── Faculty Action Cell with Per-Faculty Workload Export ────────────────────
+
+function FacultyActionCell({ faculty }: { faculty: Faculty }) {
+  const router = useRouter();
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  const [exportSemester, setExportSemester] = React.useState("2nd Semester");
+  const academicYearOptions = React.useMemo(() => buildAcademicYearOptions(4), []);
+  const [exportAcademicYear, setExportAcademicYear] = React.useState(getCurrentAcademicYear());
+  const [exportProgramName, setExportProgramName] = React.useState(faculty.program || "");
+  const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const result = await ScheduleAPI.getByFaculty(faculty.id, exportSemester, exportAcademicYear);
+      if (!result.success || !result.data || result.data.length === 0) {
+        toast.error("No schedules found for this faculty in the selected period");
+        return;
+      }
+      await exportFacultyWorkload({
+        facultyName: faculty.name,
+        programName: exportProgramName || faculty.program,
+        institute: exportInstitute,
+        designation: faculty.designation,
+        employmentType: faculty.employmentType,
+        maxLoad: faculty.maxLoad,
+        adminLoad: faculty.adminLoad,
+        semester: exportSemester,
+        academicYear: exportAcademicYear,
+        schedules: result.data as any[],
+      });
+      toast.success("Faculty workload PDF exported successfully!");
+      setExportOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Faculty
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Clock className="mr-2 h-4 w-4" />
+            Manage Schedule
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setExportOpen(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Workload PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem>
+            <Mail className="mr-2 h-4 w-4" />
+            Send Email
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Faculty
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Export Workload Dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Export Workload — {faculty.name}
+            </DialogTitle>
+            <DialogDescription>
+              Generate a Faculty Workload PDF (FM-DOrSU-ODI-02) showing all assigned classes for this faculty member.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Program Name</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="e.g. Bachelor of Science in Agriculture"
+                value={exportProgramName}
+                onChange={(e) => setExportProgramName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Institute / Campus</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={exportInstitute}
+                onChange={(e) => setExportInstitute(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Semester</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={exportSemester}
+                  onChange={(e) => setExportSemester(e.target.value)}
+                >
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="Summer">Summer</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Academic Year</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={exportAcademicYear}
+                  onChange={(e) => setExportAcademicYear(e.target.value)}
+                >
+                  {academicYearOptions.map((academicYear) => (
+                    <option key={academicYear} value={academicYear}>
+                      {academicYear}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)} disabled={exporting}>
+              Cancel
+            </Button>
+            <Button onClick={handleExport} disabled={exporting}>
+              {exporting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</>
+              ) : (
+                <><Download className="mr-2 h-4 w-4" />Export PDF</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 // Enhanced column definitions with comprehensive metadata
 const columns: ColumnDef<Faculty>[] = [
@@ -156,22 +352,22 @@ const columns: ColumnDef<Faculty>[] = [
     },
   },
   {
-    id: "department",
-    accessorKey: "department",
+    id: "program",
+    accessorKey: "program",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Department" />
+      <DataTableColumnHeader column={column} title="Program" />
     ),
     cell: ({ row }) => (
       <div className="flex items-center space-x-2">
         <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-        <span className="truncate">{row.original.department}</span>
+        <span className="truncate">{row.original.program}</span>
       </div>
     ),
     enableSorting: true,
     enableColumnFilter: true,
     size: 180,
     meta: {
-      label: "Department",
+      label: "Program",
       variant: "select",
       icon: Building2,
       options: [], // Will be populated dynamically
@@ -351,41 +547,7 @@ const columns: ColumnDef<Faculty>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Faculty
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Clock className="mr-2 h-4 w-4" />
-            Manage Schedule
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Mail className="mr-2 h-4 w-4" />
-            Send Email
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Faculty
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ),
+    cell: ({ row }) => <FacultyActionCell faculty={row.original} />,
     enableSorting: false,
     enableHiding: false,
     size: 50,
@@ -414,8 +576,8 @@ export default function FacultyPage() {
 
   // Update column meta with real data counts
   const updatedColumns = React.useMemo(() => {
-    const departmentCounts = faculties.reduce((acc, faculty) => {
-      acc[faculty.department] = (acc[faculty.department] || 0) + 1;
+    const programCounts = faculties.reduce((acc, faculty) => {
+      acc[faculty.program] = (acc[faculty.program] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -430,14 +592,14 @@ export default function FacultyPage() {
     }, {} as Record<string, number>);
 
     return columns.map((column) => {
-      if (column.id === "department" && column.meta) {
+      if (column.id === "program" && column.meta) {
         return {
           ...column,
           meta: {
             ...column.meta,
-            options: Object.entries(departmentCounts).map(([dept, count]) => ({
-              label: dept,
-              value: dept,
+            options: Object.entries(programCounts).map(([prog, count]) => ({
+              label: prog,
+              value: prog,
               count,
             })),
           },
@@ -502,6 +664,94 @@ export default function FacultyPage() {
     getRowId: (row) => row.id,
   });
 
+  const [batchExportOpen, setBatchExportOpen] = React.useState(false);
+  const [batchExporting, setBatchExporting] = React.useState(false);
+  const [batchExportScope, setBatchExportScope] = React.useState<"selected" | "all">("selected");
+  const [batchSemester, setBatchSemester] = React.useState("2nd Semester");
+  const batchAcademicYearOptions = React.useMemo(() => buildAcademicYearOptions(4), []);
+  const [batchAcademicYear, setBatchAcademicYear] = React.useState(getCurrentAcademicYear());
+  const [batchInstitute, setBatchInstitute] = React.useState("Baganga Campus");
+
+  const handleBatchExport = React.useCallback(async () => {
+    const selectedFaculty = table
+      .getFilteredSelectedRowModel()
+      .rows.map((row) => row.original as Faculty);
+
+    const sourceFaculty = batchExportScope === "all" ? faculties : selectedFaculty;
+
+    if (sourceFaculty.length === 0) {
+      toast.error(
+        batchExportScope === "all"
+          ? "No faculty records available for export"
+          : "Select at least one faculty member first"
+      );
+      return;
+    }
+
+    setBatchExporting(true);
+    try {
+      const entries: Array<{
+        facultyName: string;
+        programName?: string;
+        designation?: string;
+        maxLoad?: number;
+        adminLoad?: number;
+        schedules: any[];
+      }> = [];
+
+      let skipped = 0;
+      for (const faculty of sourceFaculty) {
+        if (!faculty.id) {
+          skipped += 1;
+          continue;
+        }
+
+        const response = await ScheduleAPI.getByFaculty(
+          faculty.id,
+          batchSemester,
+          batchAcademicYear
+        );
+
+        if (response.success && response.data && response.data.length > 0) {
+          entries.push({
+            facultyName: faculty.name,
+            programName: faculty.program,
+            designation: faculty.designation,
+            employmentType: faculty.employmentType,
+            maxLoad: faculty.maxLoad,
+            adminLoad: faculty.adminLoad,
+            schedules: response.data,
+          });
+        } else {
+          skipped += 1;
+        }
+      }
+
+      if (!entries.length) {
+        toast.error("No schedules found for selected faculty in the chosen period");
+        return;
+      }
+
+      await exportFacultyWorkloadBatch({
+        institute: batchInstitute,
+        semester: batchSemester,
+        academicYear: batchAcademicYear,
+        entries,
+      });
+
+      toast.success(
+        `Batch workload PDF exported (${entries.length} faculty${
+          skipped ? `, ${skipped} skipped` : ""
+        })`
+      );
+      setBatchExportOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Batch export failed");
+    } finally {
+      setBatchExporting(false);
+    }
+  }, [table, faculties, batchExportScope, batchSemester, batchAcademicYear, batchInstitute]);
+
   // Handle search
   const handleSearch = React.useCallback(
     async (query: string) => {
@@ -536,6 +786,18 @@ export default function FacultyPage() {
   // Custom action bar content
   const CustomActionBar = () => (
     <div className="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setBatchExportScope("selected");
+          setBatchExportOpen(true);
+        }}
+        disabled={isLoading || table.getFilteredSelectedRowModel().rows.length === 0}
+      >
+        <Download className="mr-2 h-4 w-4" />
+        Export Selected Workloads
+      </Button>
       <Button variant="outline" size="sm" disabled={isLoading}>
         <Edit className="mr-2 h-4 w-4" />
         Bulk Edit
@@ -568,6 +830,17 @@ export default function FacultyPage() {
           <Button variant="outline" onClick={refresh} disabled={isLoading}>
             <Activity className="mr-2 h-4 w-4" />
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setBatchExportScope("all");
+              setBatchExportOpen(true);
+            }}
+            disabled={isLoading}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export All Workloads
           </Button>
           <Button onClick={() => navigate.push("/faculty/add")}>
             <Plus className="mr-2 h-4 w-4" />
@@ -611,11 +884,11 @@ export default function FacultyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            <CardTitle className="text-sm font-medium">Programs</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.departments.length}</div>
+            <div className="text-2xl font-bold">{stats.programs.length}</div>
             <p className="text-xs text-muted-foreground">Across all colleges</p>
           </CardContent>
         </Card>
@@ -663,7 +936,7 @@ export default function FacultyPage() {
             <DataTableAdvancedToolbar table={table}>
               <DataTableSearch
                 table={table}
-                placeholder="Search faculty names, departments, emails..."
+                placeholder="Search faculty names, programs, emails..."
                 className="max-w-sm"
               />
               <DataTableFilterList table={table} />
@@ -672,6 +945,99 @@ export default function FacultyPage() {
           </DataTable>
         </CardContent>
       </Card>
+
+      <Dialog open={batchExportOpen} onOpenChange={setBatchExportOpen}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5" />
+              Export Selected Faculty Workloads
+            </DialogTitle>
+            <DialogDescription>
+              Generate one combined Faculty Workload PDF for selected faculty rows.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Export Scope</label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={batchExportScope}
+                onChange={(e) =>
+                  setBatchExportScope(e.target.value as "selected" | "all")
+                }
+                disabled={batchExporting}
+              >
+                <option value="selected">Selected Faculty</option>
+                <option value="all">All Faculty</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Institute / Campus</label>
+              <input
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                value={batchInstitute}
+                onChange={(e) => setBatchInstitute(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Semester</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={batchSemester}
+                  onChange={(e) => setBatchSemester(e.target.value)}
+                >
+                  <option value="1st Semester">1st Semester</option>
+                  <option value="2nd Semester">2nd Semester</option>
+                  <option value="Summer">Summer</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Academic Year</label>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={batchAcademicYear}
+                  onChange={(e) => setBatchAcademicYear(e.target.value)}
+                >
+                  {batchAcademicYearOptions.map((academicYear) => (
+                    <option key={academicYear} value={academicYear}>
+                      {academicYear}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {batchExportScope === "all"
+                ? `Faculty to export: ${faculties.length}`
+                : `Selected faculty: ${table.getFilteredSelectedRowModel().rows.length}`}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBatchExportOpen(false)}
+              disabled={batchExporting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBatchExport} disabled={batchExporting}>
+              {batchExporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Batch PDF
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

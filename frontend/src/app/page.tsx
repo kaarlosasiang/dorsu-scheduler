@@ -4,20 +4,21 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/authContext";
 import { Loader2 } from "lucide-react";
+import { getDefaultRouteForRole } from "@/lib/role-routes";
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        router.push("/dashboard");
+        router.push(getDefaultRouteForRole(user?.role));
       } else {
         router.push("/login");
       }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, user?.role]);
 
   return (
     <div className="flex h-screen items-center justify-center">

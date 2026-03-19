@@ -25,12 +25,6 @@ const courseSchema = new Schema<ICourseDocument>({
     required: [true, 'Course name is required'],
     trim: true
   },
-  units: {
-    type: Number,
-    required: [true, 'Units are required'],
-    min: [0, 'Units must be at least 0'],
-    max: [12, 'Units cannot exceed 12']
-  },
   description: {
     type: String,
     trim: true,
@@ -103,13 +97,12 @@ courseSchema.statics.getStats = async function() {
     {
       $group: {
         _id: null,
-        total: { $sum: 1 },
-        avgUnits: { $avg: '$units' }
+        total: { $sum: 1 }
       }
     }
   ]);
 
-  return stats[0] || { total: 0, avgUnits: 0 };
+  return stats[0] || { total: 0 };
 };
 
 export const Course = mongoose.model<ICourseDocument, ICourseModel>('Course', courseSchema);

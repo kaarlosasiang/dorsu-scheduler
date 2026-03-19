@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FacultyAPI } from "@/lib/services/FacultyAPI";
+import { AuthAPI } from "@/lib/services/AuthAPI";
 import type { FacultyFormData, FacultyResponse } from "./types";
 
 export function useFacultyForm() {
@@ -19,8 +20,10 @@ export function useFacultyForm() {
       const createData = {
         name: data.name,
         email: data.email,
-        department: data.department,
+        program: data.program,
         employmentType: data.employmentType,
+        designation: data.designation || undefined,
+        adminLoad: data.designation ? (data.adminLoad ?? 0) : 0,
         image: data.image && data.image.trim() !== '' ? data.image : undefined,
         minLoad: data.minLoad,
         maxLoad: data.maxLoad,
@@ -28,16 +31,26 @@ export function useFacultyForm() {
       };
 
       const response = await FacultyAPI.create(createData);
-      
+      const facultyId = response.data._id || "";
+
+      // If a password was provided, also create a user account for this faculty
+      if (data.password && data.password.trim() !== "") {
+        await AuthAPI.createFacultyUser({
+          email: data.email,
+          password: data.password,
+          facultyId,
+        });
+      }
+
       return {
         success: true,
         data: {
-          id: response.data._id || "",
+          id: facultyId,
           name: response.data.name,
           email: response.data.email,
-          department: typeof response.data.department === 'string' 
-            ? response.data.department 
-            : response.data.department.name,
+          program: typeof response.data.program === 'string'
+            ? response.data.program
+            : (response.data.program as any)?.courseCode || '',
           employmentType: response.data.employmentType,
           image: response.data.image,
           minLoad: response.data.minLoad,
@@ -69,8 +82,10 @@ export function useFacultyForm() {
       const updateData = {
         name: data.name,
         email: data.email,
-        department: data.department,
+        program: data.program,
         employmentType: data.employmentType,
+        designation: data.designation || undefined,
+        adminLoad: data.designation ? (data.adminLoad ?? 0) : 0,
         image: data.image && data.image.trim() !== '' ? data.image : undefined,
         minLoad: data.minLoad,
         maxLoad: data.maxLoad,
@@ -78,16 +93,16 @@ export function useFacultyForm() {
       };
 
       const response = await FacultyAPI.update(id, updateData);
-      
+
       return {
         success: true,
         data: {
           id: response.data._id || "",
           name: response.data.name,
           email: response.data.email,
-          department: typeof response.data.department === 'string' 
-            ? response.data.department 
-            : response.data.department.name,
+          program: typeof response.data.program === 'string'
+            ? response.data.program
+            : (response.data.program as any)?.courseCode || '',
           employmentType: response.data.employmentType,
           image: response.data.image,
           minLoad: response.data.minLoad,

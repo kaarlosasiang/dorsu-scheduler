@@ -13,6 +13,25 @@ export interface RegisterData {
   role?: "admin" | "faculty" | "staff";
 }
 
+export interface FacultyUserCreateData {
+  email: string;
+  password: string;
+  facultyId?: string;
+}
+
+export interface FacultyUserCreateResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: {
+      id: string;
+      email: string;
+      role: string;
+    };
+    accessToken: string;
+  };
+}
+
 export interface AuthResponse {
   success: boolean;
   message: string;
@@ -114,5 +133,13 @@ export const AuthAPI = {
    */
   getToken: (): string | null => {
     return localStorage.getItem(APP_CONFIG.ACCESS_TOKEN_KEY);
+  },
+
+  /**
+   * Create a faculty user account (admin only)
+   */
+  createFacultyUser: async (data: FacultyUserCreateData): Promise<FacultyUserCreateResponse> => {
+    const response = await APIService.post(data, APP_CONFIG.ENDPOINTS.AUTH.CREATE_FACULTY_USER);
+    return response.data as FacultyUserCreateResponse;
   },
 };

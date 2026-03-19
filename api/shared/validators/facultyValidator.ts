@@ -27,9 +27,18 @@ const createFacultySchema = z.object({
     .trim()
     .email('Please enter a valid email address')
     .toLowerCase(),
-  department: z.string()
-    .regex(/^[0-9a-fA-F]{24}$/, 'Department must be a valid ObjectId'),
+  program: z.string()
+    .regex(/^[0-9a-fA-F]{24}$/, 'Program must be a valid ObjectId'),
   employmentType: z.enum(['full-time', 'part-time']).default('full-time'),
+  designation: z.string()
+    .trim()
+    .max(150, 'Designation cannot exceed 150 characters')
+    .optional()
+    .nullable(),
+  adminLoad: z.number()
+    .min(0, 'Admin load cannot be negative')
+    .default(0)
+    .optional(),
   image: z.string()
     .trim()
     .transform(val => val === '' ? undefined : val)
@@ -55,6 +64,14 @@ const createFacultySchema = z.object({
   return minLoad <= maxLoad;
 }, {
   message: 'Minimum load cannot exceed maximum load'
+}).refine((data) => {
+  // adminLoad can only be set when designation is present
+  const adminLoad = data.adminLoad || 0;
+  if (adminLoad > 0 && !data.designation) return false;
+  return true;
+}, {
+  message: 'Admin load can only be set when an administrative designation is assigned',
+  path: ['adminLoad']
 });
 
 // Update faculty validation schema (all fields optional)
@@ -80,9 +97,9 @@ const statusUpdateSchema = z.object({
 
 // Query parameters schema
 const facultyQuerySchema = z.object({
-  department: z.string().optional(), // Can be department name or ObjectId
-  departmentId: z.string()
-    .regex(/^[0-9a-fA-F]{24}$/, 'Department ID must be a valid ObjectId')
+  program: z.string().optional(), // Can be program name or ObjectId
+  programId: z.string()
+    .regex(/^[0-9a-fA-F]{24}$/, 'Program ID must be a valid ObjectId')
     .optional(),
   status: z.enum(['active', 'inactive']).optional(),
   employmentType: z.enum(['full-time', 'part-time']).optional(),

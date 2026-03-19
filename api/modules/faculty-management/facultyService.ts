@@ -1,5 +1,5 @@
 import { Faculty, IFacultyDocument } from '../../models/facultyModel.js';
-import { Department } from '../../models/departmentModel.js';
+import { Course } from '../../models/courseModel.js';
 import { IFacultyFilter } from '../../shared/interfaces/IFaculty.js';
 import { 
   validateCreateFaculty, 
@@ -31,29 +31,30 @@ export class FacultyService {
     try {
       const query: any = {};
       
-      // Handle department filtering - can be by ObjectId or department name search
-      if (filters.department) {
+      // Handle program filtering - can be by ObjectId or course code/name search
+      if (filters.program) {
         // Check if it's a valid ObjectId first
-        if (/^[0-9a-fA-F]{24}$/.test(filters.department)) {
-          query.department = filters.department;
+        if (/^[0-9a-fA-F]{24}$/.test(filters.program)) {
+          query.program = filters.program;
         } else {
-          // Search by department name - first find matching departments
-          const departments = await Department.find({
-            name: new RegExp(filters.department, 'i'),
-            status: 'active'
+          // Search by course code or name
+          const courses = await Course.find({
+            $or: [
+              { courseCode: new RegExp(filters.program, 'i') },
+              { courseName: new RegExp(filters.program, 'i') }
+            ]
           }).select('_id');
           
-          if (departments.length > 0) {
-            query.department = { $in: departments.map(d => d._id) };
+          if (courses.length > 0) {
+            query.program = { $in: courses.map(c => c._id) };
           } else {
-            // No matching departments found, return empty array
             return [];
           }
         }
       }
 
-      if (filters.departmentId) {
-        query.department = filters.departmentId;
+      if (filters.programId) {
+        query.program = filters.programId;
       }
       
       if (filters.status) {
@@ -69,7 +70,7 @@ export class FacultyService {
       }
 
       const faculty = await Faculty.find(query)
-        .populate('department', 'name code college status')
+        .populate('program', 'courseCode courseName')
         .sort({ 'name.last': 1, 'name.first': 1 });
       
       // Emit event for potential integration hooks
@@ -87,7 +88,7 @@ export class FacultyService {
   static async getById(id: string): Promise<IFacultyDocument> {
     try {
       const faculty = await Faculty.findById(id)
-        .populate('department', 'name code college status');
+        .populate('program', 'courseCode courseName');
       
       if (!faculty) {
         throw new Error('Faculty not found');
@@ -111,7 +112,7 @@ export class FacultyService {
   static async getByEmail(email: string): Promise<IFacultyDocument> {
     try {
       const faculty = await Faculty.findOne({ email: email.toLowerCase() })
-        .populate('department', 'name code college status');
+        .populate('program', 'courseCode courseName');
       
       if (!faculty) {
         throw new Error('Faculty not found');
@@ -143,11 +144,11 @@ export class FacultyService {
 
       const validatedData = validation.data;
 
-        // Validate department exists
-        if (validatedData.department) {
-          const department = await Department.findById(validatedData.department);
-          if (!department) {
-            throw new Error('Department not found');
+        // Validate program exists
+        if (validatedData.program) {
+          const course = await Course.findById(validatedData.program);
+          if (!course) {
+            throw new Error('Program not found');
           }
         }      // Check for duplicate email
       const existingEmail = await Faculty.findOne({
@@ -158,27 +159,27 @@ export class FacultyService {
         throw new Error('Faculty with this email already exists');
       }
 
-      // Check for duplicate faculty name in department
+      // Check for duplicate faculty name in program
       const existingFaculty = await Faculty.findOne({
         'name.first': new RegExp(`^${validatedData.name.first}$`, 'i'),
         'name.last': new RegExp(`^${validatedData.name.last}$`, 'i'),
-        department: validatedData.department
+        program: validatedData.program
       });
 
       if (existingFaculty) {
-        throw new Error('Faculty with this name already exists in the department');
+        throw new Error('Faculty with this name already exists in the program');
       }
 
       const faculty = new Faculty(validatedData);
       await faculty.save();
 
-      // Populate the department for response
-      await faculty.populate('department', 'name code college status');
+      // Populate the program for response
+      await faculty.populate('program', 'courseCode courseName');
 
       // Emit event for potential integration hooks
       EventEmitter.emit('faculty.created', { 
         facultyId: faculty._id, 
-        department: faculty.department,
+        program: faculty.program,
         name: faculty.name,
         employmentType: faculty.employmentType
       });
@@ -221,16 +222,16 @@ export class FacultyService {
         }
       }
 
-      // Validate department if updating
-      if (validatedData.department) {
-        const department = await Department.findById(validatedData.department);
-        if (!department) {
-          throw new Error('Department not found');
+      // Validate program if updating
+      if (validatedData.program) {
+        const course = await Course.findById(validatedData.program);
+        if (!course) {
+          throw new Error('Program not found');
         }
       }
 
-      // Check for duplicate name if updating name or department
-      if (validatedData.name || validatedData.department) {
+      // Check for duplicate name if updating name or program
+      if (validatedData.name || validatedData.program) {
         const duplicateQuery: any = {
           _id: { $ne: id }
         };
@@ -243,15 +244,15 @@ export class FacultyService {
           duplicateQuery['name.last'] = new RegExp(`^${existingFaculty.name.last}$`, 'i');
         }
         
-        if (validatedData.department) {
-          duplicateQuery.department = validatedData.department;
+        if (validatedData.program) {
+          duplicateQuery.program = validatedData.program;
         } else {
-          duplicateQuery.department = existingFaculty.department;
+          duplicateQuery.program = existingFaculty.program;
         }
 
         const duplicateFaculty = await Faculty.findOne(duplicateQuery);
         if (duplicateFaculty) {
-          throw new Error('Faculty with this name already exists in the department');
+          throw new Error('Faculty with this name already exists in the program');
         }
       }
 
@@ -260,7 +261,7 @@ export class FacultyService {
         id,
         validatedData,
         { new: true, runValidators: true }
-      ).populate('department', 'name code college status');
+      ).populate('program', 'courseCode courseName');
 
       if (!updatedFaculty) {
         throw new Error('Faculty not found');
@@ -270,7 +271,7 @@ export class FacultyService {
       EventEmitter.emit('faculty.updated', { 
         facultyId: id, 
         changes: Object.keys(validatedData),
-        department: updatedFaculty.department 
+        program: updatedFaculty.program 
       });
       
       return updatedFaculty;
@@ -301,7 +302,7 @@ export class FacultyService {
       // Emit event for potential integration hooks
       EventEmitter.emit('faculty.deleted', { 
         facultyId: id, 
-        department: faculty.department,
+        program: faculty.program,
         name: faculty.name 
       });
     } catch (error) {
@@ -439,7 +440,7 @@ export class FacultyService {
       EventEmitter.emit('faculty.status.updated', { 
         facultyId: id,
         newStatus: status,
-        department: updatedFaculty.department
+        program: updatedFaculty.program
       });
       
       return updatedFaculty;
@@ -451,7 +452,7 @@ export class FacultyService {
   /**
    * Get faculty statistics
    */
-  static async getStats(department?: string): Promise<{
+  static async getStats(program?: string): Promise<{
     total: number;
     active: number;
     inactive: number;
@@ -461,11 +462,11 @@ export class FacultyService {
     averageWorkload: number;
     totalPreparations: number;
     averagePreparations: number;
-    departments: string[];
+    programs: string[];
   }> {
     try {
-      const query = department ? { department: new RegExp(department, 'i') } : {};
-      const faculty = await Faculty.find(query);
+      const query = program ? { program: program } : {};
+      const faculty = await Faculty.find(query).populate('program', 'courseCode courseName');
 
       const stats = {
         total: faculty.length,
@@ -477,7 +478,16 @@ export class FacultyService {
         averageWorkload: 0,
         totalPreparations: faculty.reduce((sum, f) => sum + (f.currentPreparations || 0), 0),
         averagePreparations: 0,
-        departments: [...new Set(faculty.map(f => f.department))]
+        programs: [...new Set(
+          faculty
+            .map(f => {
+              const p = f.program as any;
+              if (!p) return null;
+              if (typeof p === 'object') return p.courseCode || p.courseName || null;
+              return null;
+            })
+            .filter(Boolean)
+        )] as string[]
       };
 
       stats.averageWorkload = stats.total > 0 ? stats.totalWorkload / stats.total : 0;
@@ -486,6 +496,19 @@ export class FacultyService {
       return stats;
     } catch (error) {
       throw new Error(`Failed to get faculty statistics: ${error}`);
+    }
+  }
+
+  /**
+   * Get faculty record linked to a specific user ID
+   */
+  static async getByUserId(userId: string): Promise<IFacultyDocument | null> {
+    try {
+      const faculty = await Faculty.findOne({ userId })
+        .populate('program', 'courseCode courseName');
+      return faculty;
+    } catch (error) {
+      throw new Error(`Failed to get faculty by user ID: ${error}`);
     }
   }
 }

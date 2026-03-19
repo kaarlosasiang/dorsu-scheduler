@@ -29,10 +29,11 @@ export interface ISchedule {
   facultyDetails?: any;
   classroomDetails?: any;
   departmentDetails?: any;
+  sectionDetails?: any;
 }
 
 export interface IScheduleConflict {
-  type: 'faculty' | 'classroom' | 'time' | 'workload';
+  type: 'faculty' | 'classroom' | 'time' | 'workload' | 'section';
   severity: 'error' | 'warning';
   message: string;
   schedules: string[];
@@ -183,7 +184,9 @@ export const ScheduleAPI = {
    * Get schedules by faculty
    */
   getByFaculty: async (facultyId: string, semester: string, academicYear: string) => {
-    const response = await APIService.get(`schedules/faculty/${facultyId}?semester=${semester}&academicYear=${academicYear}`);
+    const response = await APIService.get(
+      `schedules/faculty/${facultyId}?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
     return response.data as ScheduleListResponse;
   },
 
@@ -191,7 +194,9 @@ export const ScheduleAPI = {
    * Get schedules by classroom
    */
   getByClassroom: async (classroomId: string, semester: string, academicYear: string) => {
-    const response = await APIService.get(`schedules/classroom/${classroomId}?semester=${semester}&academicYear=${academicYear}`);
+    const response = await APIService.get(
+      `schedules/classroom/${classroomId}?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
     return response.data as ScheduleListResponse;
   },
 

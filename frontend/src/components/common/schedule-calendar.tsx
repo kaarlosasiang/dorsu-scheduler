@@ -7,6 +7,14 @@ import { WeekCalendarView } from "@/app/(protected)/schedules/_components/week-c
 import { CalendarControls } from "@/app/(protected)/schedules/_components/calendar-controls";
 import { CalendarLegend } from "@/app/(protected)/schedules/_components/calendar-legend";
 
+interface Course {
+    _id?: string;
+    courseCode: string;
+    courseName: string;
+    department?: string;
+    [key: string]: any;
+}
+
 interface ScheduleEvent {
     id: string;
     courseName: string;
@@ -18,6 +26,8 @@ interface ScheduleEvent {
     endTime: string;
     semester: string;
     academicYear: string;
+    yearLevel: string;
+    section?: string;
     status: string;
     departmentName: string;
     isGenerated: boolean;
@@ -25,28 +35,54 @@ interface ScheduleEvent {
 
 interface ScheduleCalendarProps {
     schedules: ScheduleEvent[];
+    courses?: Course[];
     onEventClick?: (schedule: ScheduleEvent) => void;
 }
 
 type ViewMode = "month" | "week";
 
-export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarProps) {
+export function ScheduleCalendar({ schedules, courses, onEventClick }: ScheduleCalendarProps) {
     const [selectedDepartment, setSelectedDepartment] = React.useState<string>("all");
     const [selectedSemester, setSelectedSemester] = React.useState<string>("all");
+    const [selectedProgram, setSelectedProgram] = React.useState<string>("all");
+    const [selectedYearLevel, setSelectedYearLevel] = React.useState<string>("all");
     const [currentDate, setCurrentDate] = React.useState(new Date());
     const [selectedSchedule, setSelectedSchedule] = React.useState<ScheduleEvent | null>(null);
     const [detailDialogOpen, setDetailDialogOpen] = React.useState(false);
     const [viewMode, setViewMode] = React.useState<ViewMode>("month");
 
-    // Extract unique departments and semesters
+    // Extract unique departments, semesters, programs, and year levels
     const departments = React.useMemo(() => {
-        const depts = new Set(schedules.map(s => s.departmentName));
+        const depts = new Set(schedules.map(s => s.departmentName).filter(Boolean));
         return ["all", ...Array.from(depts)];
     }, [schedules]);
 
     const semesters = React.useMemo(() => {
-        const sems = new Set(schedules.map(s => `${s.semester} ${s.academicYear}`));
+        const sems = new Set(schedules.map(s => `${s.semester} ${s.academicYear}`).filter(Boolean));
         return ["all", ...Array.from(sems)];
+    }, [schedules]);
+
+    const programs = React.useMemo(() => {
+        if (courses && courses.length > 0) {
+            const courseNames = courses.map(c => c.courseName).filter(Boolean);
+            return ["all", ...courseNames.sort()];
+        }
+        const progs = new Set(schedules.map(s => s.courseName).filter(Boolean));
+        return ["all", ...Array.from(progs).sort()];
+    }, [schedules, courses]);
+
+    const yearLevels = React.useMemo(() => {
+        const levels = new Set(schedules.map(s => s.yearLevel).filter(Boolean));
+        const levelOrder = ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'];
+        const sortedLevels = Array.from(levels).sort((a, b) => {
+            const indexA = levelOrder.indexOf(a);
+            const indexB = levelOrder.indexOf(b);
+            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+            if (indexA !== -1) return -1;
+            if (indexB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+        return ["all", ...sortedLevels];
     }, [schedules]);
 
     // Filter schedules
@@ -54,14 +90,20 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
         return schedules.filter(schedule => {
             const departmentMatch = selectedDepartment === "all" || schedule.departmentName === selectedDepartment;
             const semesterMatch = selectedSemester === "all" || `${schedule.semester} ${schedule.academicYear}` === selectedSemester;
-            return departmentMatch && semesterMatch;
+            const programMatch = selectedProgram === "all" || schedule.courseName === selectedProgram;
+            const yearLevelMatch = selectedYearLevel === "all" || schedule.yearLevel === selectedYearLevel;
+            return departmentMatch && semesterMatch && programMatch && yearLevelMatch;
         });
-    }, [schedules, selectedDepartment, selectedSemester]);
+    }, [schedules, selectedDepartment, selectedSemester, selectedProgram, selectedYearLevel]);
 
-    const navigateMonth = (direction: number) => {
+    const navigatePeriod = (direction: number) => {
         setCurrentDate(prev => {
             const newDate = new Date(prev);
-            newDate.setMonth(newDate.getMonth() + direction);
+            if (viewMode === "week") {
+                newDate.setDate(newDate.getDate() + (direction * 7));
+            } else {
+                newDate.setMonth(newDate.getMonth() + direction);
+            }
             return newDate;
         });
     };
@@ -82,14 +124,20 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 currentDate={currentDate}
-                onNavigateMonth={navigateMonth}
+                onNavigatePeriod={navigatePeriod}
                 onGoToToday={goToToday}
                 departments={departments}
                 semesters={semesters}
+                programs={programs}
+                yearLevels={yearLevels}
                 selectedDepartment={selectedDepartment}
                 selectedSemester={selectedSemester}
+                selectedProgram={selectedProgram}
+                selectedYearLevel={selectedYearLevel}
                 onDepartmentChange={setSelectedDepartment}
                 onSemesterChange={setSelectedSemester}
+                onProgramChange={setSelectedProgram}
+                onYearLevelChange={setSelectedYearLevel}
             />
 
             {/* Calendar Views */}
@@ -102,6 +150,7 @@ export function ScheduleCalendar({ schedules, onEventClick }: ScheduleCalendarPr
             ) : (
                 <WeekCalendarView
                     schedules={filteredSchedules}
+                    currentDate={currentDate}
                     onScheduleClick={handleScheduleClick}
                 />
             )}

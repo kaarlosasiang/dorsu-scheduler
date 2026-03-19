@@ -11,7 +11,7 @@ interface FacultyStats {
   total: number;
   active: number;
   inactive: number;
-  departments: string[];
+  programs: string[];
   avgWorkload: number;
   avgSalary?: number;
   fullTime: number;
@@ -29,7 +29,7 @@ export function useFaculty(options: UseFacultyOptions = {}) {
     total: 0,
     active: 0,
     inactive: 0,
-    departments: [],
+    programs: [],
     avgWorkload: 0,
     fullTime: 0,
     partTime: 0,
@@ -42,8 +42,8 @@ export function useFaculty(options: UseFacultyOptions = {}) {
     const fullTime = facultyData.filter(f => f.employmentType === "full-time").length;
     const partTime = facultyData.filter(f => f.employmentType === "part-time").length;
     
-    const departments = [...new Set(facultyData.map(f => 
-      typeof f.department === 'string' ? f.department : f.department.name
+    const programs = [...new Set(facultyData.map(f => 
+      typeof f.program === 'string' ? f.program : f.program.courseCode
     ))];
     
     const avgWorkload = facultyData.length > 0 
@@ -54,7 +54,7 @@ export function useFaculty(options: UseFacultyOptions = {}) {
       total: facultyData.length,
       active,
       inactive,
-      departments,
+      programs,
       avgWorkload,
       fullTime,
       partTime,
@@ -110,9 +110,9 @@ export function useFaculty(options: UseFacultyOptions = {}) {
     }
   }, [fetchFaculties, calculateStats]);
 
-  // Get faculty by department
-  const getFacultyByDepartment = useCallback(async (department: string) => {
-    return fetchFaculties({ department });
+  // Get faculty by program
+  const getFacultyByProgram = useCallback(async (program: string) => {
+    return fetchFaculties({ program });
   }, [fetchFaculties]);
 
   // Get faculty by employment type
@@ -203,7 +203,7 @@ export function useFaculty(options: UseFacultyOptions = {}) {
     fetchFaculties,
     refresh,
     searchFaculties,
-    getFacultyByDepartment,
+    getFacultyByProgram,
     getFacultyByEmploymentType,
     getFacultyByStatus,
     deleteFaculty,

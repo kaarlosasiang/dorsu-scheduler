@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { User, Building2, Activity, Clock, Briefcase, Mail, Image } from "lucide-react";
+import { User, Building2, Activity, Clock, Briefcase, Mail, Image, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
@@ -37,7 +37,7 @@ import {
   STATUS_OPTIONS, 
   EMPLOYMENT_TYPE_OPTIONS 
 } from "./types";
-import { useDepartments } from "@/hooks/useDepartments";
+import { useCourses } from "@/hooks/useCourses";
 
 export function FacultyForm({
   initialData,
@@ -48,8 +48,10 @@ export function FacultyForm({
   className,
 }: FacultyFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { createFaculty, updateFaculty } = useFacultyForm();
-  const { departments, loading: departmentsLoading, error: departmentsError } = useDepartments();
+  const { courses, loading: programsLoading, error: programsError } = useCourses();
 
   const form = useForm<FacultyFormData>({
     resolver: zodResolver(facultySchema) as never,
@@ -61,14 +63,18 @@ export function FacultyForm({
         ext: initialData?.name?.ext || "",
       },
       email: initialData?.email || "",
-      department: typeof initialData?.department === 'string' 
-        ? initialData.department 
-        : (initialData?.department as any)?._id || "",
+      program: typeof initialData?.program === 'string' 
+        ? initialData.program 
+        : (initialData?.program as any)?._id || "",
       employmentType: initialData?.employmentType || "full-time",
+      designation: initialData?.designation || "",
+      adminLoad: initialData?.adminLoad || 0,
       image: initialData?.image || "",
       minLoad: initialData?.minLoad || 18,
       maxLoad: initialData?.maxLoad || 26,
       status: initialData?.status || "active",
+      password: "faculty123",
+      confirmPassword: "faculty123",
     },
   });
 
@@ -82,6 +88,8 @@ export function FacultyForm({
 
   const watchedMaxLoad = watch("maxLoad", 26);
   const watchedMinLoad = watch("minLoad", 18);
+  const watchedDesignation = watch("designation");
+  const watchedAdminLoad = watch("adminLoad", 0);
 
   const onSubmit = async (data: FacultyFormData) => {
     setIsSubmitting(true);
@@ -287,54 +295,54 @@ export function FacultyForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <Field>
-                <FieldLabel htmlFor="department">Department</FieldLabel>
+                <FieldLabel htmlFor="program">Program</FieldLabel>
                 <Select
-                  value={watch("department")}
-                  onValueChange={(value) => setValue("department", value)}
+                  value={watch("program")}
+                  onValueChange={(value) => setValue("program", value)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={
-                      departmentsLoading 
-                        ? "Loading departments..." 
-                        : departmentsError 
-                        ? "Error loading departments" 
-                        : "Select department"
+                      programsLoading 
+                        ? "Loading programs..." 
+                        : programsError 
+                        ? "Error loading programs" 
+                        : "Select program"
                     } />
                   </SelectTrigger>
                   <SelectContent>
-                    {departmentsLoading ? (
+                    {programsLoading ? (
                       <SelectItem value="loading" disabled>
-                        Loading departments...
+                        Loading programs...
                       </SelectItem>
-                    ) : departmentsError ? (
+                    ) : programsError ? (
                       <SelectItem value="error" disabled>
-                        Error loading departments
+                        Error loading programs
                       </SelectItem>
-                    ) : departments.length === 0 ? (
+                    ) : courses.length === 0 ? (
                       <SelectItem value="empty" disabled>
-                        No departments found
+                        No programs found
                       </SelectItem>
                     ) : (
-                      departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id as string}>
+                      courses.map((course) => (
+                        <SelectItem key={course._id || course.id} value={(course._id || course.id) as string}>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{dept.code}</span>
+                            <span className="font-medium">{course.courseCode}</span>
                             <span className="text-muted-foreground">-</span>
-                            <span>{dept.name}</span>
+                            <span>{course.courseName}</span>
                           </div>
                         </SelectItem>
                       ))
                     )}
                   </SelectContent>
                 </Select>
-                {errors.department && (
+                {errors.program && (
                   <FieldDescription className="text-destructive text-sm">
-                    {errors.department.message}
+                    {errors.program.message}
                   </FieldDescription>
                 )}
-                {departmentsError && (
+                {programsError && (
                   <FieldDescription className="text-destructive text-sm">
-                    Failed to load departments. Please refresh and try again.
+                    Failed to load programs. Please refresh and try again.
                   </FieldDescription>
                 )}
               </Field>
@@ -399,6 +407,62 @@ export function FacultyForm({
           </Card>
         </div>
 
+        {/* Administrative Role */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Administrative Role
+            </CardTitle>
+            <CardDescription>
+              If the faculty member holds an administrative position, set the designation and corresponding load.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Field>
+              <FieldLabel htmlFor="designation">Designation (Optional)</FieldLabel>
+              <Input
+                id="designation"
+                placeholder="e.g., Program Head, Dean, Auxiliary Program Head"
+                {...register("designation")}
+                aria-invalid={errors.designation ? "true" : "false"}
+              />
+              {errors.designation && (
+                <FieldDescription className="text-destructive text-sm">
+                  {errors.designation.message}
+                </FieldDescription>
+              )}
+              <FieldDescription>
+                Leave blank if the faculty has no administrative role
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="adminLoad">Admin Load</FieldLabel>
+              <Input
+                id="adminLoad"
+                type="number"
+                min="0"
+                step="0.25"
+                placeholder="0"
+                {...register("adminLoad", { valueAsNumber: true })}
+                disabled={!watchedDesignation}
+                aria-invalid={errors.adminLoad ? "true" : "false"}
+              />
+              {errors.adminLoad && (
+                <FieldDescription className="text-destructive text-sm">
+                  {errors.adminLoad.message}
+                </FieldDescription>
+              )}
+              <FieldDescription>
+                {watchedDesignation
+                  ? "Teaching load units credited for the administrative role"
+                  : "Set a designation first to enable admin load"}
+              </FieldDescription>
+            </Field>
+          </CardContent>
+        </Card>
+
         {/* Workload Information */}
         <Card>
           <CardHeader>
@@ -452,15 +516,21 @@ export function FacultyForm({
             </div>
 
             {/* Load Summary */}
-            <div className="p-4 bg-muted/50 rounded-lg">
+            <div className="p-4 bg-muted/50 rounded-lg space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span>Teaching Load Range:</span>
                 <Badge variant="outline">
                   {watchedMinLoad} - {watchedMaxLoad} units
                 </Badge>
               </div>
+              {watchedDesignation && (
+                <div className="flex items-center justify-between text-sm">
+                  <span>Admin Load:</span>
+                  <Badge variant="secondary">{watchedAdminLoad} units</Badge>
+                </div>
+              )}
               <div className="text-xs text-muted-foreground mt-1">
-                Current load and preparations will be calculated when courses are assigned
+                Current teaching load and preparations will be calculated when schedules are assigned
               </div>
             </div>
           </CardContent>
@@ -490,6 +560,74 @@ export function FacultyForm({
             </div>
           </CardContent>
         </Card>
+
+        {/* Login Access - only shown in create mode */}
+        {mode === "create" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Login Access (Optional)
+              </CardTitle>
+              <CardDescription>
+                Set a password to allow this faculty member to log in and view their schedule. You can skip this now and set it up later.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Field>
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Min. 6 characters"
+                    {...register("password")}
+                    aria-invalid={errors.password ? "true" : "false"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <FieldDescription className="text-destructive text-sm">
+                    {errors.password.message}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter password"
+                    {...register("confirmPassword")}
+                    aria-invalid={errors.confirmPassword ? "true" : "false"}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <FieldDescription className="text-destructive text-sm">
+                    {errors.confirmPassword.message}
+                  </FieldDescription>
+                )}
+              </Field>
+            </CardContent>
+          </Card>
+        )}
 
         <Separator />
 

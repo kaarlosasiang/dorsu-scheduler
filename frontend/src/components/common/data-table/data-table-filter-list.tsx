@@ -98,7 +98,8 @@ export function DataTableFilterList<TData>({
     return table
       .getAllColumns()
       .filter((column) => column.columnDef.enableColumnFilter);
-  }, [table]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table, table.options.columns]);
 
   const [filters, setFilters] = useQueryState(
     table.options.meta?.queryKeys?.filters ?? "filters",

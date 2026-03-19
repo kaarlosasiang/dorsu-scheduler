@@ -16,5 +16,6 @@ router.get('/profile', authenticateToken, AuthController.getProfile);
 // Admin only routes
 router.get('/users', authenticateToken, requireAdmin, AuthController.getUsers);
 router.delete('/users/:id', authenticateToken, requireAdmin, AuthController.deleteUser);
+router.post('/faculty/create', authenticateToken, requireAdmin, AuthController.createFacultyUser);
 
 export default router;

@@ -15,17 +15,22 @@ export const LECTURE_DAY_PATTERNS: DayType[][] = [
   ['monday', 'wednesday'],      // MW
   ['monday', 'friday'],          // MF
   ['wednesday', 'friday'],       // WF
+  ['tuesday', 'thursday'],       // TTh
 ];
 
 export const LAB_DAY_PATTERNS: DayType[][] = [
+ 
+  ['monday', 'wednesday'],      // MW
+  ['monday', 'friday'],          // MF
+  ['wednesday', 'friday'],       // WF
   ['tuesday', 'thursday'],       // TTh
 ];
 
 /**
- * Standard time slots for scheduling
+ * Start times for lecture schedules (1-hour sessions).
+ * Range: 08:00 – 16:00 so the latest session ends at 17:00.
  */
-export const STANDARD_TIME_STARTS = [
-  '07:00', '07:30',
+export const LECTURE_TIME_STARTS = [
   '08:00', '08:30',
   '09:00', '09:30',
   '10:00', '10:30',
@@ -34,9 +39,26 @@ export const STANDARD_TIME_STARTS = [
   '13:00', '13:30',
   '14:00', '14:30',
   '15:00', '15:30',
-  '16:00', '16:30',
-  '17:00', '17:30',
+  '16:00',
 ];
+
+/**
+ * Start times for laboratory schedules (1.5-hour sessions).
+ * Range: 08:00 – 15:30 so the latest session ends at 17:00.
+ */
+export const LAB_TIME_STARTS = [
+  '08:00', '08:30',
+  '09:00', '09:30',
+  '10:00', '10:30',
+  '11:00', '11:30',
+  '12:00', '12:30',
+  '13:00', '13:30',
+  '14:00', '14:30',
+  '15:00', '15:30',
+];
+
+/** @deprecated Use LECTURE_TIME_STARTS or LAB_TIME_STARTS instead. */
+export const STANDARD_TIME_STARTS = LECTURE_TIME_STARTS;
 
 /**
  * Default session durations (in hours)
@@ -55,14 +77,18 @@ export const DEFAULT_LAB_DURATION = 1.5;     // 1.5 hours per session
 export function generateLectureTimeSlots(): ITimeSlot[] {
   const slots: ITimeSlot[] = [];
 
-  for (const dayPattern of LECTURE_DAY_PATTERNS) {
-    for (const startTime of STANDARD_TIME_STARTS) {
+  // Iterate times first, then patterns — so the candidate list is interleaved:
+  //   MW 07:00, MF 07:00, WF 07:00, MW 07:30, MF 07:30, WF 07:30, …
+  // This ensures the generator distributes load across all day patterns at each
+  // time slot before moving to the next, preventing MW from being packed while
+  // MF/WF remain empty.
+  for (const startTime of LECTURE_TIME_STARTS) {
+    for (const dayPattern of LECTURE_DAY_PATTERNS) {
       const endTime = calculateEndTime(startTime, DEFAULT_LECTURE_DURATION);
 
-      // Create ONE slot per pattern with days array (not separate slots per day)
       slots.push({
-        day: dayPattern[0] as ITimeSlot['day'], // First day for compatibility
-        days: dayPattern as ITimeSlot['days'], // Full pattern
+        day:  dayPattern[0] as ITimeSlot['day'],
+        days: dayPattern as ITimeSlot['days'],
         startTime,
         endTime
       });
@@ -81,14 +107,13 @@ export function generateLectureTimeSlots(): ITimeSlot[] {
 export function generateLabTimeSlots(): ITimeSlot[] {
   const slots: ITimeSlot[] = [];
 
-  for (const dayPattern of LAB_DAY_PATTERNS) {
-    for (const startTime of STANDARD_TIME_STARTS) {
+  for (const startTime of LAB_TIME_STARTS) {
+    for (const dayPattern of LAB_DAY_PATTERNS) {
       const endTime = calculateEndTime(startTime, DEFAULT_LAB_DURATION);
 
-      // Create ONE slot per pattern with days array (not separate slots per day)
       slots.push({
-        day: dayPattern[0] as ITimeSlot['day'], // First day for compatibility
-        days: dayPattern as ITimeSlot['days'], // Full pattern
+        day:  dayPattern[0] as ITimeSlot['day'],
+        days: dayPattern as ITimeSlot['days'],
         startTime,
         endTime
       });

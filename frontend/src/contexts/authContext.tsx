@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter } from "next/navigation";
 import { AuthAPI, type AuthResponse } from "@/lib/services/AuthAPI";
 import APP_CONFIG from "@/config";
+import { getDefaultRouteForRole } from "@/lib/role-routes";
 
 // User interface
 export interface User {
@@ -106,8 +107,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(userData);
         setIsAuthenticated(true);
 
-        // Redirect to dashboard
-        router.push("/dashboard");
+        router.push(getDefaultRouteForRole(userData.role));
       } else {
         throw new Error(response.message || "Login failed");
       }

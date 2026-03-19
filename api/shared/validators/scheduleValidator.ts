@@ -26,7 +26,7 @@ export const createScheduleSchema = z.object({
   semester: z.string().min(1, 'Semester is required'),
   academicYear: z.string().regex(/^\d{4}-\d{4}$/, 'Academic year must be in format YYYY-YYYY'),
   yearLevel: z.enum(['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']).optional(),
-  section: z.string().max(10).optional(),
+  section: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid section ID').optional(),
   status: z.enum(['draft', 'published', 'archived']).optional().default('draft')
 });
 

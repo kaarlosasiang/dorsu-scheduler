@@ -13,8 +13,10 @@ export interface FacultyResponse {
     id: string;
     name: NameFormData;
     email: string;
-    department: string;
+    program: string;
     employmentType: "full-time" | "part-time";
+    designation?: string;
+    adminLoad?: number;
     image?: string;
     minLoad: number;
     maxLoad: number;
@@ -27,6 +29,8 @@ export interface FacultyResponse {
     fullName?: string;
     availableLoad?: number;
     availablePreparations?: number;
+    totalLoad?: number;
+    overload?: number;
   };
 }
 
