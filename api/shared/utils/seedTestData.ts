@@ -1,9 +1,10 @@
 /**
- * Seed script for DORSU Scheduler
+ * Seed script for DORSU Scheduler — Baganga Campus
  * Usage: pnpm --filter api seed
+ *        pnpm --filter api seed --reset   (wipe faculty, users, sections, schedules first)
  *
- * Seeds programs (courses) then faculty members.
- * Safe to re-run: uses upsert for programs, skips existing faculty by email.
+ * Seeds programs, faculty (with linked User accounts), subjects, classrooms, sections.
+ * Safe to re-run: upsert for programs/subjects/classrooms, skip-if-exists for faculty/users/sections.
  */
 
 import mongoose from 'mongoose';
@@ -24,6 +25,7 @@ import { Subject } from '../../models/subjectModel.js';
 import { Classroom } from '../../models/classroomModel.js';
 import { Schedule } from '../../models/scheduleModel.js';
 import { Section } from '../../models/sectionModel.js';
+import { User } from '../../models/userModel.js';
 
 // ─── Seed Data ────────────────────────────────────────────────────────────────
 
@@ -91,51 +93,65 @@ const CLASSROOMS_SEED: ClassroomSeed[] = [
 ];
 
 const PROGRAMS = [
-  { courseCode: 'BSIT',  courseName: 'Bachelor of Science in Information Technology' },
-  { courseCode: 'BSA',   courseName: 'Bachelor of Science in Agriculture' },
-  { courseCode: 'BSBA',  courseName: 'Bachelor of Science in Business Administration' },
-  { courseCode: 'BSEd',  courseName: 'Bachelor of Secondary Education' },
+  { courseCode: 'BSA',  courseName: 'Bachelor of Science in Agriculture' },
+  { courseCode: 'BSAM', courseName: 'Bachelor of Science in Agribusiness Management' },
+  { courseCode: 'BSES', courseName: 'Bachelor of Science in Environmental Science' },
+  { courseCode: 'BSHM', courseName: 'Bachelor of Science in Hospitality Management' },
+  { courseCode: 'BSIT', courseName: 'Bachelor of Science in Information Technology' },
+  { courseCode: 'BSM',  courseName: 'Bachelor of Science in Mathematics' },
+  { courseCode: 'GE',   courseName: 'General Education' },
 ];
 
 // ─── Section Seed Data ───────────────────────────────────────────────────────
-// 2 sections per year level for 1st–3rd Year, 1 section for 4th Year
 
 type SectionSeed = {
-  program: string; // courseCode
+  program: string;
   yearLevel: '1st Year' | '2nd Year' | '3rd Year' | '4th Year';
   sectionCode: string;
 };
 
 const SECTIONS_SEED: SectionSeed[] = [
-  // ── BSIT ─────────────────────────────────────────────────────────────────
-  { program: 'BSIT', yearLevel: '1st Year', sectionCode: 'A' },
-  { program: 'BSIT', yearLevel: '1st Year', sectionCode: 'B' },
-  { program: 'BSIT', yearLevel: '2nd Year', sectionCode: 'A' },
-  { program: 'BSIT', yearLevel: '2nd Year', sectionCode: 'B' },
-  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'A' },
-  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'B' },
-  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'A' },
   // ── BSA ──────────────────────────────────────────────────────────────────
-  { program: 'BSA', yearLevel: '1st Year', sectionCode: 'A' },
-  { program: 'BSA', yearLevel: '1st Year', sectionCode: 'B' },
-  { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'A' },
-  { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'B' },
-  { program: 'BSA', yearLevel: '3rd Year', sectionCode: 'A' },
-  { program: 'BSA', yearLevel: '4th Year', sectionCode: 'A' },
-  // ── BSBA ─────────────────────────────────────────────────────────────────
-  { program: 'BSBA', yearLevel: '1st Year', sectionCode: 'A' },
-  { program: 'BSBA', yearLevel: '1st Year', sectionCode: 'B' },
-  { program: 'BSBA', yearLevel: '2nd Year', sectionCode: 'A' },
-  { program: 'BSBA', yearLevel: '2nd Year', sectionCode: 'B' },
-  { program: 'BSBA', yearLevel: '3rd Year', sectionCode: 'A' },
-  { program: 'BSBA', yearLevel: '4th Year', sectionCode: 'A' },
-  // ── BSEd ─────────────────────────────────────────────────────────────────
-  { program: 'BSEd', yearLevel: '1st Year', sectionCode: 'A' },
-  { program: 'BSEd', yearLevel: '1st Year', sectionCode: 'B' },
-  { program: 'BSEd', yearLevel: '2nd Year', sectionCode: 'A' },
-  { program: 'BSEd', yearLevel: '2nd Year', sectionCode: 'B' },
-  { program: 'BSEd', yearLevel: '3rd Year', sectionCode: 'A' },
-  { program: 'BSEd', yearLevel: '4th Year', sectionCode: 'A' },
+  { program: 'BSA', yearLevel: '1st Year', sectionCode: 'BGA1A' },
+  { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'BGA2A' },
+  { program: 'BSA', yearLevel: '3rd Year', sectionCode: 'BGA3A' },
+  { program: 'BSA', yearLevel: '4th Year', sectionCode: 'BGA4A' },
+
+  // ── BSAM ─────────────────────────────────────────────────────────────────
+  { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1AB' },
+  { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1BB' },
+  { program: 'BSAM', yearLevel: '2nd Year', sectionCode: 'AM2AB' },
+  { program: 'BSAM', yearLevel: '2nd Year', sectionCode: 'AM2BB' },
+  { program: 'BSAM', yearLevel: '2nd Year', sectionCode: 'AM2CB' },
+  { program: 'BSAM', yearLevel: '3rd Year', sectionCode: 'AM3AB' },
+  { program: 'BSAM', yearLevel: '3rd Year', sectionCode: 'AM3BB' },
+  { program: 'BSAM', yearLevel: '4th Year', sectionCode: 'AM4AB' },
+
+  // ── BSES ─────────────────────────────────────────────────────────────────
+  { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1AB' },
+  { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1BB' },
+  { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1BG' },
+  { program: 'BSES', yearLevel: '2nd Year', sectionCode: 'ES2BG' },
+  { program: 'BSES', yearLevel: '3rd Year', sectionCode: 'ES3BG' },
+  { program: 'BSES', yearLevel: '4th Year', sectionCode: 'ES4BG' },
+
+  // ── BSHM ─────────────────────────────────────────────────────────────────
+  { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1AB' },
+  { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1BB' },
+  { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1BG' },
+  { program: 'BSHM', yearLevel: '2nd Year', sectionCode: 'HM2BG' },
+  { program: 'BSHM', yearLevel: '3rd Year', sectionCode: 'HM3BG' },
+  { program: 'BSHM', yearLevel: '4th Year', sectionCode: 'HM4BG' },
+
+  // ── BSIT ─────────────────────────────────────────────────────────────────
+  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'IT3BG' },
+  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4A'  },
+  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4B'  },
+
+  // ── BSM ──────────────────────────────────────────────────────────────────
+  { program: 'BSM', yearLevel: '2nd Year', sectionCode: 'BGM2A' },
+  { program: 'BSM', yearLevel: '3rd Year', sectionCode: 'BGM3A' },
+  { program: 'BSM', yearLevel: '4th Year', sectionCode: 'BGM4A' },
 ];
 
 // ─── Subject Seed Data ───────────────────────────────────────────────────────
@@ -148,295 +164,512 @@ type SubjectSeed = {
   yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
   semester?: '1st Semester' | '2nd Semester' | 'Summer';
   description?: string;
-  program: string; // courseCode
+  program: string;
 };
 
 const SUBJECTS_SEED: SubjectSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
+  // GE — General Education (cross-program subjects)
+  // ════════════════════════════════════════════════════════════════════════
+  { program: 'GE', subjectCode: 'GE-PerDev10',  subjectName: 'Understanding the Self',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Eng10',     subjectName: 'Purposive Communication',                        lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Hum10',     subjectName: 'Art Appreciation',                               lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Lit10',     subjectName: 'Literature in Mindanao',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Math15',    subjectName: 'Mathematics in the Modern World',                lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-STS10',     subjectName: 'Science, Technology & Society',                  lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-STS11',     subjectName: 'People and the Earth\'s Ecosystem',              lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Philo10',   subjectName: 'Ethics',                                         lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Hist10',    subjectName: 'The Life and Works of Rizal',                    lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Hist11',    subjectName: 'Readings in Philippine History',                 lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-SocSci10',  subjectName: 'The Contemporary World',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
+  { program: 'GE', subjectCode: 'GE-Spear1',    subjectName: 'Movement Enhancement (PATHFIT 1)',               lectureUnits: 0, labUnits: 2 },
+  { program: 'GE', subjectCode: 'GE-Spear2',    subjectName: 'Fitness Exercises (PATHFIT 2)',                  lectureUnits: 0, labUnits: 2 },
+  { program: 'GE', subjectCode: 'GE-Spear3',    subjectName: 'Physical Activity Towards Health & Fitness 1',  lectureUnits: 0, labUnits: 2 },
+  { program: 'GE', subjectCode: 'GE-Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',  lectureUnits: 0, labUnits: 2 },
+  { program: 'GE', subjectCode: 'GE-NSTP1',     subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                        lectureUnits: 0, labUnits: 3 },
+  { program: 'GE', subjectCode: 'GE-NSTP2',     subjectName: 'NSTP 2 (CWTS)',                                  lectureUnits: 0, labUnits: 3 },
+  { program: 'GE', subjectCode: 'GE-FL10',      subjectName: 'Foreign Language',                               lectureUnits: 3, labUnits: 0 },
+
+  // ════════════════════════════════════════════════════════════════════════
   // BSA — Bachelor of Science in Agriculture
   // ════════════════════════════════════════════════════════════════════════
-  // 1st Year, 1st Semester
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',    subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE102',    subjectName: 'Readings in Philippine History',       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101',  subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',    subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101',  subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'BSA101',   subjectName: 'Introduction to Agriculture',          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'BSA102',   subjectName: 'General Biology',                     lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'BSA103',   subjectName: 'General Chemistry',                   lectureUnits: 2, labUnits: 1 },
-  // 1st Year, 2nd Semester
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',    subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE104',    subjectName: 'The Contemporary World',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',    subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102',  subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BSA104',   subjectName: 'Agricultural Botany',                 lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BSA105',   subjectName: 'Organic Chemistry',                   lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BSA106',   subjectName: 'Meteorology and Climatology',          lectureUnits: 2, labUnits: 1 },
-  // 2nd Year, 1st Semester
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE105',    subjectName: 'Art Appreciation',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',    subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',    subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BSA201',   subjectName: 'Soil Science',                        lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BSA202',   subjectName: 'Principles of Crop Production',       lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BSA203',   subjectName: 'Agricultural Economics',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BSA204',   subjectName: 'Principles of Animal Science',        lectureUnits: 2, labUnits: 1 },
-  // 2nd Year, 2nd Semester
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',    subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',    subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BSA205',   subjectName: 'Plant Pathology',                     lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BSA206',   subjectName: 'Agricultural Entomology',             lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BSA207',   subjectName: 'Weed Science and Management',         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BSA208',   subjectName: 'Crop Physiology',                     lectureUnits: 2, labUnits: 1 },
-  // 3rd Year, 1st Semester
-  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BSA301',   subjectName: 'Fruit Crops Production',              lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BSA302',   subjectName: 'Vegetable Crops Production',          lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BSA303',   subjectName: 'Farm Machinery and Power',            lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BSA304',   subjectName: 'Irrigation and Drainage Engineering', lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BSA305',   subjectName: 'Agricultural Statistics',             lectureUnits: 3, labUnits: 0 },
-  // 3rd Year, 2nd Semester
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BSA306',   subjectName: 'Industrial Crops Production',         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BSA307',   subjectName: 'Extension Education',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BSA308',   subjectName: 'Post-Harvest Technology',             lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BSA309',   subjectName: 'Soil Fertility and Fertilization',    lectureUnits: 2, labUnits: 1 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BSA310',   subjectName: 'Research Methods in Agriculture',     lectureUnits: 3, labUnits: 0 },
-  // 4th Year, 1st Semester
-  { program: 'BSA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'BSA401',   subjectName: 'Farming Systems and Sustainable Agriculture', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'BSA402',   subjectName: 'Agribusiness Management',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'BSA403',   subjectName: 'Thesis Writing 1',                    lectureUnits: 3, labUnits: 0 },
-  // 4th Year, 2nd Semester
-  { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BSA404',   subjectName: 'Thesis Writing 2',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BSA405',   subjectName: 'On-the-Job Training',                 lectureUnits: 0, labUnits: 6 },
+  // 1st Semester subjects
+  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Ag1',       subjectName: 'Introduction to Agriculture',                      lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AS1',       subjectName: 'Introduction to Animal Science',                   lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'CS1',       subjectName: 'Principles of Crop Production',                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'CP1',       subjectName: 'Principles of Crop Protection',                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Chem102',   subjectName: 'Organic Chemistry',                                lectureUnits: 2, labUnits: 1 },
+  // 2nd Semester subjects
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SS1',       subjectName: 'Principles of Soil Science',                       lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Ag2',       subjectName: 'Introduction to Organic Agriculture',              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AS2',       subjectName: 'Introduction to Livestock & Poultry Production',  lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CS2',       subjectName: 'Practices of Crop Science & Management',           lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CP2',       subjectName: 'Approaches & Practices in Pest Management',        lectureUnits: 2, labUnits: 1 },
+  // 2nd Year
+  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Ag3',       subjectName: 'Slaughter of Animals & Animal Products Processing', lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Chem104',   subjectName: 'General Biochemistry',                             lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'SS2',       subjectName: 'Soil Fertility, Conservation & Management',        lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AgEx1',     subjectName: 'Principles of Agricultural Extension & Communication', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag5',       subjectName: 'Principles of Genetics',                           lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag7',       subjectName: 'Basic Farm Machineries, Mechanization & Water Management', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag9',       subjectName: 'Postharvest Handling & Seed Technology',           lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag6',       subjectName: 'Methods of Agricultural Research',                 lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag8',       subjectName: 'Natural Resource & Environmental Management',      lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag4',       subjectName: 'Introduction to Agriculture Community Systems',    lectureUnits: 2, labUnits: 1 },
+  // 3rd Year
+  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AgCS101',   subjectName: 'Plant Propagation & Nursery Management',           lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AgCS102',   subjectName: 'Vegetable Crops Production',                       lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Ag10',      subjectName: 'Seminar A',                                        lectureUnits: 1, labUnits: 0 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Ag11a',     subjectName: 'Thesis 1 (Outline) / Major Farm Practice',         lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Ag12',      subjectName: 'Agricultural Biotechnology',                       lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AgCS104',   subjectName: 'Perennial Industrial Crops Production',            lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Ag15',      subjectName: 'Beneficial Arthropods & Microorganisms',           lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Ag11b',     subjectName: 'Thesis 2 (Experimentation) / Major Farm Practice', lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AgCS103',   subjectName: 'Ornamentals & Landscape Horticulture',             lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Ag13',      subjectName: 'Introduction to Agricultural Policy & Development', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Ag14',      subjectName: 'Seminar B',                                        lectureUnits: 1, labUnits: 0 },
+  // 4th Year
+  { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag19b',     subjectName: 'Competency Skills Appraisal in Agriculture II',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag18',      subjectName: 'Apprenticeship / OJT / Industry Exposure (240 hrs)', lectureUnits: 0, labUnits: 3 },
+  { program: 'BSA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'Entrep1',   subjectName: 'Principles of Agricultural Entrepreneurship & Enterprise Development', lectureUnits: 3, labUnits: 0 },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // BSAM — Bachelor of Science in Agribusiness Management
+  // ════════════════════════════════════════════════════════════════════════
+  // 1st Year
+  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM110',    subjectName: 'Concepts and Dynamics of Management',              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM111',    subjectName: 'Principles of Accounting',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM112',    subjectName: 'Principles of Economics',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Agri101',  subjectName: 'Introduction to Agriculture',                      lectureUnits: 1, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'CropSci101',subjectName: 'Fundamentals of Crop Science',                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM113',    subjectName: 'Managerial Accounting',                            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM114',    subjectName: 'Business and Income Taxation',                     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM115',    subjectName: 'Intermediate Microeconomics Theory',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM116',    subjectName: 'Intro to Agribusiness Management',                 lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AnSci101', subjectName: 'Introduction to Animal Science',                   lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AgEng101', subjectName: 'Agricultural Engineering',                         lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SoilSci101',subjectName: 'Principles of Soil Science',                      lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CropProt101',subjectName: 'Entomology',                                     lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CropSci102',subjectName: 'Fundamentals of Horticulture',                    lectureUnits: 2, labUnits: 1 },
+  // 2nd Year
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM120',    subjectName: 'Introduction to Entrepreneurship',                 lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM121',    subjectName: 'Introduction to Human Behavior in Organization',   lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM122',    subjectName: 'Cooperative Management and Governance',            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM123',    subjectName: 'New Enterprise Planning',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM124',    subjectName: 'Intro to Human Resource Management',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM125',    subjectName: 'Intro to Managerial Economics',                    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AgExt101', subjectName: 'Agricultural Extension and Communication',         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'CropProt102',subjectName: 'Plant Pathology',                               lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AnSci102', subjectName: 'Intro to Livestock and Poultry Production',        lectureUnits: 2, labUnits: 1 },
+  // 3rd Year
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM130',    subjectName: 'Introduction to Marketing Management',             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM131',    subjectName: 'Intro to Org\'n & Management of Small Business',   lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM132',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM133',    subjectName: 'Value Chain Management',                           lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM135',    subjectName: 'Intro to Financial Management',                    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM136',    subjectName: 'Intro to International Marketing',                 lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM137',    subjectName: 'Intro to Prod & Operation Management',             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM134',    subjectName: 'Business Law',                                     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM138',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
+  // 4th Year
+  { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM141',    subjectName: 'Agribusiness Finance',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM143',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM144',    subjectName: 'Introduction to Investment Management',            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM145',    subjectName: 'Special Problem',                                  lectureUnits: 3, labUnits: 0 },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // BSES — Bachelor of Science in Environmental Science
+  // ════════════════════════════════════════════════════════════════════════
+  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Bot100',    subjectName: 'General Botany',                                   lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Phys110',   subjectName: 'Physics for Environmental Science',                lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'EnviSci100',subjectName: 'Environmental Chemistry and Quality Monitoring',   lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'EnviMgt100',subjectName: 'Principles of Environmental Management',           lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NatSci102', subjectName: 'Marine Science',                                   lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Chem100',   subjectName: 'General & Inorganic Chemistry',                    lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Math16',    subjectName: 'College Mathematics for Environmental Science',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'EnviSci196',subjectName: 'Seminar & Research Methods in Environmental Science', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Bio102',    subjectName: 'General Ecology',                                  lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Math18',    subjectName: 'Statistics for Bioscience',                        lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Chem102ES', subjectName: 'Organic Chemistry',                                lectureUnits: 3, labUnits: 2 },
+  { program: 'BSES', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'EnviSci196B',subjectName: 'Seminar & Research Methods in Environmental Science II', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci109',subjectName: 'Environmental Impact Assessment',                  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci107',subjectName: 'Environmental Psychology',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci106',subjectName: 'Environmental Ethics, Policies & Laws',             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci108',subjectName: 'Climate Change Studies',                           lectureUnits: 3, labUnits: 0 },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // BSHM — Bachelor of Science in Hospitality Management
+  // ════════════════════════════════════════════════════════════════════════
+  { program: 'BSHM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'THC100',   subjectName: 'Macro Perspective of Tourism and Hospitality',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'HPC101',   subjectName: 'Kitchen Essentials & Basic Food Preparation',     lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'HPC102',   subjectName: 'Fundamentals in FS Operations',                   lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'THC103',   subjectName: 'Risk Management as Applied to Safety, Security and Sanitation', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'THC106',   subjectName: 'Micro Perspective of Tourism and Hospitality',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'THC104',   subjectName: 'Quality Service Management in Tourism and Hospitality', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HPC107',   subjectName: 'Fundamentals in Lodging Operations',              lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HMPE108',  subjectName: 'Bar and Beverage Management w/ Lab',              lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'THC105',   subjectName: 'Philippine Tourism Geography and Culture',        lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BHM109',   subjectName: 'Organization and Management',                     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'HMPE120',  subjectName: 'Culinary Fundamentals w/ Lab',                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'HMPE121',  subjectName: 'Front Office Operation',                          lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'HPC122',   subjectName: 'Foreign Language 1',                              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BHM123',   subjectName: 'Applied Economics',                               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BHM124',   subjectName: 'Business Finance',                                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC125',   subjectName: 'Foreign Language 2',                              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC126',   subjectName: 'Supply Chain Management in Hospitality Industry', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BHM126',   subjectName: 'Business Marketing',                              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC128',   subjectName: 'Applied Business Tools and Technologies PMS w/ Lab', lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BHM129',   subjectName: 'Fundamentals of Accounting',                      lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BME130',   subjectName: 'Operations Management in Tourism and Hospitality Industry', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'THC131',   subjectName: 'Tourism and Hospitality Marketing',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'HPC132',   subjectName: 'Introduction to MICE',                            lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'HMPE133',  subjectName: 'Cost Control',                                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'THC134',   subjectName: 'Professional Development & Applied Ethics',       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'HPC135',   subjectName: 'Research in Hospitality',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC139',   subjectName: 'Legal Aspects in Tourism and Hospitality',        lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'BME126',   subjectName: 'Strategic Management in Tourism and Hospitality', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HMPE127',  subjectName: 'Catering Management',                             lectureUnits: 2, labUnits: 1 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HPC140',   subjectName: 'Ergonomics & Facilities Planning for Hospitality Industry', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC138',   subjectName: 'Entrepreneurship in Tourism and Hospitality',     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC141',   subjectName: 'Multicultural Diversity in Workplace for Tourism Professional', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'PRACB',    subjectName: 'Practicum B',                                     lectureUnits: 0, labUnits: 3 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSIT — Bachelor of Science in Information Technology
   // ════════════════════════════════════════════════════════════════════════
-  // 1st Year, 1st Semester
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE102',   subjectName: 'Readings in Philippine History',       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'IT101',   subjectName: 'Introduction to Computing',           lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'IT102',   subjectName: 'Computer Programming 1',              lectureUnits: 2, labUnits: 1 },
-  // 1st Year, 2nd Semester
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE104',   subjectName: 'The Contemporary World',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'MATH102', subjectName: 'Statistics and Probability',           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'IT103',   subjectName: 'Computer Programming 2',              lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'IT104',   subjectName: 'Computer Hardware Servicing',         lectureUnits: 1, labUnits: 2 },
-  // 2nd Year, 1st Semester
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE105',   subjectName: 'Art Appreciation',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'IT201',   subjectName: 'Data Structures and Algorithms',      lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'IT202',   subjectName: 'Database Management',                 lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'IT203',   subjectName: 'Discrete Mathematics',                lectureUnits: 3, labUnits: 0 },
-  // 2nd Year, 2nd Semester
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'IT204',   subjectName: 'Object-Oriented Programming',         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'IT205',   subjectName: 'Information Management',              lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'IT206',   subjectName: 'Network Fundamentals',                lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'IT207',   subjectName: 'Human-Computer Interaction',          lectureUnits: 3, labUnits: 0 },
-  // 3rd Year, 1st Semester
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'IT301',   subjectName: 'Systems Analysis and Design',         lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'IT302',   subjectName: 'Software Engineering',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'IT303',   subjectName: 'Web Application Development',         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'IT304',   subjectName: 'Advanced Database Systems',           lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'IT305',   subjectName: 'Operating Systems',                   lectureUnits: 2, labUnits: 1 },
-  // 3rd Year, 2nd Semester
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'IT306',   subjectName: 'Mobile Application Development',      lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'IT307',   subjectName: 'Information Security',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'IT308',   subjectName: 'Cloud Computing',                     lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'IT309',   subjectName: 'IT Project Management',               lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'IT310',   subjectName: 'Research in IT',                      lectureUnits: 3, labUnits: 0 },
-  // 4th Year, 1st Semester
-  { program: 'BSIT', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'IT401',   subjectName: 'Capstone Project 1',                  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'IT402',   subjectName: 'Professional Issues in IT',           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'IT403',   subjectName: 'IT Audit and Control',                lectureUnits: 3, labUnits: 0 },
-  // 4th Year, 2nd Semester
-  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'IT404',   subjectName: 'Capstone Project 2',                  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'IT405',   subjectName: 'Practicum / On-the-Job Training',     lectureUnits: 0, labUnits: 6 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'IT406',   subjectName: 'Systems Integration and Architecture', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP131',   subjectName: 'Networking 2',                                    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP132',   subjectName: 'Advanced Database Systems',                       lectureUnits: 2, labUnits: 1 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP130',   subjectName: 'Social & Professional Issues',                    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITFreeElec1',subjectName: 'IT Professional Free Elective 1',                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITFreeElec2',subjectName: 'IT Professional Free Elective 2',                lectureUnits: 2, labUnits: 1 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP133',   subjectName: 'Systems Integration & Architecture 1',            lectureUnits: 2, labUnits: 1 },
+  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITPE130',  subjectName: 'Integrative Programming & Technologies 2',        lectureUnits: 2, labUnits: 1 },
+  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ITP142',   subjectName: 'Practicum (486 hrs)',                              lectureUnits: 0, labUnits: 6 },
 
   // ════════════════════════════════════════════════════════════════════════
-  // BSBA — Bachelor of Science in Business Administration
+  // BSM — Bachelor of Science in Mathematics
   // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'BA101',   subjectName: 'Principles of Management',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'BA102',   subjectName: 'Business Communication',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BA103',   subjectName: 'Financial Accounting',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BA104',   subjectName: 'Microeconomics',                      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'BA105',   subjectName: 'Business Mathematics',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BA201',   subjectName: 'Cost Accounting',                     lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BA202',   subjectName: 'Macroeconomics',                      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BA203',   subjectName: 'Business Statistics',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BA204',   subjectName: 'Financial Management',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BA205',   subjectName: 'Human Resource Management',           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BA206',   subjectName: 'Operations Management',               lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BA301',   subjectName: 'Marketing Management',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BA302',   subjectName: 'Strategic Management',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'BA303',   subjectName: 'Entrepreneurship',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'BA401',   subjectName: 'Thesis Writing 1',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BA402',   subjectName: 'Thesis Writing 2',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSBA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'BA403',   subjectName: 'OJT / Practicum',                     lectureUnits: 0, labUnits: 6 },
-
-  // ════════════════════════════════════════════════════════════════════════
-  // BSEd — Bachelor of Secondary Education
-  // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'GE101',   subjectName: 'Understanding the Self',              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH101', subjectName: 'Mathematics in the Modern World',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'NSTP101', subjectName: 'National Service Training Program 1', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'PE101',   subjectName: 'Physical Education 1',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SED101',  subjectName: 'Child and Adolescent Development',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SED102',  subjectName: 'The Teaching Profession',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'GE103',   subjectName: 'Purposive Communication',             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP102', subjectName: 'National Service Training Program 2', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PE102',   subjectName: 'Physical Education 2',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SED103',  subjectName: 'Foundation of Special and Inclusive Education', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SED104',  subjectName: 'The Teacher and the School Curriculum', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'GE106',   subjectName: 'Ethics',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'PE103',   subjectName: 'Physical Education 3',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'SED201',  subjectName: 'Assessment in Learning 1',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'SED202',  subjectName: 'Technology for Teaching and Learning 1', lectureUnits: 2, labUnits: 1 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'SED203',  subjectName: 'Professional Ethics for Teachers',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'GE107',   subjectName: 'Science, Technology, and Society',   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'PE104',   subjectName: 'Physical Education 4',                lectureUnits: 2, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SED204',  subjectName: 'Assessment in Learning 2',            lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SED205',  subjectName: 'Facilitating Learner-Centered Teaching', lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SED206',  subjectName: 'Field Study 1',                       lectureUnits: 1, labUnits: 2 },
-  { program: 'BSEd', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SED301',  subjectName: 'Teaching in Secondary Schools',       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSEd', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SED302',  subjectName: 'Major Subject Practicum 1',           lectureUnits: 0, labUnits: 3 },
-  { program: 'BSEd', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'SED401',  subjectName: 'Practice Teaching 1',                 lectureUnits: 0, labUnits: 6 },
-  { program: 'BSEd', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'SED402',  subjectName: 'Practice Teaching 2',                 lectureUnits: 0, labUnits: 6 },
-  { program: 'BSEd', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'SED403',  subjectName: 'Research in Education',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math110',   subjectName: 'Calculus III',                                    lectureUnits: 4, labUnits: 0 },
+  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math111',   subjectName: 'Set Theory',                                      lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math112',   subjectName: 'Linear Algebra',                                  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Phys10',    subjectName: 'General Physics',                                 lectureUnits: 3, labUnits: 1 },
+  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math127',   subjectName: 'Statistical Theory',                              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math134',   subjectName: 'Number Theory',                                   lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math118',   subjectName: 'Abstract Algebra II',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math126',   subjectName: 'Discrete Mathematics',                            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math137',   subjectName: 'Actuarial Mathematics I',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math113',   subjectName: 'Advanced Calculus I',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math135',   subjectName: 'Graph Theory and Analysis',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math133',   subjectName: 'Mathematical Modeling',                           lectureUnits: 3, labUnits: 2 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math131',   subjectName: 'Numerical Analysis',                              lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math146',   subjectName: 'Modern Geometry',                                 lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math145',   subjectName: 'Topology',                                        lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math199',   subjectName: 'Thesis B',                                        lectureUnits: 3, labUnits: 0 },
 ];
 
-// Faculty seed list — realistic DORSU roster
-// program: matched by courseCode below
+// Faculty seed list — Baganga Campus (BGA), real roster merged from 1st & 2nd semesters
 const FACULTY_SEED = [
-  // ── BSA ──────────────────────────────────────────────────────────────────
+  // ── Full-time ─────────────────────────────────────────────────────────────
+  {
+    name: { first: 'Jeoffrey', last: 'Acebes' },
+    email: 'jeoffrey.acebes@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'full-time' as const,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
   {
     name: { first: 'Marlone', middle: 'M', last: 'Barrete' },
     email: 'marlone.barrete@dorsu.edu.ph',
-    program: 'BSA',
+    program: 'BSES',
     employmentType: 'full-time' as const,
-    designation: 'Program Chair',
+    designation: 'Auxiliary Program Head, BSES',
     adminLoad: 3,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Rosario', middle: 'C', last: 'Dela Cruz' },
-    email: 'rosario.delacruz@dorsu.edu.ph',
+    name: { first: 'Joe Arvie', middle: 'C', last: 'Cagulangan' },
+    email: 'joe.cagulangan@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'full-time' as const,
+    designation: 'Admission Designate, Guidance Advocate & Gen. Ed Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Prince Jerald', middle: 'A', last: 'Cordova' },
+    email: 'prince.cordova@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'full-time' as const,
+    designation: 'Scholarship In-Charge and NSTP Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Jhon Lloyd', middle: 'D', last: 'Flores' },
+    email: 'jhon.flores@dorsu.edu.ph',
     program: 'BSA',
+    employmentType: 'full-time' as const,
+    designation: 'NSTP & RIE Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Vincent', middle: 'S', last: 'Languay' },
+    email: 'vincent.languay@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'full-time' as const,
+    designation: 'Property Custodian and Sociocultural Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'James Karlo', middle: 'S', last: 'Maiso' },
+    email: 'james.maiso@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'full-time' as const,
+    designation: 'Program Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Mohamid', middle: 'R', last: 'Masukat' },
+    email: 'mohamid.masukat@dorsu.edu.ph',
+    program: 'BSIT',
+    employmentType: 'full-time' as const,
+    designation: 'Program Head, ICT Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Jerel', middle: 'M', last: 'Menendez' },
+    email: 'jerel.menendez@dorsu.edu.ph',
+    program: 'BSES',
     employmentType: 'full-time' as const,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Eduardo', middle: 'L', last: 'Salva' },
-    email: 'eduardo.salva@dorsu.edu.ph',
-    program: 'BSA',
+    name: { first: 'Israel', middle: 'B', last: 'Obedencio' },
+    email: 'israel.obedencio@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'full-time' as const,
+    designation: 'Program Coordinator, BSAM',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Ace', last: 'Palma Gil' },
+    email: 'ace.palmagil@dorsu.edu.ph',
+    program: 'BSES',
     employmentType: 'full-time' as const,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Marites', middle: 'A', last: 'Sumagaysay' },
-    email: 'marites.sumagaysay@dorsu.edu.ph',
+    name: { first: 'Purisima', middle: 'N', last: 'Tampus' },
+    email: 'purisima.tampus@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'full-time' as const,
+    designation: 'Campus Administrator',
+    adminLoad: 9,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+
+  // ── Part-time ─────────────────────────────────────────────────────────────
+  {
+    name: { first: 'Michael James', last: 'Adanza' },
+    email: 'michael.adanza@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Geneva', last: 'Alba' },
+    email: 'geneva.alba@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Michael', middle: 'P', last: 'Almine' },
+    email: 'michael.almine@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Aila Joy', last: 'Andoyo' },
+    email: 'aila.andoyo@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Renante', last: 'Andrada' },
+    email: 'renante.andrada@dorsu.edu.ph',
     program: 'BSA',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
-
-  // ── BSIT ─────────────────────────────────────────────────────────────────
   {
-    name: { first: 'Jerome', middle: 'P', last: 'Magno' },
-    email: 'jerome.magno@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Shounela', last: 'Batao' },
+    email: 'shounela.batao@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Analyn', middle: 'S', last: 'Tutor' },
-    email: 'analyn.tutor@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Lynn', last: 'Dela Peña' },
+    email: 'lynn.delapena@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Renato', middle: 'E', last: 'Cabilao' },
-    email: 'renato.cabilao@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Rojim', last: 'Ferrel' },
+    email: 'rojim.ferrel@dorsu.edu.ph',
+    program: 'BSM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Glenda', middle: 'V', last: 'Ybañez' },
-    email: 'glenda.ybanez@dorsu.edu.ph',
+    name: { first: 'Juliet', last: 'Gregorio' },
+    email: 'juliet.gregorio@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Antonio', last: 'Japson Jr.' },
+    email: 'antonio.japson@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Norma', last: 'Japson' },
+    email: 'norma.japson@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Calixto', last: 'Licong Jr.' },
+    email: 'calixto.licong@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'France', last: 'Manguiob' },
+    email: 'france.manguiob@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Darryl Jay', last: 'Medrano' },
+    email: 'darryl.medrano@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Ralph', last: 'Monday' },
+    email: 'ralph.monday@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    designation: 'Atty.',
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Emma', last: 'Morales' },
+    email: 'emma.morales@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Giovanni', last: 'Morales' },
+    email: 'giovanni.morales@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    designation: 'Atty.',
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Arnold John', last: 'Morales' },
+    email: 'arnoldjohn.morales@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Armilyn', last: 'Pabalay' },
+    email: 'armilyn.pabalay@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Gemar', last: 'Petere' },
+    email: 'gemar.petere@dorsu.edu.ph',
     program: 'BSIT',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
-
-  // ── BSBA ─────────────────────────────────────────────────────────────────
   {
-    name: { first: 'Norma', middle: 'G', last: 'Cabugwas' },
-    email: 'norma.cabugwas@dorsu.edu.ph',
-    program: 'BSBA',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Albert', middle: 'N', last: 'Liban' },
-    email: 'albert.liban@dorsu.edu.ph',
-    program: 'BSBA',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Marilou', middle: 'O', last: 'Panes' },
-    email: 'marilou.panes@dorsu.edu.ph',
-    program: 'BSBA',
+    name: { first: 'Ever Louie', last: 'Pogosa' },
+    email: 'ever.pogosa@dorsu.edu.ph',
+    program: 'BSIT',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
-
-  // ── BSEd ─────────────────────────────────────────────────────────────────
   {
-    name: { first: 'Ricardo', middle: 'U', last: 'Amodia' },
-    email: 'ricardo.amodia@dorsu.edu.ph',
-    program: 'BSEd',
-    employmentType: 'full-time' as const,
-    designation: 'Program Chair',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Reginrex', last: 'Pusta' },
+    email: 'reginrex.pusta@dorsu.edu.ph',
+    program: 'BSES',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Shirley', middle: 'W', last: 'Cuizon' },
-    email: 'shirley.cuizon@dorsu.edu.ph',
-    program: 'BSEd',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Elma', last: 'Reyes' },
+    email: 'elma.reyes@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Edgar', middle: 'K', last: 'Abatayo' },
-    email: 'edgar.abatayo@dorsu.edu.ph',
-    program: 'BSEd',
+    name: { first: 'Lerma', last: 'Reyes' },
+    email: 'lerma.reyes@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Marry Garce', last: 'Rico' },
+    email: 'marry.rico@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Lourie Ann', last: 'Salamanes' },
+    email: 'lourie.salamanes@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Princess Kharylle', last: 'Tindugan' },
+    email: 'princess.tindugan@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Manuel', last: 'Valejo' },
+    email: 'manuel.valejo@dorsu.edu.ph',
+    program: 'BSM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
@@ -456,11 +689,12 @@ async function seed() {
 
   // ── Optional reset ────────────────────────────────────────────────────────
   if (shouldReset) {
-    console.log('🗑️  Resetting faculty, schedules, and sections…');
+    console.log('🗑️  Resetting faculty, schedules, sections, and faculty users…');
     const { deletedCount: schedDel } = await Schedule.deleteMany({});
     const { deletedCount: facDel  } = await Faculty.deleteMany({});
     const { deletedCount: sectDel } = await Section.deleteMany({});
-    console.log(`   Deleted ${schedDel} schedule(s), ${facDel} faculty member(s), and ${sectDel} section(s)\n`);
+    const { deletedCount: userDel } = await User.deleteMany({ role: 'faculty' });
+    console.log(`   Deleted ${schedDel} schedule(s), ${facDel} faculty member(s), ${sectDel} section(s), ${userDel} faculty user(s)\n`);
   }
 
   // ── 1. Upsert programs ────────────────────────────────────────────────────
@@ -481,6 +715,8 @@ async function seed() {
   console.log('\n👨‍🏫 Seeding faculty…');
   let created = 0;
   let skipped = 0;
+  let usersCreated = 0;
+  let usersSkipped = 0;
 
   for (const f of FACULTY_SEED) {
     const existing = await Faculty.findOne({ email: f.email });
@@ -497,9 +733,21 @@ async function seed() {
       continue;
     }
 
-    await Faculty.create({ ...rest, program: programId });
+    const newFaculty = await Faculty.create({ ...rest, program: programId });
     console.log(`   ✅  Created  ${f.name.last}, ${f.name.first}  (${progCode})`);
     created++;
+
+    // Create a login account for the faculty member
+    let user = await User.findOne({ email: f.email });
+    if (!user) {
+      user = new User({ email: f.email, password: 'faculty123', role: 'faculty' });
+      await user.save(); // triggers bcrypt pre-save hook
+      console.log(`   👤  User     ${f.email}`);
+      usersCreated++;
+    } else {
+      usersSkipped++;
+    }
+    await Faculty.findByIdAndUpdate(newFaculty._id, { userId: user._id });
   }
 
   // ── 3. Seed subjects ─────────────────────────────────────────────────────
@@ -583,11 +831,12 @@ async function seed() {
 
   // ── Summary ───────────────────────────────────────────────────────────────
   console.log(`\n🎉 Done!`);
-  console.log(`   Programs:   ${Object.keys(programMap).length} upserted`);
-  console.log(`   Faculty:    ${created} created, ${skipped} skipped`);
-  console.log(`   Subjects:   ${subjCreated} created, ${subjSkipped} skipped`);
-  console.log(`   Classrooms: ${roomCreated} created, ${roomSkipped} skipped`);
-  console.log(`   Sections:   ${sectCreated} created, ${sectSkipped} skipped`);
+  console.log(`   Programs:        ${Object.keys(programMap).length} upserted`);
+  console.log(`   Faculty:         ${created} created, ${skipped} skipped`);
+  console.log(`   Users (faculty): ${usersCreated} created, ${usersSkipped} skipped`);
+  console.log(`   Subjects:        ${subjCreated} created, ${subjSkipped} skipped`);
+  console.log(`   Classrooms:      ${roomCreated} created, ${roomSkipped} skipped`);
+  console.log(`   Sections:        ${sectCreated} created, ${sectSkipped} skipped`);
   await mongoose.disconnect();
   process.exit(0);
 }
