@@ -550,6 +550,21 @@ const baseColumns: ColumnDef<Schedule>[] = [
 
 function ScheduleActionCell({ schedule }: { schedule: Schedule }) {
     const router = useRouter();
+    const { user } = useAuth();
+    const isFaculty = user?.role === "faculty";
+
+    if (isFaculty) {
+        return (
+            <Button
+                variant="ghost"
+                className="h-8 w-8 p-0"
+                onClick={() => router.push(`/schedules/${schedule.id}`)}
+            >
+                <Eye className="h-4 w-4" />
+                <span className="sr-only">View details</span>
+            </Button>
+        );
+    }
 
     return (
         <DropdownMenu>
@@ -614,7 +629,7 @@ export default function SchedulesPage() {
     );
 
     const { schedules: rawSchedules, loading: schedulesLoading, error, stats, refetch } = useSchedules(
-        scheduleParams ?? undefined
+        scheduleParams
     );
 
     const loading = facultyLoading || schedulesLoading;
@@ -808,10 +823,16 @@ export default function SchedulesPage() {
         [courses, exportProgramId]
     );
 
+    // For faculty: hide the select checkbox and faculty name columns (irrelevant read-only view)
+    const tableColumns = React.useMemo(() => {
+        if (!isFaculty) return updatedColumns;
+        return updatedColumns.filter((col) => col.id !== "select" && col.id !== "faculty");
+    }, [updatedColumns, isFaculty]);
+
     // Initialize data table
     const { table } = useDataTable<Schedule>({
         data: schedules,
-        columns: updatedColumns,
+        columns: tableColumns,
         pageCount: Math.ceil(schedules.length / 10),
         initialState: {
             pagination: { pageIndex: 0, pageSize: 10 },
@@ -1037,6 +1058,19 @@ export default function SchedulesPage() {
         );
     }
 
+    if (isFaculty && !facultyLoading && !facultyId) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Alert className="max-w-md">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                        Your account is not yet linked to a faculty record. Please contact the administrator to set up your schedule.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        );
+    }
+
     if (error) {
         return (
             <div className="flex h-[50vh] items-center justify-center">
@@ -1053,9 +1087,13 @@ export default function SchedulesPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Automated Scheduling</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        {isFaculty ? "My Schedule" : "Automated Scheduling"}
+                    </h1>
                     <p className="text-muted-foreground">
-                        Manage course schedules with intelligent conflict detection
+                        {isFaculty
+                            ? "Your assigned classes and teaching schedule"
+                            : "Manage course schedules with intelligent conflict detection"}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -1121,53 +1159,107 @@ export default function SchedulesPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Schedules</CardTitle>
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">All semesters</p>
-                    </CardContent>
-                </Card>
+            {isFaculty ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Classes</CardTitle>
+                            <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{schedules.length}</div>
+                            <p className="text-xs text-muted-foreground">Assigned subjects</p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Published</CardTitle>
-                        <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.published}</div>
-                        <p className="text-xs text-muted-foreground">Active schedules</p>
-                    </CardContent>
-                </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">1st Semester</CardTitle>
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {schedules.filter((s) => s.semester === "1st Semester").length}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Classes this semester</p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Auto-Generated</CardTitle>
-                        <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.generated}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {stats.total > 0 ? Math.round((stats.generated / stats.total) * 100) : 0}% automated
-                        </p>
-                    </CardContent>
-                </Card>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">2nd Semester</CardTitle>
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {schedules.filter((s) => s.semester === "2nd Semester").length}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Classes this semester</p>
+                        </CardContent>
+                    </Card>
 
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.draft}</div>
-                        <p className="text-xs text-muted-foreground">Pending review</p>
-                    </CardContent>
-                </Card>
-            </div>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Published</CardTitle>
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {schedules.filter((s) => s.status === "published").length}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Confirmed schedules</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Total Schedules</CardTitle>
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.total}</div>
+                            <p className="text-xs text-muted-foreground">All semesters</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Published</CardTitle>
+                            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.published}</div>
+                            <p className="text-xs text-muted-foreground">Active schedules</p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Auto-Generated</CardTitle>
+                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.generated}</div>
+                            <p className="text-xs text-muted-foreground">
+                                {stats.total > 0 ? Math.round((stats.generated / stats.total) * 100) : 0}% automated
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Drafts</CardTitle>
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{stats.draft}</div>
+                            <p className="text-xs text-muted-foreground">Pending review</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* View Content */}
             {view === "table" ? (

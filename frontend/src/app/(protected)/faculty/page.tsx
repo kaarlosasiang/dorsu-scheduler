@@ -452,7 +452,7 @@ const columns: ColumnDef<Faculty>[] = [
         <div className="w-28">
           <div className="flex items-center justify-between text-xs mb-1">
             <span>
-              {current}/{max}
+              {current.toFixed(2)}/{max}
             </span>
             <span className="text-muted-foreground">
               {Math.round(percentage)}%
