@@ -1097,6 +1097,7 @@ export default function SchedulesPage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    {/* View toggle */}
                     <div className="flex items-center border rounded-md">
                         <Button
                             variant={view === "table" ? "secondary" : "ghost"}
@@ -1117,44 +1118,55 @@ export default function SchedulesPage() {
                             Calendar
                         </Button>
                     </div>
-                    <Button
-                        variant="outline"
-                        onClick={() => setExportDialogOpen(true)}
-                    >
-                        <Download className="mr-2 h-4 w-4" />
-                        Export
-                    </Button>
-                    {isAdmin ? (
-                        <>
-                            <Button
-                                variant="outline"
-                                onClick={handlePublishSelected}
-                                disabled={publishing || selectedDraftScheduleIds.length === 0}
-                            >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Publish Selected ({selectedDraftScheduleIds.length})
+
+                    {/* Actions dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline">
+                                Actions
+                                <MoreHorizontal className="ml-2 h-4 w-4" />
                             </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handlePublishAll}
-                                disabled={publishing || allFilteredDraftIds.length === 0}
-                            >
-                                <CheckCircle2 className="mr-2 h-4 w-4" />
-                                Publish All Drafts ({allFilteredDraftIds.length})
-                            </Button>
-                            <Button
-                                variant="outline"
-                                onClick={() => router.push("/schedules/add")}
-                            >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Schedule
-                            </Button>
-                            <Button onClick={() => setGenerateDialogOpen(true)}>
-                                <Sparkles className="mr-2 h-4 w-4" />
-                                Generate Schedules
-                            </Button>
-                        </>
-                    ) : null}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>Schedule Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setExportDialogOpen(true)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </DropdownMenuItem>
+                            {isAdmin && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={handlePublishSelected}
+                                        disabled={publishing || selectedDraftScheduleIds.length === 0}
+                                    >
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        Publish Selected ({selectedDraftScheduleIds.length})
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handlePublishAll}
+                                        disabled={publishing || allFilteredDraftIds.length === 0}
+                                    >
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                        Publish All Drafts ({allFilteredDraftIds.length})
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => router.push("/schedules/add")}>
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add Schedule
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {isAdmin && (
+                        <Button onClick={() => setGenerateDialogOpen(true)}>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Generate Schedules
+                        </Button>
+                    )}
                 </div>
             </div>
 
