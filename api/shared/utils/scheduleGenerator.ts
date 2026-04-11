@@ -287,8 +287,25 @@ function findSuitableFaculty(
   const suitable: any[] = [];
 
   for (const faculty of availableFaculty) {
-    // Faculty must belong to the same program as the subject's course
-    if (subject.course && faculty.program && faculty.program.toString() !== subject.course.toString()) {
+    // Faculty must belong to the same program as the subject's course.
+    // Exception: GE faculty (courseCode === 'GE') can teach any subject.
+    const facultyProgramCode: string | undefined =
+      typeof faculty.program === 'object' ? faculty.program?.courseCode : undefined;
+    const facultyProgramId: string =
+      typeof faculty.program === 'object'
+        ? (faculty.program?._id?.toString() ?? faculty.program?.toString())
+        : faculty.program?.toString();
+    const subjectCourseId: string =
+      typeof subject.course === 'object'
+        ? (subject.course?._id?.toString() ?? subject.course?.toString())
+        : subject.course?.toString();
+
+    if (
+      subject.course &&
+      faculty.program &&
+      facultyProgramCode !== 'GE' &&
+      facultyProgramId !== subjectCourseId
+    ) {
       continue;
     }
 
@@ -575,6 +592,16 @@ async function generateSubjectSchedule(
   const courseId = subject.course?._id?.toString?.() || subject.course?.toString?.() || '';
   const sectionKey = `${courseId}:${subject.yearLevel}`;
   const sectionsForSubject = sectionMap.get(sectionKey) ?? [];
+
+  // If a subject has a yearLevel but no matching sections exist, skip it entirely.
+  // Generating sectionless schedules for year-levelled subjects produces orphan entries.
+  if (subject.yearLevel && sectionsForSubject.length === 0) {
+    const courseCode = subject.course?.courseCode || courseId || 'unknown';
+    console.log(`  ⚠ No active sections found for ${courseCode} / ${subject.yearLevel} — skipping ${subject.subjectCode}`);
+    throw new Error(`No active sections found for ${courseCode} ${subject.yearLevel}. Create sections for this program/year level first.`);
+  }
+
+  // Subjects with no yearLevel (e.g. cross-program GE subjects) are scheduled without a section.
   const targetSections = sectionsForSubject.length > 0 ? sectionsForSubject : [null];
 
   for (const targetSection of targetSections) {

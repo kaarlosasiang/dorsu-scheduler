@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, Building2, ListChecks } from "lucide-react";
+import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, Building2, ListChecks, Layers } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
 import { cn } from "@/lib/utils";
@@ -31,7 +31,7 @@ import {
 
 import { subjectSchema } from "./schema";
 import type { SubjectFormData, SubjectFormProps, ISubject } from "./types";
-import { useSubjectForm } from "./useSubjectForm";
+import { useSubjectForm, type GEProgramEntry } from "./useSubjectForm";
 import { useCourses } from "@/hooks/useCourses";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useSubjects } from "@/hooks/useSubjects";
@@ -45,7 +45,10 @@ export function SubjectForm({
   className,
 }: SubjectFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { createSubject, updateSubject } = useSubjectForm();
+  // GE Subject toggle (create mode only)
+  const [isGE, setIsGE] = useState(false);
+  const [gePrograms, setGePrograms] = useState<GEProgramEntry[]>([]);
+  const { createSubject, createGESubjects, updateSubject } = useSubjectForm();
   const { courses, loading: loadingCourses } = useCourses();
   const { departments, loading: loadingDepartments } = useDepartments();
 
@@ -189,10 +192,37 @@ export function SubjectForm({
   };
 
   const onSubmit = async (data: SubjectFormData) => {
+    // GE bulk-create path
+    if (isGE && mode === "create") {
+      const activePrograms = gePrograms.filter((p) => p.courseId && p.yearLevel);
+      if (activePrograms.length === 0) {
+        onError?.("Select at least one program with a year level for the GE subject.");
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        const result = await createGESubjects(data, activePrograms);
+        if (result.failed > 0 && result.created === 0) {
+          throw new Error(result.message);
+        }
+        // Synthesise a success response compatible with onSuccess signature
+        onSuccess?.({
+          success: true,
+          message: result.message,
+          data: {} as any,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to create GE subjects";
+        onError?.(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    // Normal single-subject path
     setIsSubmitting(true);
     try {
-      console.log("Subject form data:", data);
-
       const response = mode === "create"
         ? await createSubject(data)
         : await updateSubject(initialData?._id || initialData?.id || "", data);
@@ -210,6 +240,27 @@ export function SubjectForm({
       setIsSubmitting(false);
     }
   };
+
+  // ── GE program helpers ──────────────────────────────────────────────
+  const toggleGEProgram = (courseId: string, checked: boolean) => {
+    setGePrograms((prev) =>
+      checked
+        ? [...prev, { courseId, yearLevel: "" }]
+        : prev.filter((p) => p.courseId !== courseId)
+    );
+  };
+
+  const setGEProgramYearLevel = (courseId: string, yearLevel: string) => {
+    setGePrograms((prev) =>
+      prev.map((p) => (p.courseId === courseId ? { ...p, yearLevel } : p))
+    );
+  };
+
+  const isGEProgramChecked = (courseId: string) =>
+    gePrograms.some((p) => p.courseId === courseId);
+
+  const getGEProgramYearLevel = (courseId: string) =>
+    gePrograms.find((p) => p.courseId === courseId)?.yearLevel ?? "";
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -378,7 +429,92 @@ export function SubjectForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Course */}
+
+            {/* GE Subject toggle — only shown in create mode */}
+            {mode === "create" && (
+              <label className="flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isGE}
+                  onChange={(e) => {
+                    setIsGE(e.target.checked);
+                    setGePrograms([]);
+                    // clear single-course selection when toggling
+                    if (e.target.checked) setValue("course", "");
+                  }}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <div>
+                  <p className="text-sm font-medium flex items-center gap-1.5">
+                    <Layers className="h-4 w-4 text-muted-foreground" />
+                    GE Subject
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Creates one subject record per selected program automatically.
+                  </p>
+                </div>
+              </label>
+            )}
+
+            {/* GE: multi-program selector */}
+            {isGE && mode === "create" ? (
+              <Field>
+                <FieldLabel>Programs that take this subject *</FieldLabel>
+                <div className="space-y-2 rounded-lg border p-3">
+                  {loadingCourses ? (
+                    <p className="text-sm text-muted-foreground">Loading programs…</p>
+                  ) : (
+                    courses
+                      ?.filter((c: any) => (c._id || c.id) && c.courseCode !== "GE")
+                      .map((course: any) => {
+                        const courseId = course._id || course.id;
+                        const checked = isGEProgramChecked(courseId);
+                        return (
+                          <div key={courseId} className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 flex-1 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => toggleGEProgram(courseId, e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 shrink-0"
+                              />
+                              <span className="text-sm truncate">
+                                {course.courseCode} — {course.courseName}
+                              </span>
+                            </label>
+                            {checked && (
+                              <Select
+                                value={getGEProgramYearLevel(courseId) || "none"}
+                                onValueChange={(v) =>
+                                  setGEProgramYearLevel(courseId, v === "none" ? "" : v)
+                                }
+                              >
+                                <SelectTrigger className="w-36 shrink-0">
+                                  <SelectValue placeholder="Year level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Select year</SelectItem>
+                                  <SelectItem value="1st Year">1st Year</SelectItem>
+                                  <SelectItem value="2nd Year">2nd Year</SelectItem>
+                                  <SelectItem value="3rd Year">3rd Year</SelectItem>
+                                  <SelectItem value="4th Year">4th Year</SelectItem>
+                                  <SelectItem value="5th Year">5th Year</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+                {gePrograms.length > 0 && (
+                  <FieldDescription>
+                    {gePrograms.filter((p) => p.yearLevel).length} of {gePrograms.length} program(s) have a year level set.
+                  </FieldDescription>
+                )}
+              </Field>
+            ) : (
+            /* Normal single-course selector */
             <Field>
               <FieldLabel>Course *</FieldLabel>
               <Select
@@ -403,6 +539,7 @@ export function SubjectForm({
                 </FieldDescription>
               )}
             </Field>
+            )}
 
             {/* Department */}
             <Field>
@@ -435,7 +572,8 @@ export function SubjectForm({
             </Field>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Year Level */}
+              {/* Year Level — hidden in GE mode (each program sets its own) */}
+              {!isGE && (
               <Field>
                 <FieldLabel>Year Level</FieldLabel>
                 <Select
@@ -460,10 +598,10 @@ export function SubjectForm({
                   </FieldDescription>
                 )}
               </Field>
+              )}
 
               {/* Semester */}
               <Field>
-                <FieldLabel>Semester</FieldLabel>
                 <div className="relative">
                   <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
                   <Select

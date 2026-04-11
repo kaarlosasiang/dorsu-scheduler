@@ -23,7 +23,7 @@ interface UseSchedulesReturn {
   };
 }
 
-export function useSchedules(params?: ScheduleQueryParams): UseSchedulesReturn {
+export function useSchedules(params?: ScheduleQueryParams | null): UseSchedulesReturn {
   const [schedules, setSchedules] = useState<ISchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +49,12 @@ export function useSchedules(params?: ScheduleQueryParams): UseSchedulesReturn {
   });
 
   const fetchSchedules = useCallback(async () => {
+    // null means "skip fetching" (e.g. faculty user whose record isn't linked yet)
+    if (params === null) {
+      setSchedules([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);

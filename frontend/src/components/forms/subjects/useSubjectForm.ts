@@ -2,6 +2,11 @@ import { useState } from "react";
 import { SubjectFormData, SubjectResponse } from "./types";
 import SubjectAPI from "@/lib/services/SubjectAPI";
 
+export interface GEProgramEntry {
+  courseId: string;
+  yearLevel: string;
+}
+
 export function useSubjectForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +34,37 @@ export function useSubjectForm() {
       return result as SubjectResponse;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create subject";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createGESubjects = async (
+    base: Omit<SubjectFormData, 'course' | 'yearLevel'>,
+    programs: GEProgramEntry[],
+  ): Promise<{ success: boolean; message: string; created: number; failed: number }> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payloads = programs.map(({ courseId, yearLevel }) => ({
+        subjectCode: base.subjectCode.trim().toUpperCase(),
+        subjectName: base.subjectName.trim(),
+        lectureUnits: base.lectureUnits,
+        labUnits: base.labUnits,
+        description: base.description || undefined,
+        course: courseId,
+        department: base.department || undefined,
+        yearLevel: yearLevel || null,
+        semester: base.semester || null,
+        prerequisites: base.prerequisites || [],
+      }));
+
+      const result = await SubjectAPI.bulkCreate(payloads as any);
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create GE subjects";
       setError(errorMessage);
       throw err;
     } finally {
@@ -84,6 +120,7 @@ export function useSubjectForm() {
 
   return {
     createSubject,
+    createGESubjects,
     updateSubject,
     deleteSubject,
     loading,

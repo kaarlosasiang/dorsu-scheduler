@@ -15,6 +15,7 @@ export interface ISchedule {
   classroom: string | any;
   department: string | any;
   timeSlot: ITimeSlot;
+  scheduleType?: 'lecture' | 'laboratory';
   semester: string;
   academicYear: string;
   yearLevel?: string;
@@ -146,6 +147,7 @@ export interface ScheduleUpdateData {
   classroom?: string;
   department?: string;
   timeSlot?: ITimeSlot;
+  scheduleType?: 'lecture' | 'laboratory';
   semester?: string;
   academicYear?: string;
   yearLevel?: string;
