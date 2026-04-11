@@ -4,24 +4,9 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/authContext";
 import { Loader2 } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Separator } from "@/components/ui/separator";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/common/sidebar/app-sidebar";
+import { AppNavbar } from "@/components/common/navbar/app-navbar";
 import { canAccessDashboard, getDefaultRouteForRole } from "@/lib/role-routes";
 
-// Routes faculty members are allowed to access
 const FACULTY_ALLOWED_PATHS = ["/schedules"];
 
 export default function ProtectedLayout({
@@ -44,7 +29,6 @@ export default function ProtectedLayout({
       return;
     }
 
-    // Redirect faculty away from admin-only routes
     if (!isLoading && isAuthenticated && user?.role === "faculty") {
       const isAllowed = FACULTY_ALLOWED_PATHS.some((path) =>
         pathname === path || pathname.startsWith(path + "/")
@@ -55,7 +39,6 @@ export default function ProtectedLayout({
     }
   }, [isAuthenticated, isLoading, user, pathname, router]);
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -67,39 +50,16 @@ export default function ProtectedLayout({
     );
   }
 
-  // Don't render if not authenticated
   if (!isAuthenticated) {
     return null;
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 px-2">
-          <SidebarTrigger className="-ml-1" />
-          <Separator
-            orientation="vertical"
-            className="mr-2 data-[orientation=vertical]:h-4"
-          />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="#">
-                  Building Your Application
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator className="hidden md:block" />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Data Fetching</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 py-4 pl-2 pr-4 pt-0">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <div className="min-h-screen flex flex-col">
+      <AppNavbar />
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-6">
+        {children}
+      </main>
+    </div>
   );
 }

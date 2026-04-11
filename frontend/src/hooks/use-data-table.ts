@@ -76,7 +76,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     history = "replace",
     debounceMs = DEBOUNCE_MS,
     throttleMs = THROTTLE_MS,
-    clearOnDefault = false,
+    clearOnDefault = true,
     enableAdvancedFilter = false,
     scroll = false,
     shallow = true,

@@ -111,11 +111,7 @@ function SectionFormDialog({ open, onClose, onSubmit, editSection, programId, co
         }
     }, [editSection, open]);
 
-    const yearNum = yearLevel ? YEAR_LEVELS.indexOf(yearLevel as (typeof YEAR_LEVELS)[number]) + 1 : "";
-    const namePreview =
-        courseCode && yearNum && sectionCode
-            ? `${courseCode}-${yearNum}${sectionCode.toUpperCase()}`
-            : "";
+    const namePreview = sectionCode ? sectionCode.toUpperCase() : "";
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();

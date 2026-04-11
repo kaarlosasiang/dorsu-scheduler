@@ -8,14 +8,6 @@ export interface ISectionDocument extends Omit<ISection, '_id' | 'program'>, Doc
 
 interface ISectionModel extends Model<ISectionDocument> {}
 
-const YEAR_LEVEL_MAP: Record<string, number> = {
-  '1st Year': 1,
-  '2nd Year': 2,
-  '3rd Year': 3,
-  '4th Year': 4,
-  '5th Year': 5,
-};
-
 const sectionSchema = new Schema<ISectionDocument>(
   {
     program: {
@@ -74,17 +66,10 @@ sectionSchema.index(
   { unique: true }
 );
 
-// Pre-save: auto-generate the display name (e.g. "IT-1A")
-sectionSchema.pre('save', async function (next) {
-  if (this.isModified('program') || this.isModified('yearLevel') || this.isModified('sectionCode') || !this.name) {
-    const Course = (await import('./courseModel.js')).Course;
-    const course = await Course.findById(this.program);
-    if (!course) {
-      next(new Error('Program not found'));
-      return;
-    }
-    const yearNum = YEAR_LEVEL_MAP[this.yearLevel] ?? '';
-    this.name = `${course.courseCode}-${yearNum}${this.sectionCode}`;
+// Pre-save: use sectionCode as the display name
+sectionSchema.pre('save', function (next) {
+  if (this.isModified('sectionCode') || !this.name) {
+    this.name = this.sectionCode.toUpperCase();
   }
   next();
 });

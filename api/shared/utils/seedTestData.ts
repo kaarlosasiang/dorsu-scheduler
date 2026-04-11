@@ -111,13 +111,13 @@ type SectionSeed = {
 };
 
 const SECTIONS_SEED: SectionSeed[] = [
-  // ── BSA ──────────────────────────────────────────────────────────────────
+  // ── BSA (BGA) ─────────────────────────────────────────────────────────────
   { program: 'BSA', yearLevel: '1st Year', sectionCode: 'BGA1A' },
   { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'BGA2A' },
   { program: 'BSA', yearLevel: '3rd Year', sectionCode: 'BGA3A' },
   { program: 'BSA', yearLevel: '4th Year', sectionCode: 'BGA4A' },
 
-  // ── BSAM ─────────────────────────────────────────────────────────────────
+  // ── BSAM (AM) ─────────────────────────────────────────────────────────────
   { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1AB' },
   { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1BB' },
   { program: 'BSAM', yearLevel: '2nd Year', sectionCode: 'AM2AB' },
@@ -127,29 +127,24 @@ const SECTIONS_SEED: SectionSeed[] = [
   { program: 'BSAM', yearLevel: '3rd Year', sectionCode: 'AM3BB' },
   { program: 'BSAM', yearLevel: '4th Year', sectionCode: 'AM4AB' },
 
-  // ── BSES ─────────────────────────────────────────────────────────────────
+  // ── BSES (ES) ─────────────────────────────────────────────────────────────
   { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1AB' },
   { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1BB' },
-  { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1BG' },
   { program: 'BSES', yearLevel: '2nd Year', sectionCode: 'ES2BG' },
-  { program: 'BSES', yearLevel: '3rd Year', sectionCode: 'ES3BG' },
   { program: 'BSES', yearLevel: '4th Year', sectionCode: 'ES4BG' },
 
-  // ── BSHM ─────────────────────────────────────────────────────────────────
+  // ── BSHM (HM) ─────────────────────────────────────────────────────────────
   { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1AB' },
   { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1BB' },
-  { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1BG' },
   { program: 'BSHM', yearLevel: '2nd Year', sectionCode: 'HM2BG' },
   { program: 'BSHM', yearLevel: '3rd Year', sectionCode: 'HM3BG' },
   { program: 'BSHM', yearLevel: '4th Year', sectionCode: 'HM4BG' },
 
-  // ── BSIT ─────────────────────────────────────────────────────────────────
-  { program: 'BSIT', yearLevel: '3rd Year', sectionCode: 'IT3BG' },
-  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4A'  },
-  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4B'  },
+  // ── BSIT (IT) ─────────────────────────────────────────────────────────────
+  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4A' },
+  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4B' },
 
-  // ── BSM ──────────────────────────────────────────────────────────────────
-  { program: 'BSM', yearLevel: '2nd Year', sectionCode: 'BGM2A' },
+  // ── BSM (BGM) ─────────────────────────────────────────────────────────────
   { program: 'BSM', yearLevel: '3rd Year', sectionCode: 'BGM3A' },
   { program: 'BSM', yearLevel: '4th Year', sectionCode: 'BGM4A' },
 ];
@@ -216,7 +211,7 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag9',       subjectName: 'Postharvest Handling & Seed Technology',           lectureUnits: 2, labUnits: 1 },
   { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag6',       subjectName: 'Methods of Agricultural Research',                 lectureUnits: 2, labUnits: 1 },
   { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag8',       subjectName: 'Natural Resource & Environmental Management',      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Ag4',       subjectName: 'Introduction to Agriculture Community Systems',    lectureUnits: 2, labUnits: 1 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Entrep1',   subjectName: 'Principles of Agricultural Entrepreneurship & Enterprise Development', lectureUnits: 3, labUnits: 0 },
   // 3rd Year
   { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AgCS101',   subjectName: 'Plant Propagation & Nursery Management',           lectureUnits: 2, labUnits: 1 },
   { program: 'BSA', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AgCS102',   subjectName: 'Vegetable Crops Production',                       lectureUnits: 2, labUnits: 1 },
@@ -232,7 +227,14 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   // 4th Year
   { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag19b',     subjectName: 'Competency Skills Appraisal in Agriculture II',    lectureUnits: 3, labUnits: 0 },
   { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag18',      subjectName: 'Apprenticeship / OJT / Industry Exposure (240 hrs)', lectureUnits: 0, labUnits: 3 },
-  { program: 'BSA', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'Entrep1',   subjectName: 'Principles of Agricultural Entrepreneurship & Enterprise Development', lectureUnits: 3, labUnits: 0 },
+  // GE subjects for BSA (2nd Semester, per reference)
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                           lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                                lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',     subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                          lectureUnits: 0, labUnits: 3 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',     subjectName: 'People and the Earth\'s Ecosystem',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',    lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSAM — Bachelor of Science in Agribusiness Management
@@ -247,26 +249,22 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM114',    subjectName: 'Business and Income Taxation',                     lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM115',    subjectName: 'Intermediate Microeconomics Theory',               lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM116',    subjectName: 'Intro to Agribusiness Management',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AnSci101', subjectName: 'Introduction to Animal Science',                   lectureUnits: 2, labUnits: 1 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AgEng101', subjectName: 'Agricultural Engineering',                         lectureUnits: 2, labUnits: 1 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SoilSci101',subjectName: 'Principles of Soil Science',                      lectureUnits: 2, labUnits: 1 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CropProt101',subjectName: 'Entomology',                                     lectureUnits: 2, labUnits: 1 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'CropSci102',subjectName: 'Fundamentals of Horticulture',                    lectureUnits: 2, labUnits: 1 },
   // 2nd Year
   { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM120',    subjectName: 'Introduction to Entrepreneurship',                 lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM121',    subjectName: 'Introduction to Human Behavior in Organization',   lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'AM122',    subjectName: 'Cooperative Management and Governance',            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SoilSci101',subjectName: 'Principles of Soil Science',                      lectureUnits: 2, labUnits: 1 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'CropProt101',subjectName: 'Entomology',                                     lectureUnits: 2, labUnits: 1 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM123',    subjectName: 'New Enterprise Planning',                          lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM124',    subjectName: 'Intro to Human Resource Management',               lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AM125',    subjectName: 'Intro to Managerial Economics',                    lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AgExt101', subjectName: 'Agricultural Extension and Communication',         lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'CropProt102',subjectName: 'Plant Pathology',                               lectureUnits: 2, labUnits: 1 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'AnSci102', subjectName: 'Intro to Livestock and Poultry Production',        lectureUnits: 2, labUnits: 1 },
   // 3rd Year
   { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM130',    subjectName: 'Introduction to Marketing Management',             lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM131',    subjectName: 'Intro to Org\'n & Management of Small Business',   lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM132',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'AM133',    subjectName: 'Value Chain Management',                           lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM133',    subjectName: 'Value Chain Management',                           lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM135',    subjectName: 'Intro to Financial Management',                    lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM136',    subjectName: 'Intro to International Marketing',                 lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'AM137',    subjectName: 'Intro to Prod & Operation Management',             lectureUnits: 3, labUnits: 0 },
@@ -277,6 +275,16 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM143',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM144',    subjectName: 'Introduction to Investment Management',            lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM145',    subjectName: 'Special Problem',                                  lectureUnits: 3, labUnits: 0 },
+  // GE subjects for BSAM (2nd Semester, per reference)
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PerDev10',  subjectName: 'Understanding the Self',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',     subjectName: 'Science, Technology & Society',                   lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                               lectureUnits: 0, labUnits: 2 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (CWTS)',                                   lectureUnits: 0, labUnits: 3 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Hist11',    subjectName: 'Readings in Philippine History',                  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'FL10',      subjectName: 'Foreign Language',                                lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSES — Bachelor of Science in Environmental Science
@@ -297,6 +305,17 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci107',subjectName: 'Environmental Psychology',                         lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci106',subjectName: 'Environmental Ethics, Policies & Laws',             lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci108',subjectName: 'Climate Change Studies',                           lectureUnits: 3, labUnits: 0 },
+  // GE subjects for BSES (2nd Semester, per reference)
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Hum10',     subjectName: 'Art Appreciation',                                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Lit10',     subjectName: 'Literature in Mindanao',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                               lectureUnits: 0, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (LTS/CWTS/ROTC)',                         lectureUnits: 0, labUnits: 3 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Hist10',    subjectName: 'The Life and Works of Rizal',                     lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',      subjectName: 'Foreign Language',                                lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSHM — Bachelor of Science in Hospitality Management
@@ -317,7 +336,7 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BHM123',   subjectName: 'Applied Economics',                               lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'BHM124',   subjectName: 'Business Finance',                                lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC125',   subjectName: 'Foreign Language 2',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC126',   subjectName: 'Supply Chain Management in Hospitality Industry', lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC127',   subjectName: 'Supply Chain Management in Hospitality Industry', lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BHM126',   subjectName: 'Business Marketing',                              lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HPC128',   subjectName: 'Applied Business Tools and Technologies PMS w/ Lab', lectureUnits: 2, labUnits: 1 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'BHM129',   subjectName: 'Fundamentals of Accounting',                      lectureUnits: 3, labUnits: 0 },
@@ -334,6 +353,14 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC138',   subjectName: 'Entrepreneurship in Tourism and Hospitality',     lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC141',   subjectName: 'Multicultural Diversity in Workplace for Tourism Professional', lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'PRACB',    subjectName: 'Practicum B',                                     lectureUnits: 0, labUnits: 3 },
+  // GE subjects for BSHM (2nd Semester, per reference)
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PerDev10',  subjectName: 'Understanding the Self',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (LTS/CWTS)',                              lectureUnits: 0, labUnits: 3 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                              lectureUnits: 0, labUnits: 2 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Hum10',     subjectName: 'Art Appreciation',                               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Lit10',     subjectName: 'Literature in Mindanao',                         lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
+  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSIT — Bachelor of Science in Information Technology
@@ -366,6 +393,8 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math146',   subjectName: 'Modern Geometry',                                 lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math145',   subjectName: 'Topology',                                        lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math199',   subjectName: 'Thesis B',                                        lectureUnits: 3, labUnits: 0 },
+  // GE subjects for BSM (2nd Semester, per reference)
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                          lectureUnits: 3, labUnits: 0 },
 ];
 
 // Faculty seed list — Baganga Campus (BGA), real roster merged from 1st & 2nd semesters

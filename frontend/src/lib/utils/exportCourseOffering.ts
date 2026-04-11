@@ -433,10 +433,14 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
     totalLec: number;
     totalLab: number;
     totalUnits: number;
+    sectionProgramName?: string;
   }
 
   const allSections: SectionData[] = sortedSections.map(([key, scheds]) => {
     const [yearLevel, section] = key.split("|||");
+    const sectionProgramName = scheds.length > 0
+      ? (getSubject(scheds[0].subject) as any)?.course?.courseName as string | undefined
+      : undefined;
 
     // Group by subject ID within this section
     const subjectMap = new Map<string, ExportSchedule[]>();
@@ -547,7 +551,7 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
     }
 
     const totalUnits = totalLec + totalLab;
-    return { yearLevel, section, bodyRows, totalLec, totalLab, totalUnits };
+    return { yearLevel, section, bodyRows, totalLec, totalLab, totalUnits, sectionProgramName };
   });
 
   // ── Create PDF ─────────────────────────────────────────────────────────────
@@ -566,7 +570,7 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
     const startY = drawPageHeader(
       doc,
       logoBase64,
-      programName,
+      sectionData.sectionProgramName || programName,
       institute,
       semester,
       academicYear,
@@ -656,10 +660,15 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
       tableLineWidth: 0.15,
     });
 
-    // Approval / signature lines if there is space
+    // Approval / signature lines — only on the last page
     const finalY: number = (doc as any).lastAutoTable?.finalY ?? PAGE_H - MARGIN_BOTTOM - 20;
-    if (finalY + 20 < PAGE_H - MARGIN_BOTTOM) {
-      drawApprovalSection(doc, finalY + 8);
+    if (si === allSections.length - 1) {
+      if (finalY + 20 < PAGE_H - MARGIN_BOTTOM) {
+        drawApprovalSection(doc, finalY + 8);
+      } else {
+        doc.addPage();
+        drawApprovalSection(doc, MARGIN_TOP + 20);
+      }
     }
   }
 

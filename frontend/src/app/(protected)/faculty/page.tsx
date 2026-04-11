@@ -139,7 +139,6 @@ function buildAcademicYearOptions(count = 4): string[] {
 // ─── Faculty Action Cell with Per-Faculty Workload Export ────────────────────
 
 function FacultyActionCell({ faculty }: { faculty: Faculty }) {
-  const router = useRouter();
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exportSemester, setExportSemester] = React.useState("2nd Semester");
