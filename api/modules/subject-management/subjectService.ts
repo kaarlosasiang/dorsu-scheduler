@@ -14,18 +14,17 @@ export async function getAll(filters: ISubjectFilter = {}): Promise<ISubjectDocu
   try {
     const query: any = {};
 
-    if (filters.course) query.course = filters.course;
+    if (filters.courseId) query['courseOfferings.course'] = filters.courseId;
     if (filters.department) query.department = filters.department;
-    if (filters.yearLevel) query.yearLevel = filters.yearLevel;
     if (filters.semester) query.semester = filters.semester;
     if (filters.subjectCode) query.subjectCode = new RegExp(filters.subjectCode, 'i');
     if (filters.subjectName) query.subjectName = new RegExp(filters.subjectName, 'i');
 
     const subjects = await Subject.find(query)
-      .populate('course', 'courseCode courseName')
+      .populate('courseOfferings.course', 'courseCode courseName')
       .populate('department', 'name code')
       .populate('prerequisites', 'subjectCode subjectName')
-      .sort({ yearLevel: 1, semester: 1, subjectCode: 1 })
+      .sort({ semester: 1, subjectCode: 1 })
       .exec();
 
     return subjects;
@@ -41,7 +40,7 @@ export async function getAll(filters: ISubjectFilter = {}): Promise<ISubjectDocu
 export async function getById(id: string): Promise<ISubjectDocument> {
   try {
     const subject = await Subject.findById(id)
-      .populate('course', 'courseCode courseName description')
+      .populate('courseOfferings.course', 'courseCode courseName description')
       .populate('department', 'name code')
       .populate('prerequisites', 'subjectCode subjectName units')
       .exec();
@@ -73,11 +72,12 @@ export async function create(subjectData: CreateSubjectInput): Promise<ISubjectD
 
     const validatedData = validation.data;
 
-    // If department is not provided, get it from the course
-    if (!validatedData.department && validatedData.course) {
-      const course = await import('../../models/courseModel').then(m => m.Course.findById(validatedData.course));
-      if (course?.department) {
-        validatedData.department = course.department as any;
+    // If department is not provided, derive it from the first non-GE course offering
+    if (!validatedData.department && validatedData.courseOfferings?.length) {
+      const Course = (await import('../../models/courseModel.js')).Course;
+      const firstCourse = await Course.findById(validatedData.courseOfferings[0].course);
+      if (firstCourse?.department) {
+        validatedData.department = firstCourse.department as any;
       }
     }
 
@@ -87,7 +87,7 @@ export async function create(subjectData: CreateSubjectInput): Promise<ISubjectD
 
     // Populate before returning
     await savedSubject.populate([
-      { path: 'course', select: 'courseCode courseName' },
+      { path: 'courseOfferings.course', select: 'courseCode courseName' },
       { path: 'department', select: 'name code' },
       { path: 'prerequisites', select: 'subjectCode subjectName' }
     ]);
@@ -107,11 +107,12 @@ export async function create(subjectData: CreateSubjectInput): Promise<ISubjectD
  */
 export async function update(id: string, updateData: UpdateSubjectInput): Promise<ISubjectDocument> {
   try {
-    // If department is not in the update and course is being updated, get department from the new course
-    if (!updateData.department && updateData.course) {
-      const course = await import('../../models/courseModel').then(m => m.Course.findById(updateData.course));
-      if (course?.department) {
-        updateData.department = course.department as any;
+    // If department is not in the update and courseOfferings is being updated, derive from first offering
+    if (!updateData.department && updateData.courseOfferings?.length) {
+      const Course = (await import('../../models/courseModel.js')).Course;
+      const firstCourse = await Course.findById(updateData.courseOfferings[0].course);
+      if (firstCourse?.department) {
+        updateData.department = firstCourse.department as any;
       }
     }
 
@@ -135,7 +136,7 @@ export async function update(id: string, updateData: UpdateSubjectInput): Promis
       validatedData,
       { new: true, runValidators: true }
     )
-      .populate('course', 'courseCode courseName')
+      .populate('courseOfferings.course', 'courseCode courseName')
       .populate('department', 'name code')
       .populate('prerequisites', 'subjectCode subjectName')
       .exec();
@@ -204,10 +205,11 @@ export async function getStats(filter: any = {}): Promise<any> {
  */
 export async function getByCourse(courseId: string): Promise<ISubjectDocument[]> {
   try {
-    return await Subject.find({ course: courseId })
+    return await Subject.find({ 'courseOfferings.course': courseId })
+      .populate('courseOfferings.course', 'courseCode courseName')
       .populate('department', 'name code')
       .populate('prerequisites', 'subjectCode subjectName')
-      .sort({ yearLevel: 1, semester: 1, subjectCode: 1 });
+      .sort({ semester: 1, subjectCode: 1 });
   } catch (error) {
     console.error('Error in getByCourse:', error);
     throw new Error('Failed to retrieve subjects by course');
@@ -215,7 +217,7 @@ export async function getByCourse(courseId: string): Promise<ISubjectDocument[]>
 }
 
 /**
- * Get subjects by year level and semester
+ * Get subjects by offering (courseId + yearLevel) and semester
  */
 export async function getByYearAndSemester(
   courseId: string,
@@ -224,10 +226,10 @@ export async function getByYearAndSemester(
 ): Promise<ISubjectDocument[]> {
   try {
     return await Subject.find({
-      course: courseId,
-      yearLevel,
+      courseOfferings: { $elemMatch: { course: courseId, yearLevel } },
       semester
     })
+      .populate('courseOfferings.course', 'courseCode courseName')
       .populate('department', 'name code')
       .populate('prerequisites', 'subjectCode subjectName')
       .sort({ subjectCode: 1 });

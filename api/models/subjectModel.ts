@@ -2,9 +2,9 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 import { ISubject } from "../shared/interfaces/ISubject.js";
 
 // Extend ISubject with Mongoose Document
-export interface ISubjectDocument extends Omit<ISubject, '_id' | 'course' | 'department' | 'prerequisites' | 'hasLaboratory' | 'lectureHours' | 'labHours' | 'totalTeachingHours'>, Document {
+export interface ISubjectDocument extends Omit<ISubject, '_id' | 'courseOfferings' | 'department' | 'prerequisites' | 'hasLaboratory' | 'lectureHours' | 'labHours' | 'totalTeachingHours'>, Document {
   _id: mongoose.Types.ObjectId;
-  course: mongoose.Types.ObjectId;
+  courseOfferings: Array<{ course: mongoose.Types.ObjectId; yearLevel?: string }>;
   department?: mongoose.Types.ObjectId;
   prerequisites?: mongoose.Types.ObjectId[];
 }
@@ -54,21 +54,24 @@ const subjectSchema = new Schema<ISubjectDocument>({
     trim: true,
     maxlength: [1000, 'Subject description cannot exceed 1000 characters']
   },
-  course: {
-    type: Schema.Types.ObjectId,
-    ref: 'Course',
-    required: [true, 'Course is required'],
-    index: true
+  courseOfferings: {
+    type: [{
+      course: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
+      yearLevel: {
+        type: String,
+        enum: ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', null],
+        default: null
+      }
+    }],
+    validate: {
+      validator: (v: any[]) => Array.isArray(v) && v.length >= 1,
+      message: 'At least one course offering is required',
+    },
+    index: true,
   },
   department: {
     type: Schema.Types.ObjectId,
     ref: 'Department',
-    index: true
-  },
-  yearLevel: {
-    type: String,
-    enum: ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year', null],
-    trim: true,
     index: true
   },
   semester: {
@@ -93,8 +96,8 @@ const subjectSchema = new Schema<ISubjectDocument>({
   }
 });
 
-// Compound index: ensure subjectCode is unique within a course
-subjectSchema.index({ course: 1, subjectCode: 1 }, { unique: true });
+// Unique index: one subject per (subjectCode, semester) combination
+subjectSchema.index({ subjectCode: 1, semester: 1 }, { unique: true });
 
 // Virtual for display name
 subjectSchema.virtual('displayName').get(function() {
@@ -144,28 +147,8 @@ subjectSchema.pre('save', async function(next) {
     return;
   }
 
-  // Ensure no duplicate subjectCode within the same course
-  try {
-    if (this.isModified('subjectCode') || this.isModified('course')) {
-      const query: any = { 
-        subjectCode: this.subjectCode,
-        course: this.course
-      };
-      
-      // Exclude self when updating
-      if (this._id) {
-        query._id = { $ne: this._id };
-      }
-
-      const existing = await mongoose.model('Subject').findOne(query).exec();
-      if (existing) {
-        next(new Error('Subject with this code already exists in the specified course'));
-        return;
-      }
-    }
-  } catch (err) {
-    return next(err as Error);
-  }
+  // Ensure no duplicate (subjectCode, semester) — handled by unique index; pre-save check is redundant.
+  // Duplicate course offerings within the same subject are prevented at the application layer (seed / service).
 
   next();
 });
@@ -174,9 +157,8 @@ subjectSchema.pre('save', async function(next) {
 subjectSchema.statics.getStats = async function(filter: any = {}) {
   const matchStage: any = {};
   
-  if (filter.course) matchStage.course = mongoose.Types.ObjectId.createFromHexString(filter.course);
+  if (filter.courseId) matchStage['courseOfferings.course'] = mongoose.Types.ObjectId.createFromHexString(filter.courseId);
   if (filter.department) matchStage.department = mongoose.Types.ObjectId.createFromHexString(filter.department);
-  if (filter.yearLevel) matchStage.yearLevel = filter.yearLevel;
   if (filter.semester) matchStage.semester = filter.semester;
 
   const pipeline: any[] = [];

@@ -973,8 +973,14 @@ function renderFWEntry(
     const lab = subject?.labUnits ?? 0;
     const totalUnits = subject?.units ?? lec + lab;
     const program =
-      typeof schedule.subject !== "string" && (schedule.subject as any)?.course
-        ? (schedule.subject as any).course.courseCode || (schedule.subject as any).course.courseName || ""
+      typeof schedule.subject !== "string" && (schedule.subject as any)?.courseOfferings?.length
+        ? (() => {
+            const firstOffering = (schedule.subject as any).courseOfferings[0];
+            const c = firstOffering?.course;
+            return (typeof c === "object" ? c?.courseCode || c?.courseName : "") || "";
+          })()
+        : typeof schedule.subject !== "string" && (schedule.subject as any)?.course
+        ? ((schedule.subject as any).course.courseCode || (schedule.subject as any).course.courseName || "")
         : "";
     const days = formatDays(schedule.timeSlot);
     const time = `${to12h(schedule.timeSlot.startTime)}-${to12h(schedule.timeSlot.endTime)}`;

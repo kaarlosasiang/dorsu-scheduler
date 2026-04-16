@@ -214,7 +214,7 @@ export class CourseService {
 
       // Check if any subjects belong to this course
       const Subject = (await import('../../models/subjectModel.js')).Subject;
-      const subjectCount = await Subject.countDocuments({ course: id });
+      const subjectCount = await Subject.countDocuments({ courses: id });
       if (subjectCount > 0) {
         throw new Error('Cannot delete course that has subjects assigned to it. Please delete or reassign subjects first.');
       }

@@ -3,9 +3,8 @@ import type { ISubject } from "@/components/forms/subjects/types";
 import APIService from "@/lib/services/BaseAPI";
 
 interface UseSubjectsOptions {
-  course?: string;
+  courseId?: string;
   department?: string;
-  yearLevel?: string;
   semester?: string;
   autoFetch?: boolean;
 }
@@ -15,7 +14,7 @@ export function useSubjects(options: UseSubjectsOptions = {}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { course, department, yearLevel, semester, autoFetch = true } = options;
+  const { courseId, department, semester, autoFetch = true } = options;
 
   const fetchSubjects = async () => {
     setLoading(true);
@@ -24,9 +23,8 @@ export function useSubjects(options: UseSubjectsOptions = {}) {
     try {
       // Build query parameters
       const params = new URLSearchParams();
-      if (course) params.append("course", course);
+      if (courseId) params.append("courseId", courseId);
       if (department) params.append("department", department);
-      if (yearLevel) params.append("yearLevel", yearLevel);
       if (semester) params.append("semester", semester);
 
       const queryString = params.toString();
@@ -54,7 +52,7 @@ export function useSubjects(options: UseSubjectsOptions = {}) {
     if (autoFetch) {
       fetchSubjects();
     }
-  }, [course, department, yearLevel, semester, autoFetch]);
+  }, [courseId, department, semester, autoFetch]);
 
   return {
     subjects,

@@ -7,9 +7,11 @@ export const createSubjectSchema = z.object({
   lectureUnits: z.number().min(0, 'Lecture units must be at least 0').max(12, 'Lecture units cannot exceed 12').default(0),
   labUnits: z.number().min(0, 'Lab units must be at least 0').max(12, 'Lab units cannot exceed 12').default(0),
   description: z.string().max(1000, 'Description cannot exceed 1000 characters').optional(),
-  course: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid course ID'),
+  courseOfferings: z.array(z.object({
+    course: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid course ID'),
+    yearLevel: z.enum(['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']).optional()
+  })).min(1, 'At least one course offering is required'),
   department: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID').optional(),
-  yearLevel: z.enum(['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']).optional(),
   semester: z.enum(['1st Semester', '2nd Semester', 'Summer']).optional(),
   prerequisites: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid prerequisite ID')).optional()
 }).refine(
@@ -25,9 +27,8 @@ export const updateSubjectSchema = createSubjectSchema.partial();
 
 // Subject query schema
 export const subjectQuerySchema = z.object({
-  course: z.string().optional(),
+  courseId: z.string().optional(),
   department: z.string().optional(),
-  yearLevel: z.string().optional(),
   semester: z.string().optional(),
   subjectCode: z.string().optional(),
   subjectName: z.string().optional(),

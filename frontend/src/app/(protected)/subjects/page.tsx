@@ -64,31 +64,55 @@ interface Subject {
   lectureUnits: number;
   labUnits: number;
   units: number;
+  /** First non-GE offering's course — used for display / filtering */
   course: { courseCode: string; courseName: string; id: string };
-  yearLevel: string;
+  /** All offerings as a readable string e.g. "BSA 1st Year · BSES 1st Year · BSM 3rd Year" */
+  offeringsSummary: string;
+  /** True when the subject has a GE offering (shared across programs) */
+  isGE: boolean;
   semester: string;
   isLaboratory: boolean;
   prerequisites: number;
   createdAt: string;
 }
 
-const transformSubject = (s: ISubject): Subject => ({
-  id: (s as any)._id || (s as any).id || "",
-  subjectCode: s.subjectCode,
-  subjectName: s.subjectName,
-  lectureUnits: (s as any).lectureUnits ?? 0,
-  labUnits: (s as any).labUnits ?? 0,
-  units: s.units,
-  course:
-    typeof s.course === "object" && s.course !== null
-      ? (s.course as any)
-      : { courseCode: "", courseName: "", id: String(s.course) },
-  yearLevel: s.yearLevel || "",
-  semester: s.semester || "",
-  isLaboratory: (s as any).hasLaboratory ?? ((s as any).labUnits ?? 0) > 0,
-  prerequisites: Array.isArray(s.prerequisites) ? s.prerequisites.length : 0,
-  createdAt: (s as any).createdAt || new Date().toISOString(),
-});
+const transformSubject = (s: ISubject): Subject => {
+  // Resolve offerings to display-friendly objects
+  const offerings = (s.courseOfferings ?? []).map((o) => {
+    const c = typeof o.course === 'object' && o.course !== null ? o.course as any : null;
+    return {
+      courseCode: c?.courseCode ?? '',
+      courseName: c?.courseName ?? '',
+      id: c?._id ?? c?.id ?? String(o.course),
+      yearLevel: o.yearLevel ?? null,
+    };
+  });
+
+  // Primary course: first non-GE offering, or first offering if all are GE
+  const primary = offerings.find(o => o.courseCode !== 'GE') ?? offerings[0] ?? { courseCode: '', courseName: '', id: '' };
+  const isGE = offerings.some(o => o.courseCode === 'GE');
+
+  const offeringsSummary = offerings
+    .filter(o => o.courseCode !== 'GE')
+    .map(o => o.yearLevel ? `${o.courseCode} ${o.yearLevel}` : o.courseCode)
+    .join(' · ') || 'GE';
+
+  return {
+    id: (s as any)._id || (s as any).id || "",
+    subjectCode: s.subjectCode,
+    subjectName: s.subjectName,
+    lectureUnits: (s as any).lectureUnits ?? 0,
+    labUnits: (s as any).labUnits ?? 0,
+    units: s.units,
+    course: { courseCode: primary.courseCode, courseName: primary.courseName, id: primary.id },
+    offeringsSummary,
+    isGE,
+    semester: s.semester || "",
+    isLaboratory: (s as any).hasLaboratory ?? ((s as any).labUnits ?? 0) > 0,
+    prerequisites: Array.isArray(s.prerequisites) ? s.prerequisites.length : 0,
+    createdAt: (s as any).createdAt || new Date().toISOString(),
+  };
+};
 
 // ─── Column definitions ───────────────────────────────────────────────────────
 
@@ -173,6 +197,7 @@ const columns: ColumnDef<Subject>[] = [
       <DataTableColumnHeader column={column} title="Program" />
     ),
     cell: ({ row }) => {
+      if (row.original.isGE) return <span className="text-muted-foreground text-xs">—</span>;
       const c = row.original.course;
       return (
         <div className="flex flex-col">
@@ -198,36 +223,35 @@ const columns: ColumnDef<Subject>[] = [
     },
   },
   {
-    id: "yearLevel",
-    accessorKey: "yearLevel",
+    id: "offeringsSummary",
+    accessorKey: "offeringsSummary",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Year Level" />
+      <DataTableColumnHeader column={column} title="Offerings" />
     ),
     cell: ({ row }) => {
-      const v = row.getValue("yearLevel") as string;
+      const v = row.getValue("offeringsSummary") as string;
       return v ? (
-        <Badge variant="outline">{v}</Badge>
+        <div className="flex flex-wrap gap-1">
+          {v.split(' · ').map((part) => (
+            <Badge key={part} variant="outline" className="text-xs">{part}</Badge>
+          ))}
+        </div>
       ) : (
         <span className="text-muted-foreground">—</span>
       );
     },
-    enableSorting: true,
+    enableSorting: false,
     enableColumnFilter: true,
-    size: 130,
+    size: 200,
     filterFn: (row, _id, filterValue: string[]) => {
       if (!filterValue?.length) return true;
-      return filterValue.includes(row.getValue("yearLevel") as string);
+      const summary = row.getValue("offeringsSummary") as string;
+      return filterValue.some(v => summary.includes(v));
     },
     meta: {
-      variant: "select",
+      label: "Offerings",
+      variant: "text",
       icon: Layers,
-      options: [
-        { label: "1st Year", value: "1st Year", count: 0 },
-        { label: "2nd Year", value: "2nd Year", count: 0 },
-        { label: "3rd Year", value: "3rd Year", count: 0 },
-        { label: "4th Year", value: "4th Year", count: 0 },
-        { label: "5th Year", value: "5th Year", count: 0 },
-      ],
     },
   },
   {

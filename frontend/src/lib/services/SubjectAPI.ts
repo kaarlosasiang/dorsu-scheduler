@@ -1,5 +1,11 @@
 import APIService from "./BaseAPI";
 
+/** One program + year-level pairing that offers this subject. */
+export interface ICourseOffering {
+  course: string | { _id: string; courseCode: string; courseName: string };
+  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year' | null;
+}
+
 export interface ISubject {
   _id?: string;
   id?: string;
@@ -12,9 +18,9 @@ export interface ISubject {
   labHours?: number; // Computed: Teaching hours for lab
   totalTeachingHours?: number; // Computed: lectureHours + labHours
   description?: string;
-  course: string | any;
+  /** Per-program + year-level offerings. Replaces flat courses[] + yearLevel. */
+  courseOfferings: ICourseOffering[];
   department?: string | any;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
   semester?: '1st Semester' | '2nd Semester' | 'Summer';
   hasLaboratory?: boolean; // Computed: true if labUnits > 0
   isLaboratory?: boolean; // Legacy field, same as hasLaboratory
@@ -65,14 +71,13 @@ export interface SubjectStatsResponse {
 }
 
 export interface SubjectQueryParams {
-  course?: string;
+  courseId?: string;
   department?: string;
-  yearLevel?: string;
   semester?: string;
   subjectCode?: string;
   subjectName?: string;
   isLaboratory?: boolean;
-  sortBy?: 'subjectCode' | 'subjectName' | 'units' | 'yearLevel' | 'createdAt';
+  sortBy?: 'subjectCode' | 'subjectName' | 'units' | 'createdAt';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -82,9 +87,8 @@ export interface SubjectCreateData {
   lectureUnits: number;
   labUnits: number;
   description?: string;
-  course: string;
+  courseOfferings: Array<{ course: string; yearLevel?: string | null }>;
   department?: string;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year' | null;
   semester?: '1st Semester' | '2nd Semester' | 'Summer' | null;
   prerequisites?: string[];
 }
@@ -95,9 +99,8 @@ export interface SubjectUpdateData {
   lectureUnits?: number;
   labUnits?: number;
   description?: string;
-  course?: string;
+  courseOfferings?: Array<{ course: string; yearLevel?: string | null }>;
   department?: string;
-  yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year' | null;
   semester?: '1st Semester' | '2nd Semester' | 'Summer' | null;
   prerequisites?: string[];
 }
@@ -151,7 +154,7 @@ export const SubjectAPI = {
   ): Promise<SubjectListResponse> {
     try {
       const response = await APIService.get(
-        `/subjects?course=${courseId}&yearLevel=${yearLevel}&semester=${semester}`
+        `/subjects?courseId=${courseId}&semester=${semester}`
       );
       return response.data;
     } catch (error) {

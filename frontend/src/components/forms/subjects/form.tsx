@@ -2,7 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, Building2, ListChecks, Layers } from "lucide-react";
+import { BookOpen, FileText, Code, Hash, GraduationCap, CalendarDays, ListChecks, Layers } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
 import { cn } from "@/lib/utils";
@@ -31,9 +31,8 @@ import {
 
 import { subjectSchema } from "./schema";
 import type { SubjectFormData, SubjectFormProps, ISubject } from "./types";
-import { useSubjectForm, type GEProgramEntry } from "./useSubjectForm";
+import { useSubjectForm } from "./useSubjectForm";
 import { useCourses } from "@/hooks/useCourses";
-import { useDepartments } from "@/hooks/useDepartments";
 import { useSubjects } from "@/hooks/useSubjects";
 
 export function SubjectForm({
@@ -45,17 +44,38 @@ export function SubjectForm({
   className,
 }: SubjectFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // GE Subject toggle (create mode only)
-  const [isGE, setIsGE] = useState(false);
-  const [gePrograms, setGePrograms] = useState<GEProgramEntry[]>([]);
-  const { createSubject, createGESubjects, updateSubject } = useSubjectForm();
-  const { courses, loading: loadingCourses } = useCourses();
-  const { departments, loading: loadingDepartments } = useDepartments();
 
-  // Extract initial course ID
-  const initialCourseId = typeof initialData?.course === 'string'
-    ? initialData.course
-    : initialData?.course?._id || "";
+  // Derive initial state from courseOfferings (handles both create and edit)
+  const getInitialCourseData = () => {
+    const offerings = (initialData?.courseOfferings ?? []) as Array<{ course: any; yearLevel?: string | null }>;
+    const nonGE = offerings.filter(o => {
+      const code = typeof o.course === 'object' ? o.course?.courseCode : '';
+      return code !== 'GE';
+    });
+    const firstNonGE = nonGE[0];
+    const courseId = firstNonGE
+      ? typeof firstNonGE.course === 'object'
+        ? firstNonGE.course?._id || firstNonGE.course?.id || ''
+        : firstNonGE.course ?? ''
+      : '';
+    const yearLevel = firstNonGE?.yearLevel ?? '';
+    const isGESubject = nonGE.length > 1;
+    const geOffs = isGESubject
+      ? nonGE.map(o => ({
+          courseId: typeof o.course === 'object'
+            ? o.course?._id || o.course?.id || ''
+            : (o.course ?? ''),
+          yearLevel: o.yearLevel ?? '',
+        }))
+      : [];
+    return { courseId, yearLevel, isGESubject, geOffs };
+  };
+
+  const initial = getInitialCourseData();
+  const [isGE, setIsGE] = useState(initial.isGESubject);
+  const [geOfferings, setGeOfferings] = useState<Array<{ courseId: string; yearLevel: string }>>(initial.geOffs);
+  const { createSubject, updateSubject } = useSubjectForm();
+  const { courses, loading: loadingCourses } = useCourses();
 
   const form = useForm<SubjectFormData>({
     resolver: zodResolver(subjectSchema) as never,
@@ -65,11 +85,11 @@ export function SubjectForm({
       lectureUnits: initialData?.lectureUnits || 0,
       labUnits: initialData?.labUnits || 0,
       description: initialData?.description || "",
-      course: initialCourseId,
+      course: initial.courseId,
       department: typeof initialData?.department === 'string'
         ? initialData.department
         : initialData?.department?._id || "",
-      yearLevel: (initialData?.yearLevel as any) || "",
+      yearLevel: (initial.yearLevel as any) || "",
       semester: (initialData?.semester as any) || "",
       prerequisites: initialData?.prerequisites || [],
     },
@@ -84,104 +104,32 @@ export function SubjectForm({
   } = form;
 
   const selectedCourse = watch("course");
-  const selectedDepartment = watch("department");
   const selectedYearLevel = watch("yearLevel");
   const selectedSemester = watch("semester");
   const lectureUnits = watch("lectureUnits");
   const labUnits = watch("labUnits");
   const selectedPrerequisites = watch("prerequisites") || [];
 
-  // Fetch subjects for prerequisites selection
+  // Fetch subjects for prerequisites selection (only relevant for normal non-GE subjects)
   const { subjects: availableSubjects, loading: loadingSubjects } = useSubjects({
-    course: selectedCourse,
-    autoFetch: !!selectedCourse,
+    courseId: selectedCourse,
+    autoFetch: !!selectedCourse && !isGE,
   });
-
-  // Debug logging
-  useEffect(() => {
-    console.log("Available subjects for prerequisites:", availableSubjects);
-    console.log("Selected course:", selectedCourse);
-    console.log("Year level:", selectedYearLevel);
-    console.log("Semester:", selectedSemester);
-  }, [availableSubjects, selectedCourse, selectedYearLevel, selectedSemester]);
 
   // Calculate total units
   const totalUnits = useMemo(() => {
     return (lectureUnits || 0) + (labUnits || 0);
   }, [lectureUnits, labUnits]);
 
-  // Filter out current subject from prerequisites if in edit mode
+  // Filter out the current subject from prerequisites list
   const prerequisiteOptions = useMemo(() => {
-    console.log("Computing prerequisiteOptions...");
-    console.log("availableSubjects:", availableSubjects);
-    console.log("availableSubjects length:", availableSubjects?.length);
-    
-    if (!availableSubjects || availableSubjects.length === 0) {
-      console.log("No available subjects - returning empty array");
-      return [];
-    }
-
+    if (!availableSubjects || availableSubjects.length === 0) return [];
     const currentSubjectId = initialData?._id || initialData?.id;
-    console.log("Current subject ID:", currentSubjectId);
-    console.log("Mode:", mode);
-    console.log("Selected year level:", selectedYearLevel);
-    console.log("Selected semester:", selectedSemester);
-    
-    // Helper function to get numeric year from year level string
-    const getYearNumber = (yearLevel: string | null | undefined): number => {
-      if (!yearLevel) return 0;
-      const match = yearLevel.match(/(\d+)/);
-      return match ? parseInt(match[1]) : 0;
-    };
-
-    // Helper function to get numeric semester from semester string
-    const getSemesterNumber = (semester: string | null | undefined): number => {
-      if (!semester) return 0;
-      const match = semester.match(/(\d+)/);
-      return match ? parseInt(match[1]) : 0;
-    };
-
-    const currentYear = getYearNumber(selectedYearLevel);
-    const currentSemester = getSemesterNumber(selectedSemester);
-
-    console.log("Current year number:", currentYear);
-    console.log("Current semester number:", currentSemester);
-    
-    const filtered = availableSubjects.filter(
-      (subject: ISubject) => {
-        const subjectId = subject._id || subject.id;
-        
-        // In edit mode, exclude the current subject being edited
-        if (mode === "edit" && currentSubjectId && subjectId === currentSubjectId) {
-          console.log(`Excluding current subject: ${subject.subjectCode}`);
-          return false;
-        }
-
-        // Only show subjects from earlier year levels/semesters
-        const subjectYear = getYearNumber(subject.yearLevel);
-        const subjectSemester = getSemesterNumber(subject.semester);
-
-        console.log(`Subject ${subject.subjectCode}: year=${subjectYear}, semester=${subjectSemester}`);
-
-        // If no year level is selected yet, show all subjects
-        if (!currentYear) {
-          console.log(`No year level selected, including ${subject.subjectCode}`);
-          return true;
-        }
-
-        // Subject must be from an earlier year, OR same year but earlier semester
-        const isEarlier = subjectYear < currentYear || 
-                         (subjectYear === currentYear && subjectSemester < currentSemester);
-        
-        console.log(`Subject ${subject.subjectCode}: isEarlier=${isEarlier}`);
-        return isEarlier;
-      }
-    );
-    
-    console.log("Filtered prerequisite options count:", filtered.length);
-    console.log("Filtered prerequisite options:", filtered);
-    return filtered;
-  }, [availableSubjects, initialData, mode, selectedYearLevel, selectedSemester]);
+    return availableSubjects.filter((subject: ISubject) => {
+      const subjectId = subject._id || subject.id;
+      return !(mode === 'edit' && currentSubjectId && subjectId === currentSubjectId);
+    });
+  }, [availableSubjects, initialData, mode]);
 
   const handlePrerequisiteToggle = (subjectId: string) => {
     const current = selectedPrerequisites || [];
@@ -192,40 +140,30 @@ export function SubjectForm({
   };
 
   const onSubmit = async (data: SubjectFormData) => {
-    // GE bulk-create path
-    if (isGE && mode === "create") {
-      const activePrograms = gePrograms.filter((p) => p.courseId && p.yearLevel);
-      if (activePrograms.length === 0) {
-        onError?.("Select at least one program with a year level for the GE subject.");
+    let courseOfferings: Array<{ course: string; yearLevel?: string | null }>;
+
+    if (isGE) {
+      if (geOfferings.length === 0) {
+        onError?.("Select at least one program for the GE subject.");
         return;
       }
-      setIsSubmitting(true);
-      try {
-        const result = await createGESubjects(data, activePrograms);
-        if (result.failed > 0 && result.created === 0) {
-          throw new Error(result.message);
-        }
-        // Synthesise a success response compatible with onSuccess signature
-        onSuccess?.({
-          success: true,
-          message: result.message,
-          data: {} as any,
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Failed to create GE subjects";
-        onError?.(errorMessage);
-      } finally {
-        setIsSubmitting(false);
+      courseOfferings = geOfferings.map(o => ({
+        course: o.courseId,
+        yearLevel: o.yearLevel || null,
+      }));
+    } else {
+      if (!data.course) {
+        onError?.("Please select a course.");
+        return;
       }
-      return;
+      courseOfferings = [{ course: data.course, yearLevel: data.yearLevel || null }];
     }
 
-    // Normal single-subject path
     setIsSubmitting(true);
     try {
       const response = mode === "create"
-        ? await createSubject(data)
-        : await updateSubject(initialData?._id || initialData?.id || "", data);
+        ? await createSubject({ ...data, courseOfferings })
+        : await updateSubject(initialData?._id || initialData?.id || "", { ...data, courseOfferings });
 
       if (response?.success) {
         onSuccess?.(response);
@@ -233,34 +171,25 @@ export function SubjectForm({
         throw new Error("Failed to save subject");
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to save subject";
+      const errorMessage = error instanceof Error ? error.message : "Failed to save subject";
       onError?.(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ── GE program helpers ──────────────────────────────────────────────
-  const toggleGEProgram = (courseId: string, checked: boolean) => {
-    setGePrograms((prev) =>
-      checked
-        ? [...prev, { courseId, yearLevel: "" }]
-        : prev.filter((p) => p.courseId !== courseId)
+  // ── GE offering helpers ──────────────────────────────────────────────
+  const toggleGEOffering = (courseId: string, checked: boolean) => {
+    setGeOfferings(prev =>
+      checked ? [...prev, { courseId, yearLevel: '' }] : prev.filter(o => o.courseId !== courseId)
     );
   };
 
-  const setGEProgramYearLevel = (courseId: string, yearLevel: string) => {
-    setGePrograms((prev) =>
-      prev.map((p) => (p.courseId === courseId ? { ...p, yearLevel } : p))
+  const setOfferingYearLevel = (courseId: string, yearLevel: string) => {
+    setGeOfferings(prev =>
+      prev.map(o => o.courseId === courseId ? { ...o, yearLevel } : o)
     );
   };
-
-  const isGEProgramChecked = (courseId: string) =>
-    gePrograms.some((p) => p.courseId === courseId);
-
-  const getGEProgramYearLevel = (courseId: string) =>
-    gePrograms.find((p) => p.courseId === courseId)?.yearLevel ?? "";
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -430,16 +359,15 @@ export function SubjectForm({
           </CardHeader>
           <CardContent className="space-y-4">
 
-            {/* GE Subject toggle — only shown in create mode */}
-            {mode === "create" && (
+            {/* GE Subject toggle */}
+            {(
               <label className="flex items-center gap-2.5 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={isGE}
                   onChange={(e) => {
                     setIsGE(e.target.checked);
-                    setGePrograms([]);
-                    // clear single-course selection when toggling
+                    setGeOfferings([]);
                     if (e.target.checked) setValue("course", "");
                   }}
                   className="h-4 w-4 rounded border-gray-300"
@@ -450,14 +378,14 @@ export function SubjectForm({
                     GE Subject
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Creates one subject record per selected program automatically.
+                    Shared across multiple programs — set each program’s year level individually.
                   </p>
                 </div>
               </label>
             )}
 
-            {/* GE: multi-program selector */}
-            {isGE && mode === "create" ? (
+            {/* GE: multi-program selector with per-program year level */}
+            {isGE ? (
               <Field>
                 <FieldLabel>Programs that take this subject *</FieldLabel>
                 <div className="space-y-2 rounded-lg border p-3">
@@ -468,14 +396,15 @@ export function SubjectForm({
                       ?.filter((c: any) => (c._id || c.id) && c.courseCode !== "GE")
                       .map((course: any) => {
                         const courseId = course._id || course.id;
-                        const checked = isGEProgramChecked(courseId);
+                        const offering = geOfferings.find(o => o.courseId === courseId);
+                        const checked = !!offering;
                         return (
-                          <div key={courseId} className="flex items-center gap-3">
-                            <label className="flex items-center gap-2 flex-1 min-w-0">
+                          <div key={courseId} className="flex items-center gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                onChange={(e) => toggleGEProgram(courseId, e.target.checked)}
+                                onChange={(e) => toggleGEOffering(courseId, e.target.checked)}
                                 className="h-4 w-4 rounded border-gray-300 shrink-0"
                               />
                               <span className="text-sm truncate">
@@ -484,16 +413,14 @@ export function SubjectForm({
                             </label>
                             {checked && (
                               <Select
-                                value={getGEProgramYearLevel(courseId) || "none"}
-                                onValueChange={(v) =>
-                                  setGEProgramYearLevel(courseId, v === "none" ? "" : v)
-                                }
+                                value={offering?.yearLevel || "none"}
+                                onValueChange={(v) => setOfferingYearLevel(courseId, v === "none" ? "" : v)}
                               >
-                                <SelectTrigger className="w-36 shrink-0">
-                                  <SelectValue placeholder="Year level" />
+                                <SelectTrigger className="w-32 h-8 text-xs shrink-0">
+                                  <SelectValue placeholder="Year" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="none">Select year</SelectItem>
+                                  <SelectItem value="none">Any year</SelectItem>
                                   <SelectItem value="1st Year">1st Year</SelectItem>
                                   <SelectItem value="2nd Year">2nd Year</SelectItem>
                                   <SelectItem value="3rd Year">3rd Year</SelectItem>
@@ -507,9 +434,9 @@ export function SubjectForm({
                       })
                   )}
                 </div>
-                {gePrograms.length > 0 && (
+                {geOfferings.length > 0 && (
                   <FieldDescription>
-                    {gePrograms.filter((p) => p.yearLevel).length} of {gePrograms.length} program(s) have a year level set.
+                    {geOfferings.length} program(s) selected.
                   </FieldDescription>
                 )}
               </Field>
@@ -541,38 +468,35 @@ export function SubjectForm({
             </Field>
             )}
 
-            {/* Department */}
-            <Field>
-              <FieldLabel>Department (Optional)</FieldLabel>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
-                <Select
-                  onValueChange={(value) => setValue("department", value === "none" ? "" : value)}
-                  value={selectedDepartment || "none"}
-                  disabled={loadingDepartments}
-                >
-                  <SelectTrigger className="pl-9">
-                    <SelectValue placeholder="Select department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {departments?.filter((dept: any) => dept._id || dept.id).map((dept: any) => (
-                      <SelectItem key={dept._id || dept.id} value={dept._id || dept.id}>
-                        {dept.departmentName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {errors.department && (
-                <FieldDescription className="text-destructive">
-                  {errors.department.message}
-                </FieldDescription>
-              )}
-            </Field>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Year Level — hidden in GE mode (each program sets its own) */}
+              {/* Semester */}
+              <Field>
+                <FieldLabel>Semester</FieldLabel>
+                <div className="relative">
+                  <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
+                  <Select
+                    onValueChange={(value) => setValue("semester", value === "none" ? "" : (value as any))}
+                    value={watch("semester") || "none"}
+                  >
+                    <SelectTrigger className="pl-9">
+                      <SelectValue placeholder="Select semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="1st Semester">1st Semester</SelectItem>
+                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
+                      <SelectItem value="Summer">Summer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {errors.semester && (
+                  <FieldDescription className="text-destructive">
+                    {errors.semester.message}
+                  </FieldDescription>
+                )}
+              </Field>
+
+              {/* Year Level — only for non-GE subjects (GE sets year level per program above) */}
               {!isGE && (
               <Field>
                 <FieldLabel>Year Level</FieldLabel>
@@ -599,32 +523,6 @@ export function SubjectForm({
                 )}
               </Field>
               )}
-
-              {/* Semester */}
-              <Field>
-                <div className="relative">
-                  <CalendarDays className="absolute left-3 top-3 h-4 w-4 text-muted-foreground z-10" />
-                  <Select
-                    onValueChange={(value) => setValue("semester", value === "none" ? "" : (value as any))}
-                    value={watch("semester") || "none"}
-                  >
-                    <SelectTrigger className="pl-9">
-                      <SelectValue placeholder="Select semester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="1st Semester">1st Semester</SelectItem>
-                      <SelectItem value="2nd Semester">2nd Semester</SelectItem>
-                      <SelectItem value="Summer">Summer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {errors.semester && (
-                  <FieldDescription className="text-destructive">
-                    {errors.semester.message}
-                  </FieldDescription>
-                )}
-              </Field>
             </div>
           </CardContent>
         </Card>

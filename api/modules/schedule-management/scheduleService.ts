@@ -32,8 +32,8 @@ export async function getAll(filters: ScheduleQueryInput = {}): Promise<ISchedul
     const schedules = await Schedule.find(query)
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName units lectureUnits labUnits yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units lectureUnits labUnits semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
@@ -57,8 +57,8 @@ export async function getById(id: string): Promise<IScheduleDocument> {
     const schedule = await Schedule.findById(id)
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName units description yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units description semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name email program')
       .populate('classroom', 'roomNumber building capacity type facilities')
@@ -110,8 +110,8 @@ export async function create(scheduleData: CreateScheduleInput): Promise<ISchedu
     await savedSchedule.populate([
       {
         path: 'subject',
-        select: 'subjectCode subjectName units yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       },
       { path: 'faculty', select: 'name email' },
       { path: 'classroom', select: 'roomNumber building capacity' },
@@ -167,8 +167,8 @@ export async function update(id: string, updateData: UpdateScheduleInput): Promi
     )
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName units yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
@@ -260,8 +260,8 @@ export async function getByFaculty(facultyId: string, semester: string, academic
     })
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName units lectureUnits labUnits yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units lectureUnits labUnits yearLevel semester courses',
+        populate: { path: 'courses', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
@@ -287,8 +287,8 @@ export async function getByClassroom(classroomId: string, semester: string, acad
     })
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName yearLevel semester course',
-        populate: { path: 'course', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName yearLevel semester courses',
+        populate: { path: 'courses', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name')
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });

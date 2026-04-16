@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import {type ColumnDef} from "@tanstack/react-table";
 import {
     MoreHorizontal,
     Plus,
@@ -9,23 +8,14 @@ import {
     Edit,
     Trash2,
     BookOpen,
-    Calendar,
     AlertCircle,
     Loader2,
     Code,
-    Mail,
     Layers,
+    Search,
 } from "lucide-react";
 
-import {DataTable} from "@/components/common/data-table/data-table";
-import {DataTableColumnHeader} from "@/components/common/data-table/data-table-column-header";
-import {DataTableAdvancedToolbar} from "@/components/common/data-table/data-table-advanced-toolbar";
-import {DataTableFilterList} from "@/components/common/data-table/data-table-filter-list";
-import {DataTableSortList} from "@/components/common/data-table/data-table-sort-list";
-import {DataTableActionBar} from "@/components/common/data-table/data-table-action-bar";
-import {DataTableViewOptions} from "@/components/common/data-table/data-table-view-options";
-import {DataTableSearch} from "@/components/common/data-table/data-table-search";
-import {Button} from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
     Card,
     CardContent,
@@ -40,14 +30,12 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {Checkbox} from "@/components/ui/checkbox";
-import {Alert, AlertDescription} from "@/components/ui/alert";
-import {useDataTable} from "@/hooks/use-data-table";
-import {useCourses} from "@/hooks/useCourses";
-import {useRouter} from "next/navigation";
-import {type ICourse} from "@/lib/services/CourseAPI";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { useCourses } from "@/hooks/useCourses";
+import { useRouter } from "next/navigation";
+import { type ICourse } from "@/lib/services/CourseAPI";
 
-// Transform ICourse to display format
 interface Course {
     id: string;
     courseCode: string;
@@ -55,7 +43,6 @@ interface Course {
     createdAt: string;
 }
 
-// Transform function to convert ICourse to Course
 const transformCourse = (course: ICourse): Course => ({
     id: course._id || course.id || "",
     courseCode: course.courseCode,
@@ -63,228 +50,100 @@ const transformCourse = (course: ICourse): Course => ({
     createdAt: course.createdAt || new Date().toISOString(),
 });
 
-// Enhanced column definitions
-const columns: ColumnDef<Course>[] = [
-    {
-        id: "select",
-        header: ({table}) => (
-            <Checkbox
-                checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                aria-label="Select all"
-            />
-        ),
-        cell: ({row}) => (
-            <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    },
-    {
-        id: "courseCode",
-        accessorKey: "courseCode",
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Program Code"/>
-        ),
-        cell: ({row}) => (
-            <div className="flex items-center space-x-3 min-w-[150px]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                    <Code className="h-5 w-5 text-primary"/>
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="font-medium font-mono truncate">{row.original.courseCode}</div>
-                </div>
-            </div>
-        ),
-        enableSorting: true,
-        enableColumnFilter: true,
-        size: 200,
-        meta: {
-            label: "Program Code",
-            placeholder: "Search program codes...",
-            variant: "text",
-            icon: Code,
-        },
-    },
-    {
-        id: "courseName",
-        accessorKey: "courseName",
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Program Name"/>
-        ),
-        cell: ({row}) => <CourseNameCell course={row.original} />,
-        enableSorting: true,
-        enableColumnFilter: true,
-        size: 300,
-        meta: {
-            label: "Program Name",
-            placeholder: "Search program names...",
-            variant: "text",
-            icon: BookOpen,
-        },
-    },
-    {
-        id: "createdAt",
-        accessorKey: "createdAt",
-        header: ({column}) => (
-            <DataTableColumnHeader column={column} title="Created"/>
-        ),
-        cell: ({row}) => {
-            const date = new Date(row.original.createdAt);
-            return (
-                <div className="flex items-center space-x-1">
-                    <Calendar className="h-4 w-4 text-muted-foreground"/>
-                    <span className="text-sm">{date.toLocaleDateString()}</span>
-                </div>
-            );
-        },
-        enableSorting: true,
-        enableColumnFilter: false,
-        size: 120,
-        meta: {
-            label: "Created Date",
-            icon: Calendar,
-        },
-    },
-    {
-        id: "actions",
-        enableHiding: false,
-        size: 50,
-        cell: ({row}) => {
-            const course = row.original;
-
-            return <CourseActionCell course={course} />;
-        },
-    },
-];
-
-function CourseNameCell({ course }: { course: Course }) {
-    const router = useRouter();
-    return (
-        <button
-            className="max-w-[300px] text-left group"
-            onClick={() => router.push(`/courses/${course.id}/sections`)}
-        >
-            <div className="font-medium truncate group-hover:text-primary group-hover:underline underline-offset-4 transition-colors">
-                {course.courseName}
-            </div>
-            <div className="text-xs text-muted-foreground group-hover:text-primary/70 transition-colors">
-                View sections →
-            </div>
-        </button>
-    );
-}
-
-function CourseActionCell({ course }: { course: any }) {
+function CourseCard({ course }: { course: Course }) {
     const router = useRouter();
 
     return (
-        <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4"/>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(course.id)}
-                        >
-                            Copy course ID
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator/>
-                        <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}`)}>
-                            <Eye className="mr-2 h-4 w-4"/>
-                            View details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/sections`)}>
-                            <Layers className="mr-2 h-4 w-4"/>
-                            Manage Sections
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4"/>
-                            Edit course
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator/>
-                        <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4"/>
-                            Delete course
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-    );
-}
-
-// Custom Action Bar for bulk operations
-function CustomActionBar() {
-    return (
-        <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-                <Edit className="mr-2 h-4 w-4"/>
-                Edit Selected
-            </Button>
-            <Button variant="outline" size="sm">
-                <Mail className="mr-2 h-4 w-4"/>
-                Export Data
-            </Button>
-            <Button variant="destructive" size="sm">
-                <Trash2 className="mr-2 h-4 w-4"/>
-                Delete Selected
-            </Button>
-        </div>
+        <Card className="group flex flex-col hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                            <Code className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Program Code</p>
+                            <p className="font-bold font-mono text-lg leading-tight">{course.courseCode}</p>
+                        </div>
+                    </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/sections`)}>
+                                <Layers className="mr-2 h-4 w-4" />
+                                Manage Sections
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}`)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/courses/${course.id}/edit`)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit program
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete program
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </CardHeader>
+            <CardContent className="flex flex-col flex-1 gap-4">
+                <div>
+                    <p className="font-medium text-sm leading-snug">{course.courseName}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Added {new Date(course.createdAt).toLocaleDateString()}
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-auto w-full"
+                    onClick={() => router.push(`/courses/${course.id}/sections`)}
+                >
+                    <Layers className="mr-2 h-4 w-4" />
+                    View sections
+                </Button>
+            </CardContent>
+        </Card>
     );
 }
 
 export default function CoursesPage() {
     const router = useRouter();
-    const {courses: rawCourses, loading, error, stats} = useCourses();
+    const { courses: rawCourses, loading, error, stats } = useCourses();
+    const [search, setSearch] = React.useState("");
 
-    // Transform courses data
     const courses = React.useMemo(
         () => rawCourses.map(transformCourse),
         [rawCourses]
     );
 
-    // Initialize data table
-    const {table} = useDataTable<Course>({
-        data: courses,
-        columns,
-        pageCount: Math.ceil(courses.length / 10),
-        initialState: {
-            pagination: {pageIndex: 0, pageSize: 10},
-            sorting: [{id: "courseCode", desc: false}],
-            columnPinning: {left: ["select", "courseCode"]},
-            columnVisibility: {},
-            columnSizing: {
-                select: 50,
-                courseCode: 200,
-                courseName: 300,
-
-                department: 180,
-                createdAt: 120,
-                actions: 50,
-            },
-        },
-        enableAdvancedFilter: true,
-        enableColumnResizing: true,
-        columnResizeMode: "onChange",
-        getRowId: (row) => row.id,
-    });
+    const filtered = React.useMemo(() => {
+        const q = search.toLowerCase();
+        if (!q) return courses;
+        return courses.filter(
+            (c) =>
+                c.courseCode.toLowerCase().includes(q) ||
+                c.courseName.toLowerCase().includes(q)
+        );
+    }, [courses, search]);
 
     if (loading) {
         return (
             <div className="flex h-[50vh] items-center justify-center">
                 <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/>
-                    <p className="text-sm text-muted-foreground">Loading courses...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Loading programs...</p>
                 </div>
             </div>
         );
@@ -294,7 +153,7 @@ export default function CoursesPage() {
         return (
             <div className="flex h-[50vh] items-center justify-center">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4"/>
+                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
             </div>
@@ -312,49 +171,48 @@ export default function CoursesPage() {
                     </p>
                 </div>
                 <Button onClick={() => router.push("/courses/add")}>
-                    <Plus className="mr-2 h-4 w-4"/>
+                    <Plus className="mr-2 h-4 w-4" />
                     Add Program
                 </Button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* Stats */}
+            {/* <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Programs</CardTitle>
-                        <BookOpen className="h-4 w-4 text-muted-foreground"/>
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{stats.total}</div>
                         <p className="text-xs text-muted-foreground">Active degree programs</p>
                     </CardContent>
                 </Card>
+            </div> */}
+
+            {/* Search */}
+            <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    placeholder="Search programs by code or name..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                />
             </div>
 
-            {/* Enhanced Data Table */}
-            <Card>
-                <CardContent className="pt-6">
-                    <DataTable
-                        table={table}
-                        actionBar={
-                            <DataTableActionBar table={table}>
-                                <CustomActionBar/>
-                            </DataTableActionBar>
-                        }
-                    >
-                        <DataTableAdvancedToolbar table={table}>
-                            <DataTableSearch
-                                table={table}
-                                placeholder="Search programs by code, name..."
-                                className="max-w-sm"
-                            />
-                            <DataTableFilterList table={table}/>
-                            <DataTableSortList table={table}/>
-                            <DataTableViewOptions table={table}/>
-                        </DataTableAdvancedToolbar>
-                    </DataTable>
-                </CardContent>
-            </Card>
+            {/* Cards Grid */}
+            {filtered.length === 0 ? (
+                <div className="flex h-40 items-center justify-center rounded-lg border border-dashed">
+                    <p className="text-sm text-muted-foreground">No programs found.</p>
+                </div>
+            ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {filtered.map((course) => (
+                        <CourseCard key={course.id} course={course} />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

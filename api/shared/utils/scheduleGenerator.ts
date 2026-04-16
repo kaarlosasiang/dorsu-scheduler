@@ -224,7 +224,7 @@ async function getSubjectsToSchedule(
     query._id = { $in: subjects };
   } else {
     if (courses && courses.length > 0) {
-      query.course = { $in: courses };
+      query['courseOfferings.course'] = { $in: courses };
     }
     if (departments && departments.length > 0) {
       query.department = { $in: departments };
@@ -233,7 +233,7 @@ async function getSubjectsToSchedule(
 
   return await Subject.find(query)
     .populate({
-      path: 'course',
+      path: 'courseOfferings.course',
       select: 'courseCode courseName department',
       populate: {
         path: 'department',
@@ -287,7 +287,7 @@ function findSuitableFaculty(
   const suitable: any[] = [];
 
   for (const faculty of availableFaculty) {
-    // Faculty must belong to the same program as the subject's course.
+    // Faculty must belong to the same program as one of the subject's non-GE course offerings.
     // Exception: GE faculty (courseCode === 'GE') can teach any subject.
     const facultyProgramCode: string | undefined =
       typeof faculty.program === 'object' ? faculty.program?.courseCode : undefined;
@@ -295,16 +295,19 @@ function findSuitableFaculty(
       typeof faculty.program === 'object'
         ? (faculty.program?._id?.toString() ?? faculty.program?.toString())
         : faculty.program?.toString();
-    const subjectCourseId: string =
-      typeof subject.course === 'object'
-        ? (subject.course?._id?.toString() ?? subject.course?.toString())
-        : subject.course?.toString();
+
+    // Collect all non-GE course ids this subject is offered under
+    const subjectCourseIds = (subject.courseOfferings ?? [])
+      .map((o: any) => {
+        const c = o.course;
+        return typeof c === 'object' ? (c?._id?.toString() ?? c?.toString()) : c?.toString();
+      })
+      .filter(Boolean);
 
     if (
-      subject.course &&
-      faculty.program &&
       facultyProgramCode !== 'GE' &&
-      facultyProgramId !== subjectCourseId
+      subjectCourseIds.length > 0 &&
+      !subjectCourseIds.includes(facultyProgramId)
     ) {
       continue;
     }
@@ -518,7 +521,8 @@ async function generateScheduleComponent(
 
   // 4. Persist the schedule
   const departmentId = subject.department?._id || subject.department ||
-                       subject.course?.department?._id || subject.course?.department ||
+                       subject.courseOfferings?.[0]?.course?.department?._id ||
+                       subject.courseOfferings?.[0]?.course?.department ||
                        null;
 
   const schedule = new Schedule({
@@ -589,20 +593,57 @@ async function generateSubjectSchedule(
 ): Promise<ISchedule[]> {
   const schedules: ISchedule[] = [];
 
-  const courseId = subject.course?._id?.toString?.() || subject.course?.toString?.() || '';
-  const sectionKey = `${courseId}:${subject.yearLevel}`;
-  const sectionsForSubject = sectionMap.get(sectionKey) ?? [];
+  // Collect sections for each offering with exact {course, yearLevel} precision.
+  // Offerings with courseCode === 'GE' have no physical sections — skip them.
+  // Deduplicate by section _id so a section is never scheduled twice for the same subject.
+  const seenSectionIds = new Set<string>();
+  const targetSections: (any | null)[] = [];
 
-  // If a subject has a yearLevel but no matching sections exist, skip it entirely.
-  // Generating sectionless schedules for year-levelled subjects produces orphan entries.
-  if (subject.yearLevel && sectionsForSubject.length === 0) {
-    const courseCode = subject.course?.courseCode || courseId || 'unknown';
-    console.log(`  ⚠ No active sections found for ${courseCode} / ${subject.yearLevel} — skipping ${subject.subjectCode}`);
-    throw new Error(`No active sections found for ${courseCode} ${subject.yearLevel}. Create sections for this program/year level first.`);
+  for (const offering of (subject.courseOfferings ?? [])) {
+    const courseObj = offering.course;
+    const courseCode = typeof courseObj === 'object' ? courseObj?.courseCode : undefined;
+    if (courseCode === 'GE') continue; // GE anchor — no real sections
+
+    const courseId = typeof courseObj === 'object'
+      ? (courseObj?._id?.toString?.() ?? courseObj?.toString?.())
+      : courseObj?.toString?.() ?? '';
+
+    const offeringYearLevel = offering.yearLevel ?? null;
+
+    if (offeringYearLevel) {
+      // Exact year-level lookup
+      const key = `${courseId}:${offeringYearLevel}`;
+      const sections = sectionMap.get(key) ?? [];
+      if (sections.length === 0) {
+        console.log(`  ⚠ No active sections for ${courseCode} / ${offeringYearLevel} — skipping offering for ${subject.subjectCode}`);
+        continue;
+      }
+      for (const sec of sections) {
+        const secId = sec._id?.toString();
+        if (secId && !seenSectionIds.has(secId)) {
+          seenSectionIds.add(secId);
+          targetSections.push(sec);
+        }
+      }
+    } else {
+      // No yearLevel — target all sections of this program (cross-year offering)
+      for (const [key, sections] of sectionMap) {
+        if (!key.startsWith(`${courseId}:`)) continue;
+        for (const sec of sections) {
+          const secId = sec._id?.toString();
+          if (secId && !seenSectionIds.has(secId)) {
+            seenSectionIds.add(secId);
+            targetSections.push(sec);
+          }
+        }
+      }
+    }
   }
 
-  // Subjects with no yearLevel (e.g. cross-program GE subjects) are scheduled without a section.
-  const targetSections = sectionsForSubject.length > 0 ? sectionsForSubject : [null];
+  // If every offering was GE (or no sections matched), fall back to sectionless scheduling.
+  if (targetSections.length === 0) {
+    targetSections.push(null);
+  }
 
   for (const targetSection of targetSections) {
     const sectionLabel = targetSection?.name || targetSection?.sectionCode || 'NO-SECTION';

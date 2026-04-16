@@ -9,6 +9,8 @@
     "clean": "rm -rf dist",
     "seed": "tsx shared/utils/seedTestData.ts",
     "seed:reset": "tsx shared/utils/seedTestData.ts --reset",
+    "seed:faculty": "tsx shared/utils/seedTestData.ts --faculty-only",
+    "seed:faculty:reset": "tsx shared/utils/seedTestData.ts --faculty-only --reset",
     "seed:watch": "tsx watch shared/utils/seedTestData.ts"
   },
   "dependencies": {
