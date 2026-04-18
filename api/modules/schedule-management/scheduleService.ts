@@ -38,7 +38,7 @@ export async function getAll(filters: ScheduleQueryInput = {}): Promise<ISchedul
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
       .populate('department', 'name code')
-      .populate('section', 'name sectionCode yearLevel')
+      .populate({ path: 'section', select: 'name sectionCode yearLevel program', populate: { path: 'program', select: 'courseCode courseName' } })
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 })
       .exec();
 
@@ -63,7 +63,7 @@ export async function getById(id: string): Promise<IScheduleDocument> {
       .populate('faculty', 'name email program')
       .populate('classroom', 'roomNumber building capacity type facilities')
       .populate('department', 'name code')
-      .populate('section', 'name sectionCode yearLevel')
+      .populate({ path: 'section', select: 'name sectionCode yearLevel program', populate: { path: 'program', select: 'courseCode courseName' } })
       .exec();
 
     if (!schedule) {

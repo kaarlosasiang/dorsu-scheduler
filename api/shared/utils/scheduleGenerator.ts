@@ -776,6 +776,21 @@ export async function generateSchedules(request: ScheduleGenerationInput): Promi
       throw new Error('No available classrooms found');
     }
 
+    // 1b. Remove stale auto-generated draft schedules for the subject scope being regenerated.
+    //     This ensures that removed course offerings don't leave ghost schedules behind.
+    const subjectIdsToRegenerate = subjectsToSchedule.map((s: any) => s._id);
+    const staleDeleteQuery: any = {
+      subject: { $in: subjectIdsToRegenerate },
+      semester,
+      academicYear,
+      isGenerated: true,
+      status: { $ne: 'published' }, // never touch published schedules
+    };
+    const staleResult = await Schedule.deleteMany(staleDeleteQuery);
+    if (staleResult.deletedCount > 0) {
+      console.log(`   🧹 Removed ${staleResult.deletedCount} stale generated schedule(s) before regeneration`);
+    }
+
     // 2. Pre-load ALL existing schedules into memory — the only scheduling-related DB query
     const store = await buildScheduleStore(semester, academicYear);
 

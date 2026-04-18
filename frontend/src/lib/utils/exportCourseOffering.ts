@@ -70,6 +70,8 @@ export interface ExportSchedule {
         id?: string;
         name?: string;
         sectionCode?: string;
+        yearLevel?: string;
+        program?: { courseCode?: string; courseName?: string } | string;
       };
   sectionDetails?: {
     _id?: string;
@@ -410,7 +412,9 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
   const sectionMap = new Map<string, ExportSchedule[]>();
 
   for (const sched of schedules) {
-    const key = `${sched.yearLevel ?? "Unknown"}|||${getSectionDisplay(sched)}`;
+    const sectionYearLevel = typeof sched.section === "object" ? sched.section?.yearLevel : undefined;
+    const resolvedYearLevel = sched.yearLevel ?? sectionYearLevel ?? "Unknown";
+    const key = `${resolvedYearLevel}|||${getSectionDisplay(sched)}`;
     if (!sectionMap.has(key)) sectionMap.set(key, []);
     sectionMap.get(key)!.push(sched);
   }
@@ -438,8 +442,10 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
 
   const allSections: SectionData[] = sortedSections.map(([key, scheds]) => {
     const [yearLevel, section] = key.split("|||");
-    const sectionProgramName = scheds.length > 0
-      ? (getSubject(scheds[0].subject) as any)?.course?.courseName as string | undefined
+    const sectionObj = typeof scheds[0].section === "object" ? scheds[0].section : null;
+    const sectionProgramName: string | undefined = scheds.length > 0
+      ? (typeof sectionObj?.program === "object" ? sectionObj.program?.courseName : undefined)
+        ?? (getSubject(scheds[0].subject) as any)?.courseOfferings?.[0]?.course?.courseName
       : undefined;
 
     // Group by subject ID within this section
