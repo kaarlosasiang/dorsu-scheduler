@@ -260,13 +260,13 @@ export async function getByFaculty(facultyId: string, semester: string, academic
     })
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName units lectureUnits labUnits yearLevel semester courses',
-        populate: { path: 'courses', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName units lectureUnits labUnits yearLevel semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name email')
       .populate('classroom', 'roomNumber building capacity')
       .populate('department', 'name code')
-      .populate('section', 'name sectionCode yearLevel')
+      .populate({ path: 'section', select: 'name sectionCode yearLevel program', populate: { path: 'program', select: 'courseCode courseName' } })
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
   } catch (error) {
     console.error('Error in getByFaculty:', error);
@@ -287,8 +287,8 @@ export async function getByClassroom(classroomId: string, semester: string, acad
     })
       .populate({
         path: 'subject',
-        select: 'subjectCode subjectName yearLevel semester courses',
-        populate: { path: 'courses', select: 'courseCode courseName' }
+        select: 'subjectCode subjectName yearLevel semester courseOfferings',
+        populate: { path: 'courseOfferings.course', select: 'courseCode courseName' }
       })
       .populate('faculty', 'name')
       .sort({ 'timeSlot.day': 1, 'timeSlot.startTime': 1 });
