@@ -34,7 +34,9 @@ export const subjectSchema = z.object({
 
   course: z
     .string()
-    .min(1, "Course is required"),
+    .optional()
+    .or(z.literal(""))
+    .default(""),
 
   department: z
     .string()

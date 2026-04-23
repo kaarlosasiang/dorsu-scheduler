@@ -100,8 +100,11 @@ interface ScheduleSubject {
     name?: string;
     subjectCode?: string;
     code?: string;
-    yearLevel?: string;
+    courseOfferings?: Array<{ course: ScheduleSubjectCourse | string; yearLevel?: string }>;
+    // legacy fallbacks (populated before model migration)
+    courses?: ScheduleSubjectCourse[] | string[];
     course?: string | ScheduleSubjectCourse;
+    yearLevel?: string;
 }
 
 interface ScheduleFaculty {
@@ -158,9 +161,11 @@ const transformSchedule = (schedule: ISchedule): Schedule => {
     // When Mongoose populates, it replaces the ID string with the full object
     // So schedule.subject could be either a string (ID) or an object (populated)
     const subject = typeof schedule.subject === 'object' ? (schedule.subject as ScheduleSubject) : null;
-    const subjectCourse = subject && typeof subject.course === 'object'
-        ? subject.course
-        : null;
+    const subjectCourse = subject && (
+        Array.isArray(subject.courses) && subject.courses.length > 0
+            ? (typeof subject.courses[0] === 'object' ? subject.courses[0] as ScheduleSubjectCourse : null)
+            : (typeof subject.course === 'object' ? subject.course as ScheduleSubjectCourse : null)
+    );
     const faculty = typeof schedule.faculty === 'object' ? (schedule.faculty as ScheduleFaculty) : null;
     const classroom = typeof schedule.classroom === 'object' ? (schedule.classroom as ScheduleClassroom) : null;
     const department = typeof schedule.department === 'object' ? (schedule.department as ScheduleDepartment) : null;

@@ -70,6 +70,8 @@ export interface ExportSchedule {
         id?: string;
         name?: string;
         sectionCode?: string;
+        yearLevel?: string;
+        program?: { courseCode?: string; courseName?: string } | string;
       };
   sectionDetails?: {
     _id?: string;
@@ -410,7 +412,9 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
   const sectionMap = new Map<string, ExportSchedule[]>();
 
   for (const sched of schedules) {
-    const key = `${sched.yearLevel ?? "Unknown"}|||${getSectionDisplay(sched)}`;
+    const sectionYearLevel = typeof sched.section === "object" ? sched.section?.yearLevel : undefined;
+    const resolvedYearLevel = sched.yearLevel ?? sectionYearLevel ?? "Unknown";
+    const key = `${resolvedYearLevel}|||${getSectionDisplay(sched)}`;
     if (!sectionMap.has(key)) sectionMap.set(key, []);
     sectionMap.get(key)!.push(sched);
   }
@@ -438,8 +442,10 @@ export async function exportCourseOffering(options: ExportOptions): Promise<void
 
   const allSections: SectionData[] = sortedSections.map(([key, scheds]) => {
     const [yearLevel, section] = key.split("|||");
-    const sectionProgramName = scheds.length > 0
-      ? (getSubject(scheds[0].subject) as any)?.course?.courseName as string | undefined
+    const sectionObj = typeof scheds[0].section === "object" ? scheds[0].section : null;
+    const sectionProgramName: string | undefined = scheds.length > 0
+      ? (typeof sectionObj?.program === "object" ? sectionObj.program?.courseName : undefined)
+        ?? (getSubject(scheds[0].subject) as any)?.courseOfferings?.[0]?.course?.courseName
       : undefined;
 
     // Group by subject ID within this section
@@ -912,6 +918,7 @@ function renderFWEntry(
     adminLoad: number;
     schedules: ExportSchedule[];
     programName?: string;
+    showCategoryLabel?: boolean;
   }
 ): number {
   const {
@@ -947,6 +954,8 @@ function renderFWEntry(
   const totalLoad = totalTeachingLoad + adminLoad;
   const overload = Math.max(totalLoad - maxLoad, 0);
 
+  const { showCategoryLabel = true } = payload;
+
   const facultyCategoryLabel =
     employmentType === "full-time"
       ? "A. Full-Time/Regular Faculty Members"
@@ -955,7 +964,7 @@ function renderFWEntry(
       : "";
 
   let y = startY;
-  if (facultyCategoryLabel) {
+  if (showCategoryLabel && facultyCategoryLabel) {
     doc.setFont("times", "bold");
     doc.setFontSize(9);
     doc.setTextColor(0, 0, 0);
@@ -973,8 +982,14 @@ function renderFWEntry(
     const lab = subject?.labUnits ?? 0;
     const totalUnits = subject?.units ?? lec + lab;
     const program =
-      typeof schedule.subject !== "string" && (schedule.subject as any)?.course
-        ? (schedule.subject as any).course.courseCode || (schedule.subject as any).course.courseName || ""
+      typeof schedule.subject !== "string" && (schedule.subject as any)?.courseOfferings?.length
+        ? (() => {
+            const firstOffering = (schedule.subject as any).courseOfferings[0];
+            const c = firstOffering?.course;
+            return (typeof c === "object" ? c?.courseCode || c?.courseName : "") || "";
+          })()
+        : typeof schedule.subject !== "string" && (schedule.subject as any)?.course
+        ? ((schedule.subject as any).course.courseCode || (schedule.subject as any).course.courseName || "")
         : "";
     const days = formatDays(schedule.timeSlot);
     const time = `${to12h(schedule.timeSlot.startTime)}-${to12h(schedule.timeSlot.endTime)}`;
@@ -997,10 +1012,13 @@ function renderFWEntry(
     ];
   });
 
+  const { programName: entryProgramName } = payload;
+
   const metadataRows: Array<Array<any>> = [
     [
       { content: `${entryNumber}.`, styles: { halign: "center", valign: "middle", fontStyle: "bold" } },
-      { content: `Name: ${facultyName}`, colSpan: 5, styles: { fontStyle: "bold", valign: "middle" } },
+      { content: `Name: ${facultyName}`, colSpan: 3, styles: { fontStyle: "bold", valign: "middle" } },
+      { content: `Program: ${entryProgramName || "N/A"}`, colSpan: 2, styles: { fontStyle: "bold", valign: "middle" } },
       { content: `Administrative Designation: ${designation || "N/A"}`, colSpan: 6, styles: { fontStyle: "bold", valign: "middle" } },
     ],
     [
@@ -1179,11 +1197,20 @@ export async function exportFacultyWorkloadBatch(
   const logoBase64 = await loadImageAsBase64("/dorsu-icon.png");
   const allPrograms = [...new Set(entries.map((entry) => entry.programName?.trim()).filter(Boolean))].join(", ");
 
+  // Sort: full-time/regular first, then part-time
+  const sortedEntries = [...entries].sort((a, b) => {
+    const order = (e: FacultyWorkloadBatchEntry) =>
+      e.employmentType === "full-time" ? 0 : e.employmentType === "part-time" ? 1 : 2;
+    return order(a) - order(b);
+  });
+
   // Minimum vertical space (mm) needed to start a new faculty block on the
   // current page before we decide to open a fresh page instead.
   const MIN_SPACE = 50;
   // Vertical gap between consecutive faculty blocks on the same page.
   const ENTRY_GAP = 5;
+  // Extra gap after a category section label.
+  const LABEL_H = 5.5;
 
   const headerInfoList: FWHeaderInfo[] = [];
   let currentPageNum = 1;
@@ -1198,8 +1225,12 @@ export async function exportFacultyWorkloadBatch(
   headerInfoList.push(headerInfo);
   let currentY = headerInfo.nextY;
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i];
+  let lastRenderedType: string | undefined;
+
+  for (let i = 0; i < sortedEntries.length; i++) {
+    const entry = sortedEntries[i];
+    const currentType = entry.employmentType ?? "";
+    const isNewGroup = currentType !== lastRenderedType;
 
     // If remaining vertical space is too small for a faculty block, start a new page
     if (PAGE_H - MARGIN_BOTTOM - currentY < MIN_SPACE) {
@@ -1215,6 +1246,24 @@ export async function exportFacultyWorkloadBatch(
       currentY = headerInfo.nextY;
     }
 
+    // Render the group section label once at the top of each group
+    if (isNewGroup && currentType) {
+      const groupLabel =
+        currentType === "full-time"
+          ? "A. Full-Time/Regular Faculty Members"
+          : currentType === "part-time"
+          ? "B. Part-Time Faculty Members"
+          : "";
+      if (groupLabel) {
+        doc.setFont("times", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        doc.text(groupLabel, MARGIN_LEFT, currentY);
+        currentY += LABEL_H;
+      }
+      lastRenderedType = currentType;
+    }
+
     const finalY = renderFWEntry(doc, currentY, i + 1, {
       facultyName: entry.facultyName,
       designation: entry.designation,
@@ -1223,6 +1272,7 @@ export async function exportFacultyWorkloadBatch(
       adminLoad: entry.adminLoad ?? 0,
       schedules: entry.schedules,
       programName: entry.programName,
+      showCategoryLabel: false,
     });
 
     // autoTable may have created additional pages for a faculty with many rows

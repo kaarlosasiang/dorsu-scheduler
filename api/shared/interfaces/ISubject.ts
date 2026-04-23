@@ -1,3 +1,9 @@
+/** One program+year-level pairing that offers this subject. */
+export interface ISubjectCourseOffering {
+  course: string;      // Reference to Course (degree program) _id
+  yearLevel?: string;  // e.g. "1st Year" — null/undefined means cross-year (GE anchor)
+}
+
 export interface ISubject {
   _id?: string;
   subjectCode: string;
@@ -9,9 +15,9 @@ export interface ISubject {
   labHours?: number; // Computed: Teaching hours for lab (labUnits / 0.75)
   totalTeachingHours?: number; // Computed: lectureHours + labHours
   description?: string;
-  course: string; // Reference to Course (degree program) _id
+  /** Per-program + year-level offerings. Replaces flat courses[] + yearLevel. */
+  courseOfferings: ISubjectCourseOffering[];
   department?: string; // Reference to Department _id
-  yearLevel?: string; // e.g., "1st Year", "2nd Year", etc.
   semester?: string; // e.g., "1st Semester", "2nd Semester"
   hasLaboratory?: boolean; // Computed: true if labUnits > 0
   prerequisites?: string[]; // Array of subject IDs that are prerequisites
@@ -40,9 +46,8 @@ export function calculateTotalTeachingHours(lectureUnits: number, labUnits: numb
 }
 
 export interface ISubjectFilter {
-  course?: string;
+  courseId?: string; // filter by a courseId present in courseOfferings[].course
   department?: string;
-  yearLevel?: string;
   semester?: string;
   subjectCode?: string;
   subjectName?: string;

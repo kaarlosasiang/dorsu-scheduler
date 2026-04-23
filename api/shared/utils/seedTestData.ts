@@ -156,9 +156,11 @@ type SubjectSeed = {
   subjectName: string;
   lectureUnits: number;
   labUnits: number;
+  /** Year level this program takes the subject (undefined = cross-year GE anchor) */
   yearLevel?: '1st Year' | '2nd Year' | '3rd Year' | '4th Year' | '5th Year';
   semester?: '1st Semester' | '2nd Semester' | 'Summer';
   description?: string;
+  /** Program code (courseCode) that offers this subject */
   program: string;
 };
 
@@ -166,25 +168,61 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   // GE — General Education (cross-program subjects)
   // ════════════════════════════════════════════════════════════════════════
-  { program: 'GE', subjectCode: 'GE-PerDev10',  subjectName: 'Understanding the Self',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Eng10',     subjectName: 'Purposive Communication',                        lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Hum10',     subjectName: 'Art Appreciation',                               lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Lit10',     subjectName: 'Literature in Mindanao',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Math15',    subjectName: 'Mathematics in the Modern World',                lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-STS10',     subjectName: 'Science, Technology & Society',                  lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-STS11',     subjectName: 'People and the Earth\'s Ecosystem',              lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Philo10',   subjectName: 'Ethics',                                         lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Hist10',    subjectName: 'The Life and Works of Rizal',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Hist11',    subjectName: 'Readings in Philippine History',                 lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-SocSci10',  subjectName: 'The Contemporary World',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
-  { program: 'GE', subjectCode: 'GE-Spear1',    subjectName: 'Movement Enhancement (PATHFIT 1)',               lectureUnits: 0, labUnits: 2 },
-  { program: 'GE', subjectCode: 'GE-Spear2',    subjectName: 'Fitness Exercises (PATHFIT 2)',                  lectureUnits: 0, labUnits: 2 },
-  { program: 'GE', subjectCode: 'GE-Spear3',    subjectName: 'Physical Activity Towards Health & Fitness 1',  lectureUnits: 0, labUnits: 2 },
-  { program: 'GE', subjectCode: 'GE-Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',  lectureUnits: 0, labUnits: 2 },
-  { program: 'GE', subjectCode: 'GE-NSTP1',     subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                        lectureUnits: 0, labUnits: 3 },
-  { program: 'GE', subjectCode: 'GE-NSTP2',     subjectName: 'NSTP 2 (CWTS)',                                  lectureUnits: 0, labUnits: 3 },
-  { program: 'GE', subjectCode: 'GE-FL10',      subjectName: 'Foreign Language',                               lectureUnits: 3, labUnits: 0 },
+  // 1st Semester (GE only — no per-program duplicates needed)
+  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ENG10',    subjectName: 'Purposive Communication',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH15',   subjectName: 'Mathematics in the Modern World',               lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SPEAR1',   subjectName: 'Movement Enhancement (PATHFIT 1)',              lectureUnits: 0, labUnits: 2 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SPEAR3',   subjectName: 'Physical Activity Towards Health & Fitness 1', lectureUnits: 0, labUnits: 2 },
+  // 2nd Semester — list all programs per subject so each GE subject has ONE doc with courses[]
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',    subjectName: 'Science, Technology & Society',                lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',    subjectName: 'Science, Technology & Society',                lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',    subjectName: 'People and the Earth\'s Ecosystem',            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',    subjectName: 'People and the Earth\'s Ecosystem',            lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HIST10',   subjectName: 'The Life and Works of Rizal',                  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HIST10',   subjectName: 'The Life and Works of Rizal',                  lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HIST11',   subjectName: 'Readings in Philippine History',               lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HIST11',   subjectName: 'Readings in Philippine History',               lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
+  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
+  { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
+  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
+  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
+  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',    subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                      lectureUnits: 0, labUnits: 3 },
+  { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',    subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                      lectureUnits: 0, labUnits: 3 },
+  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
+  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
+  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
+  { program: 'GE',   yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
+  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSA — Bachelor of Science in Agriculture
@@ -227,14 +265,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   // 4th Year
   { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag19b',     subjectName: 'Competency Skills Appraisal in Agriculture II',    lectureUnits: 3, labUnits: 0 },
   { program: 'BSA', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Ag18',      subjectName: 'Apprenticeship / OJT / Industry Exposure (240 hrs)', lectureUnits: 0, labUnits: 3 },
-  // GE subjects for BSA (2nd Semester, per reference)
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                           lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                                lectureUnits: 0, labUnits: 2 },
-  { program: 'BSA', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',     subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                          lectureUnits: 0, labUnits: 3 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',     subjectName: 'People and the Earth\'s Ecosystem',               lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',    lectureUnits: 0, labUnits: 2 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',     lectureUnits: 3, labUnits: 0 },
-  { program: 'BSA', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSAM — Bachelor of Science in Agribusiness Management
@@ -245,7 +275,7 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'AM112',    subjectName: 'Principles of Economics',                          lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'Agri101',  subjectName: 'Introduction to Agriculture',                      lectureUnits: 1, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'CropSci101',subjectName: 'Fundamentals of Crop Science',                    lectureUnits: 2, labUnits: 1 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM113',    subjectName: 'Managerial Accounting',                            lectureUnits: 3, labUnits: 0 },
+  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM113',    subjectName: 'Management Accounting',                            lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM114',    subjectName: 'Business and Income Taxation',                     lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM115',    subjectName: 'Intermediate Microeconomics Theory',               lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'AM116',    subjectName: 'Intro to Agribusiness Management',                 lectureUnits: 3, labUnits: 0 },
@@ -275,16 +305,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSAM', yearLevel: '4th Year', semester: '1st Semester', subjectCode: 'AM143',    subjectName: 'Agribusiness Research Methodology',                lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM144',    subjectName: 'Introduction to Investment Management',            lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'AM145',    subjectName: 'Special Problem',                                  lectureUnits: 3, labUnits: 0 },
-  // GE subjects for BSAM (2nd Semester, per reference)
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PerDev10',  subjectName: 'Understanding the Self',                          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',     subjectName: 'Science, Technology & Society',                   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                               lectureUnits: 0, labUnits: 2 },
-  { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (CWTS)',                                   lectureUnits: 0, labUnits: 3 },
-  { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Hist11',    subjectName: 'Readings in Philippine History',                  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'FL10',      subjectName: 'Foreign Language',                                lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSES — Bachelor of Science in Environmental Science
@@ -305,17 +325,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci107',subjectName: 'Environmental Psychology',                         lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci106',subjectName: 'Environmental Ethics, Policies & Laws',             lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'EnviSci108',subjectName: 'Climate Change Studies',                           lectureUnits: 3, labUnits: 0 },
-  // GE subjects for BSES (2nd Semester, per reference)
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Hum10',     subjectName: 'Art Appreciation',                                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Lit10',     subjectName: 'Literature in Mindanao',                          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SocSci10',  subjectName: 'The Contemporary World',                          lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                               lectureUnits: 0, labUnits: 2 },
-  { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (LTS/CWTS/ROTC)',                         lectureUnits: 0, labUnits: 3 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Hist10',    subjectName: 'The Life and Works of Rizal',                     lectureUnits: 3, labUnits: 0 },
-  { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',      subjectName: 'Foreign Language',                                lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSHM — Bachelor of Science in Hospitality Management
@@ -353,14 +362,6 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC138',   subjectName: 'Entrepreneurship in Tourism and Hospitality',     lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'THC141',   subjectName: 'Multicultural Diversity in Workplace for Tourism Professional', lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'PRACB',    subjectName: 'Practicum B',                                     lectureUnits: 0, labUnits: 3 },
-  // GE subjects for BSHM (2nd Semester, per reference)
-  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PerDev10',  subjectName: 'Understanding the Self',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',     subjectName: 'NSTP 2 (LTS/CWTS)',                              lectureUnits: 0, labUnits: 3 },
-  { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'Spear2',    subjectName: 'Fitness Exercises',                              lectureUnits: 0, labUnits: 2 },
-  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Hum10',     subjectName: 'Art Appreciation',                               lectureUnits: 3, labUnits: 0 },
-  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Lit10',     subjectName: 'Literature in Mindanao',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'Spear4',    subjectName: 'Physical Activity Towards Health & Fitness 2',   lectureUnits: 0, labUnits: 2 },
-  { program: 'BSHM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'SocSci11',  subjectName: 'Peace, Development & Indigenous Communities',    lectureUnits: 3, labUnits: 0 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSIT — Bachelor of Science in Information Technology
@@ -372,7 +373,7 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITFreeElec2',subjectName: 'IT Professional Free Elective 2',                lectureUnits: 2, labUnits: 1 },
   { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP133',   subjectName: 'Systems Integration & Architecture 1',            lectureUnits: 2, labUnits: 1 },
   { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITPE130',  subjectName: 'Integrative Programming & Technologies 2',        lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ITP142',   subjectName: 'Practicum (486 hrs)',                              lectureUnits: 0, labUnits: 6 },
+  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ITP142',   subjectName: 'Practicum (486 hours)',                            lectureUnits: 0, labUnits: 6 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSM — Bachelor of Science in Mathematics
@@ -387,19 +388,17 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math126',   subjectName: 'Discrete Mathematics',                            lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math137',   subjectName: 'Actuarial Mathematics I',                         lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math113',   subjectName: 'Advanced Calculus I',                             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math135',   subjectName: 'Graph Theory and Analysis',                       lectureUnits: 3, labUnits: 0 },
+  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math135',   subjectName: 'Graph Theory and Applications',                   lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math133',   subjectName: 'Mathematical Modeling',                           lectureUnits: 3, labUnits: 2 },
   { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math131',   subjectName: 'Numerical Analysis',                              lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math146',   subjectName: 'Modern Geometry',                                 lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math145',   subjectName: 'Topology',                                        lectureUnits: 3, labUnits: 0 },
   { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math199',   subjectName: 'Thesis B',                                        lectureUnits: 3, labUnits: 0 },
-  // GE subjects for BSM (2nd Semester, per reference)
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Philo10',   subjectName: 'Ethics',                                          lectureUnits: 3, labUnits: 0 },
 ];
 
-// Faculty seed list — Baganga Campus (BGA), real roster merged from 1st & 2nd semesters
+// Faculty seed list — Baganga Campus (BGA)
 const FACULTY_SEED = [
-  // ── Full-time ─────────────────────────────────────────────────────────────
+  // ── BSA ───────────────────────────────────────────────────────────────────
   {
     name: { first: 'Jeoffrey', last: 'Acebes' },
     email: 'jeoffrey.acebes@dorsu.edu.ph',
@@ -408,47 +407,11 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Marlone', middle: 'M', last: 'Barrete' },
-    email: 'marlone.barrete@dorsu.edu.ph',
-    program: 'BSES',
-    employmentType: 'full-time' as const,
-    designation: 'Auxiliary Program Head, BSES',
-    adminLoad: 3,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Joe Arvie', middle: 'C', last: 'Cagulangan' },
-    email: 'joe.cagulangan@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'full-time' as const,
-    designation: 'Admission Designate, Guidance Advocate & Gen. Ed Coordinator',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Prince Jerald', middle: 'A', last: 'Cordova' },
-    email: 'prince.cordova@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'full-time' as const,
-    designation: 'Scholarship In-Charge and NSTP Coordinator',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
     name: { first: 'Jhon Lloyd', middle: 'D', last: 'Flores' },
     email: 'jhon.flores@dorsu.edu.ph',
     program: 'BSA',
     employmentType: 'full-time' as const,
     designation: 'NSTP & RIE Coordinator',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Vincent', middle: 'S', last: 'Languay' },
-    email: 'vincent.languay@dorsu.edu.ph',
-    program: 'BSAM',
-    employmentType: 'full-time' as const,
-    designation: 'Property Custodian and Sociocultural Coordinator',
     adminLoad: 6,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
@@ -462,19 +425,42 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Mohamid', middle: 'R', last: 'Masukat' },
-    email: 'mohamid.masukat@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'full-time' as const,
-    designation: 'Program Head, ICT Coordinator',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
+    name: { first: 'Michael James', middle: 'P', last: 'Adanza' },
+    email: 'michael.adanza@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Jerel', middle: 'M', last: 'Menendez' },
-    email: 'jerel.menendez@dorsu.edu.ph',
-    program: 'BSES',
+    name: { first: 'Rojim', middle: 'R', last: 'Ferrel' },
+    email: 'rojim.ferrel@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Darryl Jay', middle: 'B', last: 'Medrano' },
+    email: 'darryl.medrano@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Ever Louie', middle: 'S', last: 'Pogosa' },
+    email: 'ever.pogosa@dorsu.edu.ph',
+    program: 'BSA',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+
+  // ── BSAM ──────────────────────────────────────────────────────────────────
+  {
+    name: { first: 'Vincent', middle: 'S', last: 'Languay' },
+    email: 'vincent.languay@dorsu.edu.ph',
+    program: 'BSAM',
     employmentType: 'full-time' as const,
+    designation: 'Property Custodian and Sociocultural Coordinator',
+    adminLoad: 6,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
@@ -487,13 +473,6 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
   {
-    name: { first: 'Ace', last: 'Palma Gil' },
-    email: 'ace.palmagil@dorsu.edu.ph',
-    program: 'BSES',
-    employmentType: 'full-time' as const,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
     name: { first: 'Purisima', middle: 'N', last: 'Tampus' },
     email: 'purisima.tampus@dorsu.edu.ph',
     program: 'BSAM',
@@ -502,18 +481,83 @@ const FACULTY_SEED = [
     adminLoad: 9,
     minLoad: 18, maxLoad: 26, status: 'active' as const,
   },
-
-  // ── Part-time ─────────────────────────────────────────────────────────────
   {
-    name: { first: 'Michael James', last: 'Adanza' },
-    email: 'michael.adanza@dorsu.edu.ph',
-    program: 'GE',
+    name: { first: 'Geneva', last: 'Alba' },
+    email: 'geneva.alba@dorsu.edu.ph',
+    program: 'BSAM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Geneva', last: 'Alba' },
-    email: 'geneva.alba@dorsu.edu.ph',
+    name: { first: 'Aila Joy', last: 'Andoyo' },
+    email: 'aila.andoyo@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Ralph', last: 'Monday' },
+    email: 'ralph.monday@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Giovanni', last: 'Morales' },
+    email: 'giovanni.morales@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Armilyn', last: 'Pabalay' },
+    email: 'armilyn.pabalay@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'France', last: 'Manguiob' },
+    email: 'france.manguiob@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+  {
+    name: { first: 'Marry Garce', last: 'Rico' },
+    email: 'marry.rico@dorsu.edu.ph',
+    program: 'BSAM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+
+  // ── BSES ──────────────────────────────────────────────────────────────────
+  {
+    name: { first: 'Jerel', middle: 'M', last: 'Menendez' },
+    email: 'jerel.menendez@dorsu.edu.ph',
+    program: 'BSES',
+    employmentType: 'full-time' as const,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Ace', last: 'Palma Gil' },
+    email: 'ace.palmagil@dorsu.edu.ph',
+    program: 'BSES',
+    employmentType: 'full-time' as const,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Lynn', last: 'Dela Peña' },
+    email: 'lynn.delapena@dorsu.edu.ph',
+    program: 'BSES',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+
+  // ── BSHM ──────────────────────────────────────────────────────────────────
+  {
+    name: { first: 'Antonio', last: 'Japson Jr.' },
+    email: 'antonio.japson@dorsu.edu.ph',
     program: 'BSHM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
@@ -521,21 +565,32 @@ const FACULTY_SEED = [
   {
     name: { first: 'Michael', middle: 'P', last: 'Almine' },
     email: 'michael.almine@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Aila Joy', last: 'Andoyo' },
-    email: 'aila.andoyo@dorsu.edu.ph',
     program: 'BSHM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Renante', last: 'Andrada' },
-    email: 'renante.andrada@dorsu.edu.ph',
-    program: 'BSA',
+    name: { first: 'Juliet', middle: 'L', last: 'Gregorio' },
+    email: 'juliet.gregorio@dorsu.edu.ph',
+    program: 'BSHM',
+    employmentType: 'part-time' as const,
+    minLoad: 18, maxLoad: 18, status: 'active' as const,
+  },
+
+  // ── Gen Ed (GE) ───────────────────────────────────────────────────────────
+  {
+    name: { first: 'Joe Arvie', middle: 'C', last: 'Cagulangan' },
+    email: 'joe.cagulangan@dorsu.edu.ph',
+    program: 'GE',
+    employmentType: 'full-time' as const,
+    designation: 'Admission Designate, Guidance Advocate & Gen. Ed Coordinator',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Arnold John', middle: 'S', last: 'Morales' },
+    email: 'arnoldjohn.morales@dorsu.edu.ph',
+    program: 'GE',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
@@ -547,67 +602,17 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Lynn', last: 'Dela Peña' },
-    email: 'lynn.delapena@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Rojim', last: 'Ferrel' },
-    email: 'rojim.ferrel@dorsu.edu.ph',
-    program: 'BSM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Juliet', last: 'Gregorio' },
-    email: 'juliet.gregorio@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Antonio', last: 'Japson Jr.' },
-    email: 'antonio.japson@dorsu.edu.ph',
-    program: 'BSA',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
     name: { first: 'Norma', last: 'Japson' },
     email: 'norma.japson@dorsu.edu.ph',
-    program: 'BSHM',
+    program: 'GE',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
     name: { first: 'Calixto', last: 'Licong Jr.' },
     email: 'calixto.licong@dorsu.edu.ph',
-    program: 'BSA',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'France', last: 'Manguiob' },
-    email: 'france.manguiob@dorsu.edu.ph',
-    program: 'BSHM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Darryl Jay', last: 'Medrano' },
-    email: 'darryl.medrano@dorsu.edu.ph',
     program: 'GE',
     employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Ralph', last: 'Monday' },
-    email: 'ralph.monday@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    designation: 'Atty.',
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
@@ -618,86 +623,49 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Giovanni', last: 'Morales' },
-    email: 'giovanni.morales@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    designation: 'Atty.',
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Arnold John', last: 'Morales' },
-    email: 'arnoldjohn.morales@dorsu.edu.ph',
-    program: 'BSA',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Armilyn', last: 'Pabalay' },
-    email: 'armilyn.pabalay@dorsu.edu.ph',
+    name: { first: 'Manuel', last: 'Valejo' },
+    email: 'manuel.valejo@dorsu.edu.ph',
     program: 'GE',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
+
+  // ── BSIT ──────────────────────────────────────────────────────────────────
   {
-    name: { first: 'Gemar', last: 'Petere' },
+    name: { first: 'Mohamid', middle: 'R', last: 'Masukat' },
+    email: 'mohamid.masukat@dorsu.edu.ph',
+    program: 'BSIT',
+    employmentType: 'full-time' as const,
+    designation: 'Program Head, ICT Coordinator, 7S Designate',
+    adminLoad: 6,
+    minLoad: 18, maxLoad: 26, status: 'active' as const,
+  },
+  {
+    name: { first: 'Gemar', middle: 'P', last: 'Petere' },
     email: 'gemar.petere@dorsu.edu.ph',
     program: 'BSIT',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
-  {
-    name: { first: 'Ever Louie', last: 'Pogosa' },
-    email: 'ever.pogosa@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
+
+  // ── BSM ───────────────────────────────────────────────────────────────────
   {
     name: { first: 'Reginrex', last: 'Pusta' },
     email: 'reginrex.pusta@dorsu.edu.ph',
-    program: 'BSES',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Elma', last: 'Reyes' },
-    email: 'elma.reyes@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Lerma', last: 'Reyes' },
-    email: 'lerma.reyes@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Marry Garce', last: 'Rico' },
-    email: 'marry.rico@dorsu.edu.ph',
-    program: 'BSHM',
+    program: 'BSM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
     name: { first: 'Lourie Ann', last: 'Salamanes' },
     email: 'lourie.salamanes@dorsu.edu.ph',
-    program: 'BSHM',
+    program: 'BSM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
   {
-    name: { first: 'Princess Kharylle', last: 'Tindugan' },
+    name: { first: 'Princess Kharylle', middle: 'D', last: 'Tindugan' },
     email: 'princess.tindugan@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Manuel', last: 'Valejo' },
-    email: 'manuel.valejo@dorsu.edu.ph',
     program: 'BSM',
     employmentType: 'part-time' as const,
     minLoad: 18, maxLoad: 18, status: 'active' as const,
@@ -711,6 +679,7 @@ async function seed() {
   if (!mongoURI) throw new Error('MONGODB_URI not set in .env');
 
   const shouldReset = process.argv.includes('--reset');
+  const facultyOnly = process.argv.includes('--faculty-only');
 
   console.log('🔌 Connecting to MongoDB…');
   await mongoose.connect(mongoURI);
@@ -718,12 +687,23 @@ async function seed() {
 
   // ── Optional reset ────────────────────────────────────────────────────────
   if (shouldReset) {
-    console.log('🗑️  Resetting faculty, schedules, sections, and faculty users…');
+    console.log('🗑️  Resetting collections…');
     const { deletedCount: schedDel } = await Schedule.deleteMany({});
     const { deletedCount: facDel  } = await Faculty.deleteMany({});
     const { deletedCount: sectDel } = await Section.deleteMany({});
     const { deletedCount: userDel } = await User.deleteMany({ role: 'faculty' });
-    console.log(`   Deleted ${schedDel} schedule(s), ${facDel} faculty member(s), ${sectDel} section(s), ${userDel} faculty user(s)\n`);
+    const { deletedCount: subjDel } = await Subject.deleteMany({});
+    console.log(`   Deleted ${schedDel} schedule(s), ${facDel} faculty, ${sectDel} section(s), ${userDel} faculty user(s), ${subjDel} subject(s)\n`);
+
+    // Drop the old indexes if they still exist (schema migration)
+    for (const oldIdx of ['course_1_subjectCode_1', 'subjectCode_1_yearLevel_1_semester_1']) {
+      try {
+        await Subject.collection.dropIndex(oldIdx);
+        console.log(`   🔧  Dropped legacy index ${oldIdx}\n`);
+      } catch {
+        // Already gone — no action needed
+      }
+    }
   }
 
   // ── 1. Upsert programs ────────────────────────────────────────────────────
@@ -780,9 +760,17 @@ async function seed() {
   }
 
   // ── 3. Seed subjects ─────────────────────────────────────────────────────
-  console.log('\n📖 Seeding subjects…');
   let subjCreated = 0;
   let subjSkipped = 0;
+  let roomCreated = 0;
+  let roomSkipped = 0;
+  let sectCreated = 0;
+  let sectSkipped = 0;
+
+  if (facultyOnly) {
+    console.log('\n⏩ Skipping subjects, classrooms, and sections (--faculty-only)');
+  } else {
+  console.log('\n📖 Seeding subjects…');
 
   for (const s of SUBJECTS_SEED) {
     const programId = programMap[s.program];
@@ -793,26 +781,47 @@ async function seed() {
 
     const { program: _p, ...rest } = s;
     const units = (rest.lectureUnits ?? 0) + (rest.labUnits ?? 0);
+    const normalizedCode = (rest.subjectCode ?? '').trim().toUpperCase();
 
-    const result = await Subject.findOneAndUpdate(
-      { course: programId, subjectCode: rest.subjectCode },
-      { $setOnInsert: { ...rest, course: programId, units } },
-      { upsert: true, new: false, lean: true }
-    );
+    // Merge key: (subjectCode, semester) — one document per subject per semester.
+    // Each program+yearLevel combo is stored as a courseOffering inside that document.
+    const existing = await Subject.findOne({
+      subjectCode: normalizedCode,
+      semester: rest.semester ?? null,
+    }).lean();
 
-    if (result) {
-      console.log(`   ⏭  Skipped  [${s.program}] ${s.subjectCode}`);
-      subjSkipped++;
+    // Build the new offering to add
+    const newOffering = { course: programId, yearLevel: rest.yearLevel ?? null };
+
+    if (existing) {
+      // Only add if this exact {course, yearLevel} pair isn't already there
+      const alreadyExists = (existing.courseOfferings as any[]).some(
+        (o: any) =>
+          o.course?.toString() === programId.toString() &&
+          (o.yearLevel ?? null) === (newOffering.yearLevel ?? null)
+      );
+      if (!alreadyExists) {
+        await Subject.updateOne(
+          { _id: existing._id },
+          { $push: { courseOfferings: newOffering } }
+        );
+        const label = rest.yearLevel ? `${s.program} ${rest.yearLevel}` : s.program;
+        console.log(`   ➕  Added [${label}] to ${normalizedCode}`);
+      }
     } else {
-      console.log(`   ✅  Created  [${s.program}] ${s.subjectCode} — ${s.subjectName}`);
+      await Subject.create({
+        ...rest,
+        subjectCode: normalizedCode,
+        courseOfferings: [newOffering],
+        units,
+      });
+      console.log(`   ✅  Created  [${s.program}] ${normalizedCode} — ${s.subjectName}`);
       subjCreated++;
     }
   }
 
   // ── 4. Seed classrooms ──────────────────────────────────────────────────────
   console.log('\n🏫 Seeding classrooms…');
-  let roomCreated = 0;
-  let roomSkipped = 0;
 
   for (const room of CLASSROOMS_SEED) {
     const filter: Record<string, any> = { roomNumber: room.roomNumber };
@@ -835,8 +844,6 @@ async function seed() {
 
   // ── 5. Seed sections ──────────────────────────────────────────────────────
   console.log('\n🗂️  Seeding sections…');
-  let sectCreated = 0;
-  let sectSkipped = 0;
 
   for (const s of SECTIONS_SEED) {
     const programId = programMap[s.program];
@@ -858,14 +865,18 @@ async function seed() {
     sectCreated++;
   }
 
+  } // end if (!facultyOnly)
+
   // ── Summary ───────────────────────────────────────────────────────────────
   console.log(`\n🎉 Done!`);
   console.log(`   Programs:        ${Object.keys(programMap).length} upserted`);
   console.log(`   Faculty:         ${created} created, ${skipped} skipped`);
   console.log(`   Users (faculty): ${usersCreated} created, ${usersSkipped} skipped`);
+  if (!facultyOnly) {
   console.log(`   Subjects:        ${subjCreated} created, ${subjSkipped} skipped`);
   console.log(`   Classrooms:      ${roomCreated} created, ${roomSkipped} skipped`);
   console.log(`   Sections:        ${sectCreated} created, ${sectSkipped} skipped`);
+  }
   await mongoose.disconnect();
   process.exit(0);
 }

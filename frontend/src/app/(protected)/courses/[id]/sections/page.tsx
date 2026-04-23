@@ -48,14 +48,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { MoreHorizontal } from "lucide-react";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useSections } from "@/hooks/useSections";
 import SectionAPI, { type ISection } from "@/lib/services/SectionAPI";
@@ -378,68 +379,75 @@ export default function ProgramSectionsPage() {
                             <p className="text-sm">No sections yet. Add one to get started.</p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {YEAR_LEVELS.filter((y) => grouped.has(y)).map((yearLevel) => (
                                 <div key={yearLevel}>
-                                    <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                                    <h3 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
                                         {yearLevel}
                                     </h3>
-                                    <div className="rounded-md border">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Section</TableHead>
-                                                    <TableHead>Capacity</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className="text-right">Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {(grouped.get(yearLevel) || []).map((section) => (
-                                                    <TableRow key={getSectionId(section)}>
-                                                        <TableCell className="font-semibold font-mono">
-                                                            {section.name}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {section.capacity ?? (
-                                                                <span className="text-muted-foreground">—</span>
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge
-                                                                variant={section.status === "active" ? "default" : "secondary"}
-                                                                className={
-                                                                    section.status === "active"
-                                                                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-                                                                        : ""
-                                                                }
-                                                            >
-                                                                {section.status === "active" ? "Active" : "Inactive"}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end gap-2">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => setEditSection(section)}
-                                                                >
-                                                                    <Edit className="h-4 w-4" />
+                                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                                        {(grouped.get(yearLevel) || []).map((section) => (
+                                            <Card key={getSectionId(section)} className="group relative hover:shadow-md transition-shadow">
+                                                <CardHeader className="pb-2">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                                                <Layers className="h-4 w-4 text-primary" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Section</p>
+                                                                <p className="font-bold font-mono text-base leading-tight">{section.name}</p>
+                                                            </div>
+                                                        </div>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <span className="sr-only">Open menu</span>
+                                                                    <MoreHorizontal className="h-4 w-4" />
                                                                 </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="text-destructive hover:text-destructive"
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => setEditSection(section)}>
+                                                                    <Edit className="mr-2 h-4 w-4" />
+                                                                    Edit section
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive"
                                                                     onClick={() => setDeleteTarget(section)}
                                                                 >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Delete section
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </CardHeader>
+                                                <CardContent className="pt-0 space-y-2">
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <span className="text-muted-foreground">Capacity</span>
+                                                        <span className="font-medium">
+                                                            {section.capacity ?? <span className="text-muted-foreground">—</span>}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <span className="text-muted-foreground">Status</span>
+                                                        <Badge
+                                                            variant={section.status === "active" ? "default" : "secondary"}
+                                                            className={
+                                                                section.status === "active"
+                                                                    ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                                                                    : ""
+                                                            }
+                                                        >
+                                                            {section.status === "active" ? "Active" : "Inactive"}
+                                                        </Badge>
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
                                     </div>
                                 </div>
                             ))}

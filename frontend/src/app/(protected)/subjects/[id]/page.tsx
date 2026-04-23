@@ -169,11 +169,20 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Course (Degree Program)</p>
-              {typeof subject.course === 'object' && subject.course ? (
+              <p className="text-sm font-medium text-muted-foreground">Course(s)</p>
+              {Array.isArray(subject.courses) && subject.courses.length > 0 ? (
+                <div className="mt-1 space-y-1">
+                  {subject.courses.map((c: any, i: number) => (
+                    <div key={i}>
+                      <p className="font-medium">{c.courseCode ?? c}</p>
+                      {c.courseName && <p className="text-sm text-muted-foreground">{c.courseName}</p>}
+                    </div>
+                  ))}
+                </div>
+              ) : typeof (subject as any).course === 'object' && (subject as any).course ? (
                 <div className="mt-1">
-                  <p className="font-medium">{subject.course.courseCode}</p>
-                  <p className="text-sm text-muted-foreground">{subject.course.courseName}</p>
+                  <p className="font-medium">{(subject as any).course.courseCode}</p>
+                  <p className="text-sm text-muted-foreground">{(subject as any).course.courseName}</p>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Not assigned</p>
