@@ -693,6 +693,7 @@ export default function FacultyPage() {
         facultyName: string;
         programName?: string;
         designation?: string;
+        employmentType?: "full-time" | "part-time";
         maxLoad?: number;
         adminLoad?: number;
         schedules: any[];

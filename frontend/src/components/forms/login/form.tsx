@@ -1,10 +1,10 @@
 "use client";
 
-import {GalleryVerticalEnd} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useAuth } from "@/contexts/authContext";
+import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,18 @@ import { Input } from "@/components/ui/input";
 import { loginSchema } from "./schema";
 import type { LoginFormData, LoginFormProps } from "./types";
 import Image from 'next/image'
+
+function getLoginErrorMessage(error: unknown) {
+  if (typeof error === "object" && error !== null) {
+    const maybeError = error as {
+      message?: string;
+      response?: { data?: { message?: string } };
+    };
+    return maybeError.response?.data?.message || maybeError.message || "Login failed. Please try again.";
+  }
+
+  return "Login failed. Please try again.";
+}
 
 export function LoginForm({
   onSuccess,
@@ -56,17 +68,9 @@ export function LoginForm({
           token: "",
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Login error:", error);
-      
-      let errorMessage = "Login failed. Please try again.";
-      
-      // Handle different types of errors
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
+      const errorMessage = getLoginErrorMessage(error);
       
       setGeneralError(errorMessage);
       onError?.(errorMessage);
@@ -141,6 +145,13 @@ export function LoginForm({
               {isSubmitting ? "Signing in..." : "Login"}
             </Button>
           </Field>
+
+          <FieldDescription className="text-center">
+            Need a faculty account?{" "}
+            <Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">
+              Create account
+            </Link>
+          </FieldDescription>
         </FieldGroup>
       </form>
       

@@ -107,6 +107,27 @@ export class FacultyService {
   }
 
   /**
+   * Public lookup used by faculty self-registration.
+   */
+  static async getRegistrationLookupById(id: string): Promise<IFacultyDocument> {
+    try {
+      const faculty = await Faculty.findById(id)
+        .populate('program', 'courseCode courseName');
+
+      if (!faculty) {
+        throw new Error('Faculty not found');
+      }
+
+      return faculty;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Faculty not found') {
+        throw error;
+      }
+      throw new Error(`Failed to fetch faculty: ${error}`);
+    }
+  }
+
+  /**
    * Get faculty by email
    */
   static async getByEmail(email: string): Promise<IFacultyDocument> {

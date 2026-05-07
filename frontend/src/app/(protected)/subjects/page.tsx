@@ -68,6 +68,7 @@ interface Subject {
   course: { courseCode: string; courseName: string; id: string };
   /** All offerings as a readable string e.g. "BSA 1st Year · BSES 1st Year · BSM 3rd Year" */
   offeringsSummary: string;
+  yearLevel: string;
   /** True when the subject has a GE offering (shared across programs) */
   isGE: boolean;
   semester: string;
@@ -89,7 +90,7 @@ const transformSubject = (s: ISubject): Subject => {
   });
 
   // Primary course: first non-GE offering, or first offering if all are GE
-  const primary = offerings.find(o => o.courseCode !== 'GE') ?? offerings[0] ?? { courseCode: '', courseName: '', id: '' };
+  const primary = offerings.find(o => o.courseCode !== 'GE') ?? offerings[0] ?? { courseCode: '', courseName: '', id: '', yearLevel: null };
   const isGE = offerings.some(o => o.courseCode === 'GE');
 
   const offeringsSummary = offerings
@@ -103,9 +104,10 @@ const transformSubject = (s: ISubject): Subject => {
     subjectName: s.subjectName,
     lectureUnits: (s as any).lectureUnits ?? 0,
     labUnits: (s as any).labUnits ?? 0,
-    units: s.units,
+    units: s.units ?? ((s.lectureUnits ?? 0) + (s.labUnits ?? 0)),
     course: { courseCode: primary.courseCode, courseName: primary.courseName, id: primary.id },
     offeringsSummary,
+    yearLevel: primary.yearLevel ?? s.yearLevel ?? "",
     isGE,
     semester: s.semester || "",
     isLaboratory: (s as any).hasLaboratory ?? ((s as any).labUnits ?? 0) > 0,
@@ -724,4 +726,3 @@ export default function SubjectsPage() {
     </div>
   );
 }
-

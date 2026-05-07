@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
   CalendarRange,
+  ChartNoAxesCombined,
   LayoutDashboard,
   School,
   Users,
@@ -27,20 +28,24 @@ import {
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 
+type NavRole = "admin" | "faculty" | "staff";
+
 const NAV_ITEMS = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin"] },
+  { title: "Reports", href: "/reports", icon: ChartNoAxesCombined, roles: ["admin"] },
   {
     title: "Faculty",
     href: null,
     icon: Users,
+    roles: ["admin", "staff"],
     children: [
       { title: "All Faculties", href: "/faculty" },
       { title: "Programs",      href: "/courses" },
       { title: "Subjects",      href: "/subjects" },
     ],
   },
-  { title: "Schedules",  href: "/schedules",  icon: CalendarRange },
-  { title: "Classrooms", href: "/classrooms", icon: School },
+  { title: "Schedules",  href: "/schedules",  icon: CalendarRange, roles: ["admin", "faculty", "staff"] },
+  { title: "Classrooms", href: "/classrooms", icon: School, roles: ["admin", "staff"] },
 ] as const;
 
 type NavItem = (typeof NAV_ITEMS)[number];
@@ -192,13 +197,16 @@ function UserMenu() {
 
 export function AppNavbar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const role = (user?.role || "staff") as NavRole;
+  const navItems = NAV_ITEMS.filter((item) => (item.roles as readonly NavRole[]).includes(role));
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl w-full flex h-14 items-center gap-4 px-4">
 
         {/* Mobile hamburger */}
-        <MobileMenu pathname={pathname} />
+        <MobileMenu pathname={pathname} navItems={navItems} />
 
         {/* Logo */}
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0 font-semibold text-sm">
@@ -207,7 +215,7 @@ export function AppNavbar() {
 
         {/* Desktop nav — centered */}
         <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             if ("children" in item && item.children) {
               return (
                 <NavDropdown
@@ -247,7 +255,7 @@ export function AppNavbar() {
 
 // ── Mobile menu ───────────────────────────────────────────────────────────────
 
-function MobileMenu({ pathname }: { pathname: string }) {
+function MobileMenu({ pathname, navItems }: { pathname: string; navItems: NavItem[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -263,7 +271,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
           <SheetTitle className="text-left text-sm">DORSU Scheduler</SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             if ("children" in item && item.children) {
               return (
                 <div key={item.title} className="mt-2">

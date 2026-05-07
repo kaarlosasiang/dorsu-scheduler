@@ -4,6 +4,9 @@ import { authenticateToken, requireRoles } from '../../shared/middlewares/authMi
 
 const router: Router = Router();
 
+// Public registration lookup
+router.get('/public/:facultyId', FacultyController.getPublicById);
+
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 

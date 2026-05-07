@@ -50,6 +50,23 @@ export interface FacultyResponse {
   data: IFaculty;
 }
 
+export interface FacultyRegistrationLookupResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    email: string;
+    fullName?: string;
+    program?: string | {
+      _id: string;
+      courseCode: string;
+      courseName: string;
+    };
+    status: "active" | "inactive";
+    hasAccount: boolean;
+  };
+}
+
 export interface FacultyStatsResponse {
   success: boolean;
   message: string;
@@ -135,6 +152,14 @@ export const FacultyAPI = {
   getById: async (id: string) => {
     const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}`);
     return response.data as FacultyResponse;
+  },
+
+  /**
+   * Public faculty lookup used by self-registration
+   */
+  getRegistrationLookup: async (facultyId: string) => {
+    const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/public/${facultyId}`);
+    return response.data as FacultyRegistrationLookupResponse;
   },
 
   /**

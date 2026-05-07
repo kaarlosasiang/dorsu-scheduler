@@ -7,10 +7,10 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
-  username: string;
   email: string;
   password: string;
   role?: "admin" | "faculty" | "staff";
+  facultyId?: string;
 }
 
 export interface FacultyUserCreateData {

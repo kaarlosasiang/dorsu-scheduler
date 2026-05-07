@@ -20,6 +20,10 @@ export interface ISubject {
   description?: string;
   /** Per-program + year-level offerings. Replaces flat courses[] + yearLevel. */
   courseOfferings: ICourseOffering[];
+  /** Legacy fields retained for older records/pages during migration. */
+  courses?: Array<string | { _id?: string; id?: string; courseCode?: string; courseName?: string }>;
+  course?: string | { _id?: string; id?: string; courseCode?: string; courseName?: string };
+  yearLevel?: string;
   department?: string | any;
   semester?: '1st Semester' | '2nd Semester' | 'Summer';
   hasLaboratory?: boolean; // Computed: true if labUnits > 0
@@ -257,4 +261,3 @@ export const SubjectAPI = {
 };
 
 export default SubjectAPI;
-

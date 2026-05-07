@@ -1,5 +1,5 @@
 import User from '../../models/userModel.js';
-import { Faculty } from '../../models/facultyModel.js';
+import { Faculty, IFacultyDocument } from '../../models/facultyModel.js';
 import {
   IRegisterData,
   ILoginCredentials,
@@ -29,6 +29,22 @@ export class AuthService {
         throw new Error('Email already exists');
       }
 
+      let faculty: IFacultyDocument | null = null;
+      if (data.role === 'faculty') {
+        if (!data.facultyId) {
+          throw new Error('Faculty ID is required');
+        }
+
+        faculty = await Faculty.findById(data.facultyId);
+        if (!faculty) {
+          throw new Error('Faculty ID not found');
+        }
+
+        if (faculty.userId) {
+          throw new Error('Faculty already has a registered account');
+        }
+      }
+
       // Create new user
       const user = new User({
         email: data.email.toLowerCase(),
@@ -37,6 +53,14 @@ export class AuthService {
       });
 
       await user.save();
+
+      if (faculty) {
+        await Faculty.findByIdAndUpdate(
+          faculty._id,
+          { userId: user._id },
+          { new: true }
+        );
+      }
 
       // Generate tokens
       const payload: IUserPayload = {

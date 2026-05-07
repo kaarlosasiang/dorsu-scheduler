@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
     CalendarRange,
+    ChartNoAxesCombined,
     LayoutDashboard,
     School,
     Settings2,
@@ -27,6 +28,11 @@ const adminNav = [
         url: "/dashboard",
         icon: LayoutDashboard,
         isActive: true,
+    },
+    {
+        title: "Reports",
+        url: "/reports",
+        icon: ChartNoAxesCombined,
     },
     {
         title: "Faculty",
