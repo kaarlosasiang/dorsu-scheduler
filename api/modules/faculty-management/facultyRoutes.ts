@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { FacultyController } from './facultyController.js';
-import { authenticateToken, requireRoles } from '../../shared/middlewares/authMiddleware.js';
+import { authenticateToken, requireRoles, ensureOwnFacultyOrAdmin } from '../../shared/middlewares/authMiddleware.js';
 
 const router: Router = Router();
 
@@ -15,6 +15,15 @@ router.get('/stats', FacultyController.getStats);
 
 // Current faculty user's own record (place before /:id to avoid conflicts)
 router.get('/me', FacultyController.getMe);
+
+// Faculty profile endpoint - faculty can view own, admin can view any
+router.get('/:id/profile', ensureOwnFacultyOrAdmin, FacultyController.getProfile);
+
+// Faculty workload endpoint - faculty can view own, admin can view any
+router.get('/:id/workload', ensureOwnFacultyOrAdmin, FacultyController.getWorkload);
+
+// Faculty schedules endpoint - faculty can view own, admin can view any
+router.get('/:id/schedules', ensureOwnFacultyOrAdmin, FacultyController.getSchedules);
 
 // Main CRUD routes
 router.get('/', FacultyController.getAll);

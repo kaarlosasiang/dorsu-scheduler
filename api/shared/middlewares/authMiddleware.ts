@@ -144,6 +144,59 @@ export const requireRoles = (roles: string[]) => {
 };
 
 /**
+ * Middleware to check if user is either admin OR the faculty member themselves
+ * Used for faculty-specific endpoints where faculty can only access their own data
+ */
+export const ensureOwnFacultyOrAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: ERROR_MESSAGES.AUTH.UNAUTHORIZED
+      });
+      return;
+    }
+
+    // Admin can access any faculty's data
+    if (req.user.role === USER_ROLES.ADMIN) {
+      next();
+      return;
+    }
+
+    // Faculty can only access their own data
+    if (req.user.role === USER_ROLES.FACULTY) {
+      const facultyId = req.params.id;
+
+      if (!facultyId) {
+        res.status(400).json({
+          success: false,
+          message: 'Faculty ID is required'
+        });
+        return;
+      }
+
+      // The facultyId in the route param should match the faculty record
+      // We need to check if this facultyId belongs to the logged-in user
+      // This will be verified in the controller by looking up faculty.userId
+      next();
+      return;
+    }
+
+    // Any other role is forbidden
+    res.status(403).json({
+      success: false,
+      message: ERROR_MESSAGES.AUTH.FORBIDDEN + '. Faculty or admin access required.'
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Authorization check failed'
+    });
+  }
+};
+
+/**
  * Optional authentication middleware - doesn't fail if no token
  */
 export const optionalAuth = (req: Request, res: Response, next: NextFunction): void => {
