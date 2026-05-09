@@ -284,4 +284,32 @@ export const FacultyAPI = {
     const response = await APIService.get(APP_CONFIG.ENDPOINTS.FACULTY.ME);
     return response.data as FacultyResponse;
   },
+
+  /**
+   * Get faculty profile by ID (faculty can view own, admin can view any)
+   */
+  getProfile: async (id: string): Promise<{ success: boolean; data: any }> => {
+    const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/profile`);
+    return response.data;
+  },
+
+  /**
+   * Get faculty workload by ID (faculty can view own, admin can view any)
+   */
+  getWorkload: async (id: string, semester: string, academicYear: string): Promise<{ success: boolean; data: any }> => {
+    const response = await APIService.get(
+      `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/workload?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get faculty schedules by ID (faculty can view own, admin can view any)
+   */
+  getSchedules: async (id: string, semester: string, academicYear: string): Promise<{ success: boolean; data: any; count: number }> => {
+    const response = await APIService.get(
+      `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/schedules?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
+    return response.data;
+  },
 };

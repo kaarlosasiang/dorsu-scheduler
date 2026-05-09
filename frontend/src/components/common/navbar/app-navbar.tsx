@@ -26,31 +26,54 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-// ── Nav items ─────────────────────────────────────────────────────────────────
+// ── Nav items ─────────────────────────────────────────────────────────
 
 type NavRole = "admin" | "faculty" | "staff";
 
-const NAV_ITEMS = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["admin"] },
-  { title: "Reports", href: "/reports", icon: ChartNoAxesCombined, roles: ["admin"] },
+const ADMIN_NAV_ITEMS = [
+  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Reports", href: "/reports", icon: ChartNoAxesCombined },
   {
     title: "Faculty",
     href: null,
     icon: Users,
-    roles: ["admin", "staff"],
     children: [
-      { title: "All Faculties", href: "/faculty" },
-      { title: "Programs",      href: "/courses" },
-      { title: "Subjects",      href: "/subjects" },
+      { title: "All Faculty", href: "/faculty" },
+      { title: "Programs", href: "/courses" },
+      { title: "Subjects", href: "/subjects" },
     ],
   },
-  { title: "Schedules",  href: "/schedules",  icon: CalendarRange, roles: ["admin", "faculty", "staff"] },
-  { title: "Classrooms", href: "/classrooms", icon: School, roles: ["admin", "staff"] },
+  { title: "Schedules", href: "/schedules", icon: CalendarRange },
+  { title: "Classrooms", href: "/classrooms", icon: School },
 ] as const;
 
-type NavItem = (typeof NAV_ITEMS)[number];
+const FACULTY_NAV_ITEMS = [
+  { title: "Schedule", href: "/faculty/dashboard", icon: CalendarRange },
+] as const;
 
-// ── Dropdown nav item ─────────────────────────────────────────────────────────
+const STAFF_NAV_ITEMS = [
+  {
+    title: "Faculty",
+    href: null,
+    icon: Users,
+    children: [
+      { title: "All Faculty", href: "/faculty" },
+      { title: "Programs", href: "/courses" },
+      { title: "Subjects", href: "/subjects" },
+    ],
+  },
+  { title: "Schedules", href: "/schedules", icon: CalendarRange },
+  { title: "Classrooms", href: "/classrooms", icon: School },
+] as const;
+
+type NavItem = {
+  title: string;
+  href: string | null;
+  icon: any;
+  children?: readonly { title: string; href: string }[];
+};
+
+// ── Dropdown nav item ─────────────────────────────────────────────────
 
 function NavDropdown({
   item,
@@ -117,7 +140,7 @@ function NavDropdown({
   );
 }
 
-// ── User menu ─────────────────────────────────────────────────────────────────
+// ── User menu ───────────────────────────────────────────────────────
 
 function UserMenu() {
   const { user, logout } = useAuth();
@@ -193,13 +216,24 @@ function UserMenu() {
   );
 }
 
-// ── Main navbar ───────────────────────────────────────────────────────────────
+// ── Main navbar ─────────────────────────────────────────────────────
 
 export function AppNavbar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const role = (user?.role || "staff") as NavRole;
-  const navItems = NAV_ITEMS.filter((item) => (item.roles as readonly NavRole[]).includes(role));
+
+  const navItems = (() => {
+    switch (role) {
+      case "admin":
+        return ADMIN_NAV_ITEMS;
+      case "faculty":
+        return FACULTY_NAV_ITEMS;
+      case "staff":
+      default:
+        return STAFF_NAV_ITEMS;
+    }
+  })();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -209,7 +243,7 @@ export function AppNavbar() {
         <MobileMenu pathname={pathname} navItems={navItems} />
 
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2 shrink-0 font-semibold text-sm">
+        <Link href={role === "faculty" ? "/faculty/dashboard" : "/dashboard"} className="flex items-center gap-2 shrink-0 font-semibold text-sm">
           DORSU Scheduler
         </Link>
 
@@ -253,7 +287,7 @@ export function AppNavbar() {
   );
 }
 
-// ── Mobile menu ───────────────────────────────────────────────────────────────
+// ── Mobile menu ───────────────────────────────────────────────────
 
 function MobileMenu({ pathname, navItems }: { pathname: string; navItems: NavItem[] }) {
   const [open, setOpen] = useState(false);

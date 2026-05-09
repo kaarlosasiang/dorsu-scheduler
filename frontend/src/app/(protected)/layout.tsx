@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { AppNavbar } from "@/components/common/navbar/app-navbar";
 import { getDefaultRouteForRole } from "@/lib/role-routes";
 
-const FACULTY_ALLOWED_PATHS = ["/schedules"];
+const FACULTY_ALLOWED_PATHS = ["/schedules", "/faculty"];
 const ADMIN_ONLY_PATHS = ["/dashboard", "/reports"];
 
 export default function ProtectedLayout({

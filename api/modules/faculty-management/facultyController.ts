@@ -493,13 +493,14 @@ export class FacultyController {
       );
 
       // Add overloaded flag
-      const isOverloaded = workload.totalTeachingHours > faculty.maxLoad;
+      const maxLoad = faculty.maxLoad ?? 26;
+      const isOverloaded = workload.totalTeachingHours > maxLoad;
 
       res.status(200).json({
         success: true,
         data: {
           ...workload,
-          maxLoad: faculty.maxLoad,
+          maxLoad,
           isOverloaded
         }
       });
