@@ -272,7 +272,7 @@ export default function AddSchedulePage() {
     load();
   }, []);
 
-  // ── Subject change: auto-populate department + year level ──
+  // ── Subject change: auto-populate department, semester, year level ──
   const selectedSubject = useMemo(
     () => subjects.find(s => getEntityId(s) === subjectId),
     [subjects, subjectId]
@@ -287,7 +287,10 @@ export default function AddSchedulePage() {
       if (dId) setDepartmentId(dId);
     }
 
-    // Pre-fill year level: use first non-null offering year level
+    // Pre-fill semester from subject
+    if (selectedSubject.semester) setSemester(selectedSubject.semester);
+
+    // Pre-fill year level from first non-null course offering
     const firstYearLevel = selectedSubject.courseOfferings
       ?.map(o => o.yearLevel)
       .find(yl => yl != null);
@@ -326,25 +329,30 @@ export default function AddSchedulePage() {
     return map;
   }, [courses]);
 
-  // ── Faculty filtered by selected department ──
-  const filteredFaculty = useMemo(() => {
-    if (!departmentId) return facultyList;
-    return facultyList.filter(f => {
-      const progId = typeof f.program === "object"
-        ? getEntityId(f.program)
-        : (f.program as string | undefined) ?? "";
-      return courseDeptMap.get(progId) === departmentId;
-    });
-  }, [facultyList, departmentId, courseDeptMap]);
+  // ── Faculty change: auto-populate department from faculty's program ──
+  const handleFacultyChange = (fId: string) => {
+    setFacultyId(fId);
+    setSelectedSlot(null);
+    setSlotsLoaded(false);
 
-  // ── Faculty combobox items ──
+    if (!fId) return;
+    const faculty = facultyList.find(f => getEntityId(f) === fId);
+    if (!faculty) return;
+    const progId = typeof faculty.program === "object"
+      ? getEntityId(faculty.program)
+      : (faculty.program as string | undefined) ?? "";
+    const dId = courseDeptMap.get(progId);
+    if (dId) setDepartmentId(dId);
+  };
+
+  // ── Faculty combobox items (all active faculty) ──
   const facultyItems = useMemo(
-    () => filteredFaculty.map(f => ({
+    () => facultyList.map(f => ({
       value: getEntityId(f),
       label: getFacultyFullName(f),
       sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
     })),
-    [filteredFaculty]
+    [facultyList]
   );
 
   // ── Subject combobox items ──
@@ -606,12 +614,7 @@ export default function AddSchedulePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Assignment</CardTitle>
-            <CardDescription>
-              Faculty and classroom.
-              {departmentId && filteredFaculty.length === 0 && (
-                <span className="text-amber-600 ml-1">No faculty found for this department.</span>
-              )}
-            </CardDescription>
+            <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
 
@@ -619,19 +622,13 @@ export default function AddSchedulePage() {
               <label className="text-sm font-medium flex items-center gap-1.5">
                 <User className="h-4 w-4 text-muted-foreground" />
                 Faculty <span className="text-destructive">*</span>
-                {departmentId && (
-                  <span className="text-xs text-muted-foreground font-normal ml-1">
-                    ({filteredFaculty.length} in department)
-                  </span>
-                )}
               </label>
               <Combobox
                 value={facultyId}
-                onChange={v => { setFacultyId(v); setSelectedSlot(null); setSlotsLoaded(false); }}
-                placeholder={departmentId ? "Search faculty in this department…" : "Select department first…"}
-                searchPlaceholder="Type faculty name…"
-                emptyText={!departmentId ? "Select a department first." : "No faculty found."}
-                disabled={!departmentId}
+                onChange={handleFacultyChange}
+                placeholder="Search faculty…"
+                searchPlaceholder="Type faculty name or program…"
+                emptyText="No faculty found."
                 items={facultyItems}
               />
             </div>
