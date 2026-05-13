@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import {
   CalendarRange,
+  ChartNoAxesCombined,
   LayoutDashboard,
   School,
   Users,
@@ -25,27 +26,54 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-// ── Nav items ─────────────────────────────────────────────────────────────────
+// ── Nav items ─────────────────────────────────────────────────────────
 
-const NAV_ITEMS = [
+type NavRole = "admin" | "faculty" | "staff";
+
+const ADMIN_NAV_ITEMS = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Reports", href: "/reports", icon: ChartNoAxesCombined },
   {
     title: "Faculty",
     href: null,
     icon: Users,
     children: [
-      { title: "All Faculties", href: "/faculty" },
-      { title: "Programs",      href: "/courses" },
-      { title: "Subjects",      href: "/subjects" },
+      { title: "All Faculty", href: "/faculty" },
+      { title: "Programs", href: "/courses" },
+      { title: "Subjects", href: "/subjects" },
     ],
   },
-  { title: "Schedules",  href: "/schedules",  icon: CalendarRange },
+  { title: "Schedules", href: "/schedules", icon: CalendarRange },
   { title: "Classrooms", href: "/classrooms", icon: School },
 ] as const;
 
-type NavItem = (typeof NAV_ITEMS)[number];
+const FACULTY_NAV_ITEMS = [
+  { title: "Schedule", href: "/faculty/dashboard", icon: CalendarRange },
+] as const;
 
-// ── Dropdown nav item ─────────────────────────────────────────────────────────
+const STAFF_NAV_ITEMS = [
+  {
+    title: "Faculty",
+    href: null,
+    icon: Users,
+    children: [
+      { title: "All Faculty", href: "/faculty" },
+      { title: "Programs", href: "/courses" },
+      { title: "Subjects", href: "/subjects" },
+    ],
+  },
+  { title: "Schedules", href: "/schedules", icon: CalendarRange },
+  { title: "Classrooms", href: "/classrooms", icon: School },
+] as const;
+
+type NavItem = {
+  title: string;
+  href: string | null;
+  icon: any;
+  children?: readonly { title: string; href: string }[];
+};
+
+// ── Dropdown nav item ─────────────────────────────────────────────────
 
 function NavDropdown({
   item,
@@ -112,7 +140,7 @@ function NavDropdown({
   );
 }
 
-// ── User menu ─────────────────────────────────────────────────────────────────
+// ── User menu ───────────────────────────────────────────────────────
 
 function UserMenu() {
   const { user, logout } = useAuth();
@@ -188,26 +216,40 @@ function UserMenu() {
   );
 }
 
-// ── Main navbar ───────────────────────────────────────────────────────────────
+// ── Main navbar ─────────────────────────────────────────────────────
 
 export function AppNavbar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const role = (user?.role || "staff") as NavRole;
+
+  const navItems = (() => {
+    switch (role) {
+      case "admin":
+        return ADMIN_NAV_ITEMS;
+      case "faculty":
+        return FACULTY_NAV_ITEMS;
+      case "staff":
+      default:
+        return STAFF_NAV_ITEMS;
+    }
+  })();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto max-w-7xl w-full flex h-14 items-center gap-4 px-4">
 
         {/* Mobile hamburger */}
-        <MobileMenu pathname={pathname} />
+        <MobileMenu pathname={pathname} navItems={navItems} />
 
         {/* Logo */}
-        <Link href="/dashboard" className="flex items-center gap-2 shrink-0 font-semibold text-sm">
+        <Link href={role === "faculty" ? "/faculty/dashboard" : "/dashboard"} className="flex items-center gap-2 shrink-0 font-semibold text-sm">
           DORSU Scheduler
         </Link>
 
         {/* Desktop nav — centered */}
         <nav className="hidden md:flex flex-1 items-center justify-center gap-1">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             if ("children" in item && item.children) {
               return (
                 <NavDropdown
@@ -245,9 +287,9 @@ export function AppNavbar() {
   );
 }
 
-// ── Mobile menu ───────────────────────────────────────────────────────────────
+// ── Mobile menu ───────────────────────────────────────────────────
 
-function MobileMenu({ pathname }: { pathname: string }) {
+function MobileMenu({ pathname, navItems }: { pathname: string; navItems: NavItem[] }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -263,7 +305,7 @@ function MobileMenu({ pathname }: { pathname: string }) {
           <SheetTitle className="text-left text-sm">DORSU Scheduler</SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             if ("children" in item && item.children) {
               return (
                 <div key={item.title} className="mt-2">

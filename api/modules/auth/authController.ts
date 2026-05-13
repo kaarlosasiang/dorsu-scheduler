@@ -17,7 +17,7 @@ export class AuthController {
    */
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password, role }: IRegisterData = req.body;
+      const { email, password, role, facultyId }: IRegisterData = req.body;
 
       // Validation
       if (!email || !password) {
@@ -54,8 +54,17 @@ export class AuthController {
         return;
       }
 
+      // Public self-registration is limited to staff/faculty roles.
+      if (role === USER_ROLES.ADMIN) {
+        res.status(400).json({
+          success: false,
+          message: ERROR_MESSAGES.VALIDATION.INVALID_ROLE
+        });
+        return;
+      }
+
       // Register user
-      const result = await AuthService.register({ email, password, role });
+      const result = await AuthService.register({ email, password, role, facultyId });
 
       // Set refresh token cookie
       if (result.refreshToken) {

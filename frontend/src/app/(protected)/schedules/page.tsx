@@ -1005,14 +1005,17 @@ export default function SchedulesPage() {
 
                 const subjectIds = new Set(
                     (subjectResult.data || [])
-                        .map((subject) => subject._id || subject.id)
+                        .map((subject) => subject._id || (subject as { id?: string }).id)
                         .filter(Boolean)
                 );
 
                 schedulesForExport = schedulesForExport.filter((schedule) => {
                     const subjectValue = schedule.subject;
+                    const subjectObject = typeof subjectValue === "object"
+                        ? subjectValue as { _id?: string; id?: string }
+                        : null;
                     const subjectId = typeof subjectValue === "object"
-                        ? subjectValue?._id || subjectValue?.id
+                        ? subjectObject?._id || subjectObject?.id
                         : subjectValue;
 
                     return subjectId ? subjectIds.has(subjectId) : false;
@@ -1582,4 +1585,3 @@ export default function SchedulesPage() {
         </div>
     );
 }
-

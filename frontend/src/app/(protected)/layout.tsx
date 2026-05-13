@@ -5,9 +5,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/authContext";
 import { Loader2 } from "lucide-react";
 import { AppNavbar } from "@/components/common/navbar/app-navbar";
-import { canAccessDashboard, getDefaultRouteForRole } from "@/lib/role-routes";
+import { getDefaultRouteForRole } from "@/lib/role-routes";
 
-const FACULTY_ALLOWED_PATHS = ["/schedules"];
+const FACULTY_ALLOWED_PATHS = ["/schedules", "/faculty"];
+const ADMIN_ONLY_PATHS = ["/dashboard", "/reports"];
 
 export default function ProtectedLayout({
   children,
@@ -24,9 +25,14 @@ export default function ProtectedLayout({
       return;
     }
 
-    if (!isLoading && isAuthenticated && pathname.startsWith("/dashboard") && !canAccessDashboard(user?.role)) {
-      router.push(getDefaultRouteForRole(user?.role));
-      return;
+    if (!isLoading && isAuthenticated && user?.role !== "admin") {
+      const isAdminOnly = ADMIN_ONLY_PATHS.some((path) =>
+        pathname === path || pathname.startsWith(path + "/")
+      );
+      if (isAdminOnly) {
+        router.push("/unauthorized");
+        return;
+      }
     }
 
     if (!isLoading && isAuthenticated && user?.role === "faculty") {

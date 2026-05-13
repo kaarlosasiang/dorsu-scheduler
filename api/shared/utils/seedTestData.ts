@@ -97,9 +97,6 @@ const PROGRAMS = [
   { courseCode: 'BSAM', courseName: 'Bachelor of Science in Agribusiness Management' },
   { courseCode: 'BSES', courseName: 'Bachelor of Science in Environmental Science' },
   { courseCode: 'BSHM', courseName: 'Bachelor of Science in Hospitality Management' },
-  { courseCode: 'BSIT', courseName: 'Bachelor of Science in Information Technology' },
-  { courseCode: 'BSM',  courseName: 'Bachelor of Science in Mathematics' },
-  { courseCode: 'GE',   courseName: 'General Education' },
 ];
 
 // ─── Section Seed Data ───────────────────────────────────────────────────────
@@ -111,13 +108,13 @@ type SectionSeed = {
 };
 
 const SECTIONS_SEED: SectionSeed[] = [
-  // ── BSA (BGA) ─────────────────────────────────────────────────────────────
+  // ── BSA (BGA) ───────────────────────────────────────────────────
   { program: 'BSA', yearLevel: '1st Year', sectionCode: 'BGA1A' },
   { program: 'BSA', yearLevel: '2nd Year', sectionCode: 'BGA2A' },
   { program: 'BSA', yearLevel: '3rd Year', sectionCode: 'BGA3A' },
   { program: 'BSA', yearLevel: '4th Year', sectionCode: 'BGA4A' },
 
-  // ── BSAM (AM) ─────────────────────────────────────────────────────────────
+  // ── BSAM (AM) ───────────────────────────────────────────────────
   { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1AB' },
   { program: 'BSAM', yearLevel: '1st Year', sectionCode: 'AM1BB' },
   { program: 'BSAM', yearLevel: '2nd Year', sectionCode: 'AM2AB' },
@@ -127,26 +124,18 @@ const SECTIONS_SEED: SectionSeed[] = [
   { program: 'BSAM', yearLevel: '3rd Year', sectionCode: 'AM3BB' },
   { program: 'BSAM', yearLevel: '4th Year', sectionCode: 'AM4AB' },
 
-  // ── BSES (ES) ─────────────────────────────────────────────────────────────
+  // ── BSES (ES) ───────────────────────────────────────────────────
   { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1AB' },
   { program: 'BSES', yearLevel: '1st Year', sectionCode: 'ES1BB' },
   { program: 'BSES', yearLevel: '2nd Year', sectionCode: 'ES2BG' },
   { program: 'BSES', yearLevel: '4th Year', sectionCode: 'ES4BG' },
 
-  // ── BSHM (HM) ─────────────────────────────────────────────────────────────
+  // ── BSHM (HM) ───────────────────────────────────────────────────
   { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1AB' },
   { program: 'BSHM', yearLevel: '1st Year', sectionCode: 'HM1BB' },
   { program: 'BSHM', yearLevel: '2nd Year', sectionCode: 'HM2BG' },
   { program: 'BSHM', yearLevel: '3rd Year', sectionCode: 'HM3BG' },
   { program: 'BSHM', yearLevel: '4th Year', sectionCode: 'HM4BG' },
-
-  // ── BSIT (IT) ─────────────────────────────────────────────────────────────
-  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4A' },
-  { program: 'BSIT', yearLevel: '4th Year', sectionCode: 'IT4B' },
-
-  // ── BSM (BGM) ─────────────────────────────────────────────────────────────
-  { program: 'BSM', yearLevel: '3rd Year', sectionCode: 'BGM3A' },
-  { program: 'BSM', yearLevel: '4th Year', sectionCode: 'BGM4A' },
 ];
 
 // ─── Subject Seed Data ───────────────────────────────────────────────────────
@@ -169,58 +158,38 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   // GE — General Education (cross-program subjects)
   // ════════════════════════════════════════════════════════════════════════
   // 1st Semester (GE only — no per-program duplicates needed)
-  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'ENG10',    subjectName: 'Purposive Communication',                       lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'MATH15',   subjectName: 'Mathematics in the Modern World',               lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SPEAR1',   subjectName: 'Movement Enhancement (PATHFIT 1)',              lectureUnits: 0, labUnits: 2 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '1st Semester', subjectCode: 'SPEAR3',   subjectName: 'Physical Activity Towards Health & Fitness 1', lectureUnits: 0, labUnits: 2 },
   // 2nd Semester — list all programs per subject so each GE subject has ONE doc with courses[]
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PERDEV10', subjectName: 'Understanding the Self',                       lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'HUM10',    subjectName: 'Art Appreciation',                             lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'LIT10',    subjectName: 'Literature in Mindanao',                       lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',    subjectName: 'Science, Technology & Society',                lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'STS10',    subjectName: 'Science, Technology & Society',                lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',    subjectName: 'People and the Earth\'s Ecosystem',            lectureUnits: 3, labUnits: 0 },
   { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'STS11',    subjectName: 'People and the Earth\'s Ecosystem',            lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'PHILO10',  subjectName: 'Ethics',                                       lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HIST10',   subjectName: 'The Life and Works of Rizal',                  lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'HIST10',   subjectName: 'The Life and Works of Rizal',                  lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HIST11',   subjectName: 'Readings in Philippine History',               lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'HIST11',   subjectName: 'Readings in Philippine History',               lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SOCSCI10', subjectName: 'The Contemporary World',                       lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
   { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SOCSCI11', subjectName: 'Peace, Development & Indigenous Communities',  lectureUnits: 3, labUnits: 0 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
   { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
   { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'SPEAR2',   subjectName: 'Fitness Exercises (PATHFIT 2)',                 lectureUnits: 0, labUnits: 2 },
-  { program: 'GE',   yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
   { program: 'BSA',  yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
   { program: 'BSAM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
   { program: 'BSES', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
   { program: 'BSHM', yearLevel: '2nd Year', semester: '2nd Semester', subjectCode: 'SPEAR4',   subjectName: 'Physical Activity Towards Health & Fitness 2', lectureUnits: 0, labUnits: 2 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',    subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                      lectureUnits: 0, labUnits: 3 },
   { program: 'BSA',  yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP1',    subjectName: 'NSTP 1 (LTS/CWTS/ROTC)',                      lectureUnits: 0, labUnits: 3 },
-  { program: 'GE',   yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
   { program: 'BSAM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
   { program: 'BSES', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
   { program: 'BSHM', yearLevel: '1st Year', semester: '2nd Semester', subjectCode: 'NSTP2',    subjectName: 'NSTP 2 (CWTS)',                                lectureUnits: 0, labUnits: 3 },
-  { program: 'GE',   yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
   { program: 'BSAM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
   { program: 'BSES', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'FL10',     subjectName: 'Foreign Language',                             lectureUnits: 3, labUnits: 0 },
 
@@ -366,34 +335,10 @@ const SUBJECTS_SEED: SubjectSeed[] = [
   // ════════════════════════════════════════════════════════════════════════
   // BSIT — Bachelor of Science in Information Technology
   // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP131',   subjectName: 'Networking 2',                                    lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP132',   subjectName: 'Advanced Database Systems',                       lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP130',   subjectName: 'Social & Professional Issues',                    lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITFreeElec1',subjectName: 'IT Professional Free Elective 1',                lectureUnits: 3, labUnits: 0 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITFreeElec2',subjectName: 'IT Professional Free Elective 2',                lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITP133',   subjectName: 'Systems Integration & Architecture 1',            lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'ITPE130',  subjectName: 'Integrative Programming & Technologies 2',        lectureUnits: 2, labUnits: 1 },
-  { program: 'BSIT', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'ITP142',   subjectName: 'Practicum (486 hours)',                            lectureUnits: 0, labUnits: 6 },
 
   // ════════════════════════════════════════════════════════════════════════
   // BSM — Bachelor of Science in Mathematics
   // ════════════════════════════════════════════════════════════════════════
-  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math110',   subjectName: 'Calculus III',                                    lectureUnits: 4, labUnits: 0 },
-  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math111',   subjectName: 'Set Theory',                                      lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math112',   subjectName: 'Linear Algebra',                                  lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Phys10',    subjectName: 'General Physics',                                 lectureUnits: 3, labUnits: 1 },
-  { program: 'BSM', yearLevel: '2nd Year', semester: '1st Semester', subjectCode: 'Math127',   subjectName: 'Statistical Theory',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math134',   subjectName: 'Number Theory',                                   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math118',   subjectName: 'Abstract Algebra II',                             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math126',   subjectName: 'Discrete Mathematics',                            lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '1st Semester', subjectCode: 'Math137',   subjectName: 'Actuarial Mathematics I',                         lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math113',   subjectName: 'Advanced Calculus I',                             lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math135',   subjectName: 'Graph Theory and Applications',                   lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math133',   subjectName: 'Mathematical Modeling',                           lectureUnits: 3, labUnits: 2 },
-  { program: 'BSM', yearLevel: '3rd Year', semester: '2nd Semester', subjectCode: 'Math131',   subjectName: 'Numerical Analysis',                              lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math146',   subjectName: 'Modern Geometry',                                 lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math145',   subjectName: 'Topology',                                        lectureUnits: 3, labUnits: 0 },
-  { program: 'BSM', yearLevel: '4th Year', semester: '2nd Semester', subjectCode: 'Math199',   subjectName: 'Thesis B',                                        lectureUnits: 3, labUnits: 0 },
 ];
 
 // Faculty seed list — Baganga Campus (BGA)
@@ -577,100 +522,7 @@ const FACULTY_SEED = [
     minLoad: 18, maxLoad: 18, status: 'active' as const,
   },
 
-  // ── Gen Ed (GE) ───────────────────────────────────────────────────────────
-  {
-    name: { first: 'Joe Arvie', middle: 'C', last: 'Cagulangan' },
-    email: 'joe.cagulangan@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'full-time' as const,
-    designation: 'Admission Designate, Guidance Advocate & Gen. Ed Coordinator',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Arnold John', middle: 'S', last: 'Morales' },
-    email: 'arnoldjohn.morales@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Shounela', last: 'Batao' },
-    email: 'shounela.batao@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Norma', last: 'Japson' },
-    email: 'norma.japson@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Calixto', last: 'Licong Jr.' },
-    email: 'calixto.licong@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Emma', last: 'Morales' },
-    email: 'emma.morales@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Manuel', last: 'Valejo' },
-    email: 'manuel.valejo@dorsu.edu.ph',
-    program: 'GE',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-
-  // ── BSIT ──────────────────────────────────────────────────────────────────
-  {
-    name: { first: 'Mohamid', middle: 'R', last: 'Masukat' },
-    email: 'mohamid.masukat@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'full-time' as const,
-    designation: 'Program Head, ICT Coordinator, 7S Designate',
-    adminLoad: 6,
-    minLoad: 18, maxLoad: 26, status: 'active' as const,
-  },
-  {
-    name: { first: 'Gemar', middle: 'P', last: 'Petere' },
-    email: 'gemar.petere@dorsu.edu.ph',
-    program: 'BSIT',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-
-  // ── BSM ───────────────────────────────────────────────────────────────────
-  {
-    name: { first: 'Reginrex', last: 'Pusta' },
-    email: 'reginrex.pusta@dorsu.edu.ph',
-    program: 'BSM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Lourie Ann', last: 'Salamanes' },
-    email: 'lourie.salamanes@dorsu.edu.ph',
-    program: 'BSM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-  {
-    name: { first: 'Princess Kharylle', middle: 'D', last: 'Tindugan' },
-    email: 'princess.tindugan@dorsu.edu.ph',
-    program: 'BSM',
-    employmentType: 'part-time' as const,
-    minLoad: 18, maxLoad: 18, status: 'active' as const,
-  },
-];
+  ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -865,6 +717,18 @@ async function seed() {
     sectCreated++;
   }
 
+
+  // ── Create admin user ──────────────────────────────────────
+  console.log('\n👨‍💼 Seeding admin user...');
+  let adminUser = await User.findOne({ email: "admin@dorsu.edu.ph" });
+  if (!adminUser) {
+    adminUser = new User({ email: "admin@dorsu.edu.ph", password: "admin123", role: "admin" });
+    await adminUser.save();
+    console.log("   ✅ Created admin user (admin@dorsu.edu.ph)");
+  } else {
+    console.log("   ⏭ Skipped admin user (already exists)");
+  }
+
   } // end if (!facultyOnly)
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -873,9 +737,9 @@ async function seed() {
   console.log(`   Faculty:         ${created} created, ${skipped} skipped`);
   console.log(`   Users (faculty): ${usersCreated} created, ${usersSkipped} skipped`);
   if (!facultyOnly) {
-  console.log(`   Subjects:        ${subjCreated} created, ${subjSkipped} skipped`);
-  console.log(`   Classrooms:      ${roomCreated} created, ${roomSkipped} skipped`);
-  console.log(`   Sections:        ${sectCreated} created, ${sectSkipped} skipped`);
+    console.log(`   Subjects:        ${subjCreated} created, ${subjSkipped} skipped`);
+    console.log(`   Classrooms:      ${roomCreated} created, ${roomSkipped} skipped`);
+    console.log(`   Sections:        ${sectCreated} created, ${sectSkipped} skipped`);
   }
   await mongoose.disconnect();
   process.exit(0);

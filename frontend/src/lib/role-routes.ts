@@ -5,5 +5,6 @@ export function canAccessDashboard(role?: AppRole | null): boolean {
 }
 
 export function getDefaultRouteForRole(role?: AppRole | null): string {
-  return canAccessDashboard(role) ? "/dashboard" : "/schedules";
+  if (role === "faculty") return "/faculty/dashboard";
+  return "/dashboard";
 }

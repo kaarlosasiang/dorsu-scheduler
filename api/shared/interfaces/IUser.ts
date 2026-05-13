@@ -19,6 +19,7 @@ export interface IRegisterData {
   email: string;
   password: string;
   role?: 'admin' | 'faculty' | 'staff';
+  facultyId?: string;
 }
 
 export interface ILoginCredentials {

@@ -50,6 +50,23 @@ export interface FacultyResponse {
   data: IFaculty;
 }
 
+export interface FacultyRegistrationLookupResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    email: string;
+    fullName?: string;
+    program?: string | {
+      _id: string;
+      courseCode: string;
+      courseName: string;
+    };
+    status: "active" | "inactive";
+    hasAccount: boolean;
+  };
+}
+
 export interface FacultyStatsResponse {
   success: boolean;
   message: string;
@@ -135,6 +152,14 @@ export const FacultyAPI = {
   getById: async (id: string) => {
     const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}`);
     return response.data as FacultyResponse;
+  },
+
+  /**
+   * Public faculty lookup used by self-registration
+   */
+  getRegistrationLookup: async (facultyId: string) => {
+    const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/public/${facultyId}`);
+    return response.data as FacultyRegistrationLookupResponse;
   },
 
   /**
@@ -258,5 +283,33 @@ export const FacultyAPI = {
   getMe: async (): Promise<FacultyResponse> => {
     const response = await APIService.get(APP_CONFIG.ENDPOINTS.FACULTY.ME);
     return response.data as FacultyResponse;
+  },
+
+  /**
+   * Get faculty profile by ID (faculty can view own, admin can view any)
+   */
+  getProfile: async (id: string): Promise<{ success: boolean; data: any }> => {
+    const response = await APIService.get(`${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/profile`);
+    return response.data;
+  },
+
+  /**
+   * Get faculty workload by ID (faculty can view own, admin can view any)
+   */
+  getWorkload: async (id: string, semester: string, academicYear: string): Promise<{ success: boolean; data: any }> => {
+    const response = await APIService.get(
+      `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/workload?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get faculty schedules by ID (faculty can view own, admin can view any)
+   */
+  getSchedules: async (id: string, semester: string, academicYear: string): Promise<{ success: boolean; data: any; count: number }> => {
+    const response = await APIService.get(
+      `${APP_CONFIG.ENDPOINTS.FACULTY.BASE}/${id}/schedules?semester=${encodeURIComponent(semester)}&academicYear=${encodeURIComponent(academicYear)}`
+    );
+    return response.data;
   },
 };
