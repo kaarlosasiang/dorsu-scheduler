@@ -1,5 +1,5 @@
 import { Schedule, IScheduleDocument } from '../../models/scheduleModel.js';
-import { IScheduleGenerationResult } from '../../shared/interfaces/ISchedule.js';
+import { IScheduleGenerationResult, ITimeSlot } from '../../shared/interfaces/ISchedule.js';
 import {
   validateCreateSchedule,
   validateUpdateSchedule,
@@ -10,6 +10,7 @@ import {
 } from '../../shared/validators/scheduleValidator.js';
 import { detectConflicts as detectScheduleConflicts } from '../../shared/utils/conflictDetector.js';
 import { generateSchedules as generateAutomatedSchedules } from '../../shared/utils/scheduleGenerator.js';
+import { getTimeSlotsForScheduleType } from '../../shared/utils/timeSlotPatterns.js';
 
 /**
  * Get all schedules with optional filtering
@@ -324,11 +325,80 @@ export async function archiveSchedules(semester: string, academicYear: string): 
       { semester, academicYear },
       { $set: { status: 'archived' } }
     );
-    
+
     return result.modifiedCount;
   } catch (error) {
     console.error('Error in archiveSchedules:', error);
     throw new Error('Failed to archive schedules');
   }
+}
+
+export interface AvailableSlotsResult {
+  available: ITimeSlot[];
+  occupied: { slot: ITimeSlot; reasons: string[] }[];
+}
+
+function slotOverlaps(a: ITimeSlot, b: ITimeSlot): boolean {
+  const aDays = a.days && a.days.length > 0 ? a.days : [a.day];
+  const bDays = b.days && b.days.length > 0 ? b.days : [b.day];
+  if (!aDays.some(d => bDays.includes(d))) return false;
+  const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  return toMin(a.startTime) < toMin(b.endTime) && toMin(a.endTime) > toMin(b.startTime);
+}
+
+/**
+ * Return which time slots are free for a given faculty + classroom combination.
+ * Used by the manual-add schedule form to show an availability grid.
+ */
+export async function getAvailableSlots(params: {
+  faculty: string;
+  classroom: string;
+  semester: string;
+  academicYear: string;
+  scheduleType: 'lecture' | 'laboratory';
+  section?: string;
+  excludeId?: string;
+}): Promise<AvailableSlotsResult> {
+  const { faculty, classroom, semester, academicYear, scheduleType, section, excludeId } = params;
+
+  const orConditions: any[] = [{ faculty }, { classroom }];
+  if (section) orConditions.push({ section });
+
+  const query: any = {
+    $or: orConditions,
+    semester,
+    academicYear,
+    status: { $ne: 'archived' },
+  };
+  if (excludeId) query._id = { $ne: excludeId };
+
+  const existing = await Schedule.find(query)
+    .select('faculty classroom section timeSlot')
+    .lean()
+    .exec();
+
+  const candidates = getTimeSlotsForScheduleType(scheduleType);
+  const available: ITimeSlot[] = [];
+  const occupied: { slot: ITimeSlot; reasons: string[] }[] = [];
+
+  for (const candidate of candidates) {
+    const reasons: string[] = [];
+
+    for (const sched of existing) {
+      if (!slotOverlaps(candidate, sched.timeSlot as ITimeSlot)) continue;
+      if (sched.faculty?.toString() === faculty) reasons.push('Faculty busy');
+      if (sched.classroom?.toString() === classroom) reasons.push('Room taken');
+      if (section && sched.section?.toString() === section) reasons.push('Section busy');
+    }
+
+    const unique = [...new Set(reasons)];
+    if (unique.length === 0) {
+      available.push(candidate);
+    } else {
+      occupied.push({ slot: candidate, reasons: unique });
+    }
+  }
+
+  return { available, occupied };
 }
 
