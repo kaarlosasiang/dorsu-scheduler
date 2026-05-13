@@ -366,6 +366,49 @@ export class ScheduleController {
   }
 
   /**
+   * GET /api/schedules/available-slots - Return free time slots for a faculty+classroom combo
+   */
+  static async getAvailableSlots(req: Request, res: Response): Promise<void> {
+    try {
+      const { faculty, classroom, semester, academicYear, scheduleType, section, excludeId } = req.query;
+
+      if (!faculty || !classroom || !semester || !academicYear || !scheduleType) {
+        res.status(400).json({
+          success: false,
+          message: 'Required query params: faculty, classroom, semester, academicYear, scheduleType'
+        });
+        return;
+      }
+
+      if (scheduleType !== 'lecture' && scheduleType !== 'laboratory') {
+        res.status(400).json({ success: false, message: 'scheduleType must be "lecture" or "laboratory"' });
+        return;
+      }
+
+      const result = await ScheduleService.getAvailableSlots({
+        faculty: faculty as string,
+        classroom: classroom as string,
+        semester: semester as string,
+        academicYear: academicYear as string,
+        scheduleType: scheduleType as 'lecture' | 'laboratory',
+        section: section as string | undefined,
+        excludeId: excludeId as string | undefined,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Available slots retrieved successfully',
+        data: result
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to retrieve available slots'
+      });
+    }
+  }
+
+  /**
    * POST /api/schedules/archive - Archive schedules for semester
    */
   static async archiveSchedules(req: Request, res: Response): Promise<void> {
