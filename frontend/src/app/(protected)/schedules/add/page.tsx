@@ -6,7 +6,6 @@ import { ScheduleAPI, type ITimeSlot } from "@/lib/services/ScheduleAPI";
 import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
 import { ClassroomAPI, type IClassroom } from "@/lib/services/ClassroomAPI";
 import { SubjectAPI, type ISubject } from "@/lib/services/SubjectAPI";
-import { DepartmentAPI, type IDepartment } from "@/lib/services/DepartmentAPI";
 import CourseAPI, { type ICourse } from "@/lib/services/CourseAPI";
 import SectionAPI, { type ISection } from "@/lib/services/SectionAPI";
 import { Button } from "@/components/ui/button";
@@ -223,7 +222,6 @@ export default function AddSchedulePage() {
   const [subjects, setSubjects]       = useState<ISubject[]>([]);
   const [facultyList, setFacultyList] = useState<IFaculty[]>([]);
   const [classrooms, setClassrooms]   = useState<IClassroom[]>([]);
-  const [departments, setDepartments] = useState<IDepartment[]>([]);
   const [courses, setCourses]         = useState<ICourse[]>([]);
   const [sections, setSections]       = useState<ISection[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
@@ -233,7 +231,8 @@ export default function AddSchedulePage() {
   const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
   const [subjectId, setSubjectId]       = useState("");
   const [scheduleType, setScheduleType] = useState<"lecture" | "laboratory">("lecture");
-  const [departmentId, setDepartmentId] = useState("");
+  const [programId, setProgramId]       = useState("");   // shown in form as "Program"
+  const [departmentId, setDepartmentId] = useState("");   // derived from program, used in payload
   const [yearLevel, setYearLevel]       = useState("");
   const [sectionId, setSectionId]       = useState("");
   const [facultyId, setFacultyId]       = useState("");
@@ -253,18 +252,16 @@ export default function AddSchedulePage() {
   // ── Load all reference data on mount ──
   useEffect(() => {
     const load = async () => {
-      const [subjRes, facRes, clsRes, deptRes, courseRes] = await Promise.allSettled([
+      const [subjRes, facRes, clsRes, courseRes] = await Promise.allSettled([
         SubjectAPI.getAll(),
         FacultyAPI.getAll({ status: "active" }),
         ClassroomAPI.getAll(),
-        DepartmentAPI.getAll(),
         CourseAPI.getAll(),
       ]);
 
-      if (subjRes.status === "fulfilled")  setSubjects(subjRes.value.data ?? []);
-      if (facRes.status === "fulfilled")   setFacultyList(facRes.value.data ?? []);
-      if (clsRes.status === "fulfilled")   setClassrooms(clsRes.value.data ?? []);
-      if (deptRes.status === "fulfilled")  setDepartments(deptRes.value.data ?? []);
+      if (subjRes.status === "fulfilled")   setSubjects(subjRes.value.data ?? []);
+      if (facRes.status === "fulfilled")    setFacultyList(facRes.value.data ?? []);
+      if (clsRes.status === "fulfilled")    setClassrooms(clsRes.value.data ?? []);
       if (courseRes.status === "fulfilled") setCourses(courseRes.value.data ?? []);
 
       setLoadingPage(false);
@@ -272,7 +269,7 @@ export default function AddSchedulePage() {
     load();
   }, []);
 
-  // ── Subject change: auto-populate department + year level ──
+  // ── Subject change: auto-populate department, semester, year level ──
   const selectedSubject = useMemo(
     () => subjects.find(s => getEntityId(s) === subjectId),
     [subjects, subjectId]
@@ -281,13 +278,19 @@ export default function AddSchedulePage() {
   useEffect(() => {
     if (!selectedSubject) return;
 
-    // Auto-set department from subject
-    if (selectedSubject.department) {
-      const dId = getEntityId(selectedSubject.department);
-      if (dId) setDepartmentId(dId);
+    // Pre-fill semester from subject
+    if (selectedSubject.semester) setSemester(selectedSubject.semester);
+
+    // Pre-fill program from first course offering
+    const firstOffering = selectedSubject.courseOfferings?.[0];
+    if (firstOffering) {
+      const pId = typeof firstOffering.course === "object"
+        ? firstOffering.course._id
+        : (firstOffering.course as string);
+      if (pId) setProgramId(pId);
     }
 
-    // Pre-fill year level: use first non-null offering year level
+    // Pre-fill year level from first non-null offering
     const firstYearLevel = selectedSubject.courseOfferings
       ?.map(o => o.yearLevel)
       .find(yl => yl != null);
@@ -298,21 +301,21 @@ export default function AddSchedulePage() {
     setSlotsLoaded(false);
   }, [subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Load sections when subject + yearLevel are set ──
+  // ── Program change: derive department for payload ──
   useEffect(() => {
-    if (!subjectId || !yearLevel) { setSections([]); setSectionId(""); return; }
+    if (!programId) return;
+    const dId = courseDeptMap.get(programId);
+    if (dId) setDepartmentId(dId);
+  }, [programId, courseDeptMap]);
 
-    const offering = selectedSubject?.courseOfferings?.find(o => o.yearLevel === yearLevel);
-    const programId = offering
-      ? (typeof offering.course === "object" ? offering.course._id : offering.course as string)
-      : null;
-
-    if (!programId) { setSections([]); return; }
+  // ── Load sections when program + yearLevel are set ──
+  useEffect(() => {
+    if (!programId || !yearLevel) { setSections([]); setSectionId(""); return; }
 
     SectionAPI.getByProgramAndYearLevel(programId, yearLevel)
       .then(res => setSections(res.data ?? []))
       .catch(() => setSections([]));
-  }, [subjectId, yearLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [programId, yearLevel]);
 
   // ── Build course→department lookup ──
   const courseDeptMap = useMemo(() => {
@@ -326,25 +329,30 @@ export default function AddSchedulePage() {
     return map;
   }, [courses]);
 
-  // ── Faculty filtered by selected department ──
-  const filteredFaculty = useMemo(() => {
-    if (!departmentId) return facultyList;
-    return facultyList.filter(f => {
-      const progId = typeof f.program === "object"
-        ? getEntityId(f.program)
-        : (f.program as string | undefined) ?? "";
-      return courseDeptMap.get(progId) === departmentId;
-    });
-  }, [facultyList, departmentId, courseDeptMap]);
+  // ── Faculty change: auto-populate department from faculty's program ──
+  const handleFacultyChange = (fId: string) => {
+    setFacultyId(fId);
+    setSelectedSlot(null);
+    setSlotsLoaded(false);
 
-  // ── Faculty combobox items ──
+    if (!fId) return;
+    const faculty = facultyList.find(f => getEntityId(f) === fId);
+    if (!faculty) return;
+    const progId = typeof faculty.program === "object"
+      ? getEntityId(faculty.program)
+      : (faculty.program as string | undefined) ?? "";
+    const dId = courseDeptMap.get(progId);
+    if (dId) setDepartmentId(dId);
+  };
+
+  // ── Faculty combobox items (all active faculty) ──
   const facultyItems = useMemo(
-    () => filteredFaculty.map(f => ({
+    () => facultyList.map(f => ({
       value: getEntityId(f),
       label: getFacultyFullName(f),
       sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
     })),
-    [filteredFaculty]
+    [facultyList]
   );
 
   // ── Subject combobox items ──
@@ -355,6 +363,16 @@ export default function AddSchedulePage() {
       sub: s.subjectName,
     })),
     [subjects]
+  );
+
+  // ── Program combobox items ──
+  const programItems = useMemo(
+    () => courses.map(c => ({
+      value: getEntityId(c),
+      label: c.courseCode,
+      sub: c.courseName,
+    })),
+    [courses]
   );
 
   // ── Fetch available slots ──
@@ -407,7 +425,7 @@ export default function AddSchedulePage() {
 
   // ── Submit ──
   const handleSave = async () => {
-    if (!semester || !academicYear || !subjectId || !departmentId || !facultyId || !classroomId || !selectedSlot) {
+    if (!semester || !academicYear || !subjectId || !programId || !facultyId || !classroomId || !selectedSlot) {
       setError("Please fill in all required fields and select a time slot.");
       return;
     }
@@ -553,20 +571,15 @@ export default function AddSchedulePage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Department <span className="text-destructive">*</span></label>
-                <Select value={departmentId} onValueChange={v => { setDepartmentId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}>
-                  <SelectTrigger><SelectValue placeholder="Select department…" /></SelectTrigger>
-                  <SelectContent>
-                    {departments.length === 0 && (
-                      <SelectItem value="__none" disabled>No departments loaded</SelectItem>
-                    )}
-                    {departments.map(d => (
-                      <SelectItem key={getEntityId(d)} value={getEntityId(d)}>
-                        {d.code} — {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium">Program <span className="text-destructive">*</span></label>
+                <Combobox
+                  value={programId}
+                  onChange={v => { setProgramId(v); setSectionId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
+                  placeholder="Select program…"
+                  searchPlaceholder="Type program code or name…"
+                  emptyText={courses.length === 0 ? "No programs loaded." : "No program found."}
+                  items={programItems}
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -606,12 +619,7 @@ export default function AddSchedulePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Assignment</CardTitle>
-            <CardDescription>
-              Faculty and classroom.
-              {departmentId && filteredFaculty.length === 0 && (
-                <span className="text-amber-600 ml-1">No faculty found for this department.</span>
-              )}
-            </CardDescription>
+            <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
 
@@ -619,19 +627,13 @@ export default function AddSchedulePage() {
               <label className="text-sm font-medium flex items-center gap-1.5">
                 <User className="h-4 w-4 text-muted-foreground" />
                 Faculty <span className="text-destructive">*</span>
-                {departmentId && (
-                  <span className="text-xs text-muted-foreground font-normal ml-1">
-                    ({filteredFaculty.length} in department)
-                  </span>
-                )}
               </label>
               <Combobox
                 value={facultyId}
-                onChange={v => { setFacultyId(v); setSelectedSlot(null); setSlotsLoaded(false); }}
-                placeholder={departmentId ? "Search faculty in this department…" : "Select department first…"}
-                searchPlaceholder="Type faculty name…"
-                emptyText={!departmentId ? "Select a department first." : "No faculty found."}
-                disabled={!departmentId}
+                onChange={handleFacultyChange}
+                placeholder="Search faculty…"
+                searchPlaceholder="Type faculty name or program…"
+                emptyText="No faculty found."
                 items={facultyItems}
               />
             </div>
