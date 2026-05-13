@@ -275,6 +275,18 @@ export default function AddSchedulePage() {
     [subjects, subjectId]
   );
 
+  // ── Build course→department lookup (must be declared before any effect that uses it) ──
+  const courseDeptMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of courses) {
+      const cId = getEntityId(c);
+      const raw = (c as any).department;
+      const dId = raw ? (typeof raw === "object" ? getEntityId(raw) : (raw as string)) : "";
+      if (cId && dId) map.set(cId, dId);
+    }
+    return map;
+  }, [courses]);
+
   useEffect(() => {
     if (!selectedSubject) return;
 
@@ -316,18 +328,6 @@ export default function AddSchedulePage() {
       .then(res => setSections(res.data ?? []))
       .catch(() => setSections([]));
   }, [programId, yearLevel]);
-
-  // ── Build course→department lookup ──
-  const courseDeptMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const c of courses) {
-      const cId = getEntityId(c);
-      const raw = (c as any).department;
-      const dId = raw ? (typeof raw === "object" ? getEntityId(raw) : (raw as string)) : "";
-      if (cId && dId) map.set(cId, dId);
-    }
-    return map;
-  }, [courses]);
 
   // ── Faculty change: auto-populate department from faculty's program ──
   const handleFacultyChange = (fId: string) => {
