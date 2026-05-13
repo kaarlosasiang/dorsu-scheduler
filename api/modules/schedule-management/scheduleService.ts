@@ -386,9 +386,15 @@ export async function getAvailableSlots(params: {
   if (excludeId) query._id = { $ne: excludeId };
 
   const existing = await Schedule.find(query)
-    .select('faculty classroom section timeSlot')
+    .select('faculty classroom section timeSlot semester academicYear status')
     .lean()
     .exec();
+
+  console.log('[getAvailableSlots] query:', JSON.stringify({ faculty, classroom, semester, academicYear }));
+  console.log('[getAvailableSlots] found', existing.length, 'existing schedules');
+  if (existing.length > 0) {
+    existing.forEach(s => console.log('  ->', (s as any).semester, (s as any).academicYear, (s as any).status, JSON.stringify((s as any).timeSlot)));
+  }
 
   const candidates = getTimeSlotsForScheduleType(scheduleType);
   const available: ITimeSlot[] = [];
