@@ -12,6 +12,7 @@ router.post('/generate', requireRoles(['admin']), ScheduleController.generateSch
 
 // Stats and utilities
 router.get('/stats', ScheduleController.getStats);
+router.get('/available-slots', requireRoles(['admin']), ScheduleController.getAvailableSlots);
 router.post('/detect-conflicts', requireRoles(['admin']), ScheduleController.detectConflicts);
 
 // View by resource

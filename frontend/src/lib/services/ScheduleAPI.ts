@@ -129,16 +129,36 @@ export interface ScheduleQueryParams {
 }
 
 export interface ScheduleCreateData {
-  course: string;
+  subject: string;
   faculty: string;
   classroom: string;
   department: string;
   timeSlot: ITimeSlot;
+  scheduleType?: 'lecture' | 'laboratory';
   semester: string;
   academicYear: string;
-  subject?: string;
+  yearLevel?: string;
   section?: string;
   status?: 'draft' | 'published' | 'archived';
+}
+
+export interface AvailableSlotsParams {
+  faculty: string;
+  classroom: string;
+  semester: string;
+  academicYear: string;
+  scheduleType: 'lecture' | 'laboratory';
+  section?: string;
+  excludeId?: string;
+}
+
+export interface AvailableSlotsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    available: ITimeSlot[];
+    occupied: { slot: ITimeSlot; reasons: string[] }[];
+  };
 }
 
 export interface ScheduleUpdateData {
@@ -242,6 +262,21 @@ export const ScheduleAPI = {
     const endpoint = queryString ? `schedules/stats?${queryString}` : "schedules/stats";
     const response = await APIService.get(endpoint);
     return response.data as ScheduleStatsResponse;
+  },
+
+  /**
+   * Get available time slots for a faculty + classroom combination.
+   * Used by the manual-add form to show an interactive availability grid.
+   */
+  getAvailableSlots: async (params: AvailableSlotsParams) => {
+    const queryString = new URLSearchParams(
+      Object.entries(params).reduce((acc, [k, v]) => {
+        if (v !== undefined) acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+    ).toString();
+    const response = await APIService.get(`schedules/available-slots?${queryString}`);
+    return response.data as AvailableSlotsResponse;
   },
 
   /**
