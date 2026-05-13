@@ -7,18 +7,29 @@ import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
 import { ClassroomAPI, type IClassroom } from "@/lib/services/ClassroomAPI";
 import { SubjectAPI, type ISubject } from "@/lib/services/SubjectAPI";
 import { DepartmentAPI, type IDepartment } from "@/lib/services/DepartmentAPI";
+import CourseAPI, { type ICourse } from "@/lib/services/CourseAPI";
 import SectionAPI, { type ISection } from "@/lib/services/SectionAPI";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Card,
   CardContent,
@@ -43,19 +54,35 @@ import {
   Clock,
   User,
   Building2,
+  ChevronsUpDown,
+  Check,
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Academic year helpers ─────────────────────────────────────────────────────
+
+function getCurrentAcademicYear(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const startYear = now.getMonth() >= 5 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
+function buildAcademicYearOptions(count = 4): string[] {
+  const [startStr] = getCurrentAcademicYear().split("-");
+  const start = parseInt(startStr, 10);
+  return Array.from({ length: count }, (_, i) => `${start + i}-${start + i + 1}`);
+}
+
+const ACADEMIC_YEAR_OPTIONS = buildAcademicYearOptions(4);
+
+// ── Day / time constants ──────────────────────────────────────────────────────
 
 type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
 
-interface DayPattern {
-  label: string;
-  days: DayKey[];
-  day: DayKey;
-}
+interface DayPattern { label: string; days: DayKey[]; day: DayKey; }
 
 const DAY_PATTERNS: DayPattern[] = [
   { label: "M / W",   days: ["monday", "wednesday"], day: "monday"    },
@@ -76,8 +103,8 @@ const LAB_TIME_STARTS = [
   "14:00","14:30","15:00","15:30",
 ];
 
-const YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year"];
-const SEMESTERS   = ["1st Semester", "2nd Semester", "Summer"];
+const YEAR_LEVELS = ["1st Year","2nd Year","3rd Year","4th Year","5th Year"];
+const SEMESTERS   = ["1st Semester","2nd Semester","Summer"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -106,6 +133,87 @@ function getFacultyFullName(f: IFaculty): string {
   return [first, middle, last, ext].filter(Boolean).join(" ");
 }
 
+function getEntityId(entity: any): string {
+  return entity?._id ?? entity?.id ?? "";
+}
+
+// ── Combobox ──────────────────────────────────────────────────────────────────
+
+interface ComboboxProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  disabled?: boolean;
+  items: { value: string; label: string; sub?: string }[];
+}
+
+function Combobox({
+  value,
+  onChange,
+  placeholder,
+  searchPlaceholder = "Search…",
+  emptyText = "No results.",
+  disabled = false,
+  items,
+}: ComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const selected = items.find(i => i.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          {selected ? (
+            <span className="truncate">
+              {selected.label}
+              {selected.sub && (
+                <span className="text-muted-foreground ml-1.5 text-xs">— {selected.sub}</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {items.map(item => (
+                <CommandItem
+                  key={item.value}
+                  value={`${item.label} ${item.sub ?? ""}`}
+                  onSelect={() => {
+                    onChange(item.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={cn("mr-2 h-4 w-4 shrink-0", value === item.value ? "opacity-100" : "opacity-0")} />
+                  <span>{item.label}</span>
+                  {item.sub && (
+                    <span className="ml-1.5 text-xs text-muted-foreground truncate">— {item.sub}</span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AddSchedulePage() {
@@ -116,77 +224,87 @@ export default function AddSchedulePage() {
   const [facultyList, setFacultyList] = useState<IFaculty[]>([]);
   const [classrooms, setClassrooms]   = useState<IClassroom[]>([]);
   const [departments, setDepartments] = useState<IDepartment[]>([]);
+  const [courses, setCourses]         = useState<ICourse[]>([]);
   const [sections, setSections]       = useState<ISection[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
 
   // ── Form state ──
-  const [semester, setSemester]           = useState("");
-  const [academicYear, setAcademicYear]   = useState("");
-  const [subjectId, setSubjectId]         = useState("");
-  const [scheduleType, setScheduleType]   = useState<"lecture" | "laboratory">("lecture");
-  const [departmentId, setDepartmentId]   = useState("");
-  const [yearLevel, setYearLevel]         = useState("");
-  const [sectionId, setSectionId]         = useState("");
-  const [facultyId, setFacultyId]         = useState("");
-  const [classroomId, setClassroomId]     = useState("");
+  const [semester, setSemester]         = useState("");
+  const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
+  const [subjectId, setSubjectId]       = useState("");
+  const [scheduleType, setScheduleType] = useState<"lecture" | "laboratory">("lecture");
+  const [departmentId, setDepartmentId] = useState("");
+  const [yearLevel, setYearLevel]       = useState("");
+  const [sectionId, setSectionId]       = useState("");
+  const [facultyId, setFacultyId]       = useState("");
+  const [classroomId, setClassroomId]   = useState("");
 
   // ── Slot grid state ──
-  const [slotsLoading, setSlotsLoading]   = useState(false);
-  const [availableSet, setAvailableSet]   = useState<Set<string>>(new Set());
-  const [occupiedMap, setOccupiedMap]     = useState<Map<string, string[]>>(new Map());
-  const [selectedSlot, setSelectedSlot]   = useState<ITimeSlot | null>(null);
-  const [slotsLoaded, setSlotsLoaded]     = useState(false);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [availableSet, setAvailableSet] = useState<Set<string>>(new Set());
+  const [occupiedMap, setOccupiedMap]   = useState<Map<string, string[]>>(new Map());
+  const [selectedSlot, setSelectedSlot] = useState<ITimeSlot | null>(null);
+  const [slotsLoaded, setSlotsLoaded]   = useState(false);
 
   // ── Submit state ──
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
-  // ── Load reference data on mount ──
+  // ── Load all reference data on mount ──
   useEffect(() => {
-    Promise.all([
-      SubjectAPI.getAll(),
-      FacultyAPI.getAll({ status: "active" }),
-      ClassroomAPI.getAll(),
-      DepartmentAPI.getAll(),
-    ]).then(([subj, fac, cls, dept]) => {
-      setSubjects(subj.data ?? []);
-      setFacultyList(fac.data ?? []);
-      setClassrooms(cls.data ?? []);
-      setDepartments(dept.data ?? []);
-    }).catch(() => {
-      toast.error("Failed to load form data");
-    }).finally(() => setLoadingPage(false));
+    const load = async () => {
+      const [subjRes, facRes, clsRes, deptRes, courseRes] = await Promise.allSettled([
+        SubjectAPI.getAll(),
+        FacultyAPI.getAll({ status: "active" }),
+        ClassroomAPI.getAll(),
+        DepartmentAPI.getAll(),
+        CourseAPI.getAll(),
+      ]);
+
+      if (subjRes.status === "fulfilled")  setSubjects(subjRes.value.data ?? []);
+      if (facRes.status === "fulfilled")   setFacultyList(facRes.value.data ?? []);
+      if (clsRes.status === "fulfilled")   setClassrooms(clsRes.value.data ?? []);
+      if (deptRes.status === "fulfilled")  setDepartments(deptRes.value.data ?? []);
+      if (courseRes.status === "fulfilled") setCourses(courseRes.value.data ?? []);
+
+      setLoadingPage(false);
+    };
+    load();
   }, []);
 
-  // ── Auto-populate department when subject changes ──
+  // ── Subject change: auto-populate department + year level ──
+  const selectedSubject = useMemo(
+    () => subjects.find(s => getEntityId(s) === subjectId),
+    [subjects, subjectId]
+  );
+
   useEffect(() => {
-    if (!subjectId) return;
-    const subj = subjects.find(s => (s._id ?? s.id) === subjectId);
-    if (!subj) return;
-    if (subj.department) {
-      const deptId = typeof subj.department === "object"
-        ? subj.department._id ?? subj.department.id
-        : subj.department;
-      if (deptId) setDepartmentId(deptId);
+    if (!selectedSubject) return;
+
+    // Auto-set department from subject
+    if (selectedSubject.department) {
+      const dId = getEntityId(selectedSubject.department);
+      if (dId) setDepartmentId(dId);
     }
-    // Reset downstream selections
-    setYearLevel("");
+
+    // Pre-fill year level: use first non-null offering year level
+    const firstYearLevel = selectedSubject.courseOfferings
+      ?.map(o => o.yearLevel)
+      .find(yl => yl != null);
+    if (firstYearLevel) setYearLevel(firstYearLevel);
+
     setSectionId("");
     setSelectedSlot(null);
     setSlotsLoaded(false);
-  }, [subjectId, subjects]);
+  }, [subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Load sections when subject + yearLevel are set ──
   useEffect(() => {
     if (!subjectId || !yearLevel) { setSections([]); setSectionId(""); return; }
 
-    const subj = subjects.find(s => (s._id ?? s.id) === subjectId);
-    if (!subj) return;
-
-    // Find the program ID for this subject's offerings at this year level
-    const offering = subj.courseOfferings?.find(o => o.yearLevel === yearLevel);
+    const offering = selectedSubject?.courseOfferings?.find(o => o.yearLevel === yearLevel);
     const programId = offering
-      ? (typeof offering.course === "object" ? offering.course._id : offering.course)
+      ? (typeof offering.course === "object" ? offering.course._id : offering.course as string)
       : null;
 
     if (!programId) { setSections([]); return; }
@@ -194,9 +312,52 @@ export default function AddSchedulePage() {
     SectionAPI.getByProgramAndYearLevel(programId, yearLevel)
       .then(res => setSections(res.data ?? []))
       .catch(() => setSections([]));
-  }, [subjectId, yearLevel, subjects]);
+  }, [subjectId, yearLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch available slots when all required selector fields are set ──
+  // ── Build course→department lookup ──
+  const courseDeptMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of courses) {
+      const cId = getEntityId(c);
+      const raw = (c as any).department;
+      const dId = raw ? (typeof raw === "object" ? getEntityId(raw) : (raw as string)) : "";
+      if (cId && dId) map.set(cId, dId);
+    }
+    return map;
+  }, [courses]);
+
+  // ── Faculty filtered by selected department ──
+  const filteredFaculty = useMemo(() => {
+    if (!departmentId) return facultyList;
+    return facultyList.filter(f => {
+      const progId = typeof f.program === "object"
+        ? getEntityId(f.program)
+        : (f.program as string | undefined) ?? "";
+      return courseDeptMap.get(progId) === departmentId;
+    });
+  }, [facultyList, departmentId, courseDeptMap]);
+
+  // ── Faculty combobox items ──
+  const facultyItems = useMemo(
+    () => filteredFaculty.map(f => ({
+      value: getEntityId(f),
+      label: getFacultyFullName(f),
+      sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
+    })),
+    [filteredFaculty]
+  );
+
+  // ── Subject combobox items ──
+  const subjectItems = useMemo(
+    () => subjects.map(s => ({
+      value: getEntityId(s),
+      label: s.subjectCode,
+      sub: s.subjectName,
+    })),
+    [subjects]
+  );
+
+  // ── Fetch available slots ──
   const canFetchSlots = !!(facultyId && classroomId && semester && academicYear && scheduleType);
 
   useEffect(() => {
@@ -222,12 +383,8 @@ export default function AddSchedulePage() {
       section: sectionId || undefined,
     }).then(res => {
       if (cancelled) return;
-      const aSet = new Set<string>(res.data.available.map(slotKey));
-      const oMap = new Map<string, string[]>(
-        res.data.occupied.map(({ slot, reasons }) => [slotKey(slot), reasons])
-      );
-      setAvailableSet(aSet);
-      setOccupiedMap(oMap);
+      setAvailableSet(new Set(res.data.available.map(slotKey)));
+      setOccupiedMap(new Map(res.data.occupied.map(({ slot, reasons }) => [slotKey(slot), reasons])));
       setSlotsLoaded(true);
     }).catch(() => {
       if (!cancelled) toast.error("Failed to load available slots");
@@ -236,44 +393,17 @@ export default function AddSchedulePage() {
     return () => { cancelled = true; };
   }, [facultyId, classroomId, semester, academicYear, scheduleType, sectionId, canFetchSlots]);
 
-  // ── Derived ──
-  const timeStarts = scheduleType === "laboratory" ? LAB_TIME_STARTS : LECTURE_TIME_STARTS;
+  const timeStarts   = scheduleType === "laboratory" ? LAB_TIME_STARTS : LECTURE_TIME_STARTS;
   const durationMins = scheduleType === "laboratory" ? 90 : 60;
 
-  const selectedSubject = useMemo(
-    () => subjects.find(s => (s._id ?? s.id) === subjectId),
-    [subjects, subjectId]
-  );
-
-  // Group faculty: program-matching first
-  const subjectCourseIds = useMemo(() => {
-    if (!selectedSubject) return new Set<string>();
-    return new Set(
-      selectedSubject.courseOfferings?.map(o =>
-        typeof o.course === "object" ? o.course._id : o.course
-      ).filter(Boolean) as string[]
-    );
+  // ── Year level options ──
+  const yearLevelOptions = useMemo(() => {
+    if (!selectedSubject?.courseOfferings?.length) return YEAR_LEVELS;
+    const fromSubject = [
+      ...new Set(selectedSubject.courseOfferings.map(o => o.yearLevel).filter(Boolean) as string[])
+    ];
+    return fromSubject.length > 0 ? fromSubject : YEAR_LEVELS;
   }, [selectedSubject]);
-
-  const { programFaculty, otherFaculty } = useMemo(() => {
-    const prog: IFaculty[] = [];
-    const other: IFaculty[] = [];
-    for (const f of facultyList) {
-      const fProgId = typeof f.program === "object"
-        ? (f.program as any)._id ?? (f.program as any).id
-        : f.program;
-      const fCode = typeof f.program === "object"
-        ? (f.program as any).courseCode
-        : undefined;
-
-      if (subjectCourseIds.has(fProgId) || fCode === "GE") {
-        prog.push(f);
-      } else {
-        other.push(f);
-      }
-    }
-    return { programFaculty: prog, otherFaculty: other };
-  }, [facultyList, subjectCourseIds]);
 
   // ── Submit ──
   const handleSave = async () => {
@@ -281,15 +411,12 @@ export default function AddSchedulePage() {
       setError("Please fill in all required fields and select a time slot.");
       return;
     }
-
     if (!/^\d{4}-\d{4}$/.test(academicYear)) {
       setError("Academic year must be in YYYY-YYYY format (e.g. 2024-2025).");
       return;
     }
-
     setError(null);
     setSubmitting(true);
-
     try {
       const res = await ScheduleAPI.create({
         subject: subjectId,
@@ -312,22 +439,15 @@ export default function AddSchedulePage() {
         setError((res as any).message ?? "Failed to create schedule");
       }
     } catch (err: any) {
-      const msg: string =
-        err?.response?.data?.message ?? err?.message ?? "Failed to create schedule";
+      const msg: string = err?.response?.data?.message ?? err?.message ?? "Failed to create schedule";
       setError(msg);
-      // Refresh slot availability to reflect the conflict
+      // Refresh grid on conflict
       if (canFetchSlots) {
-        ScheduleAPI.getAvailableSlots({
-          faculty: facultyId,
-          classroom: classroomId,
-          semester,
-          academicYear,
-          scheduleType,
-          section: sectionId || undefined,
-        }).then(res => {
-          setAvailableSet(new Set(res.data.available.map(slotKey)));
-          setOccupiedMap(new Map(res.data.occupied.map(({ slot, reasons }) => [slotKey(slot), reasons])));
-        }).catch(() => {});
+        ScheduleAPI.getAvailableSlots({ faculty: facultyId, classroom: classroomId, semester, academicYear, scheduleType, section: sectionId || undefined })
+          .then(r => {
+            setAvailableSet(new Set(r.data.available.map(slotKey)));
+            setOccupiedMap(new Map(r.data.occupied.map(({ slot, reasons }) => [slotKey(slot), reasons])));
+          }).catch(() => {});
       }
     } finally {
       setSubmitting(false);
@@ -353,22 +473,14 @@ export default function AddSchedulePage() {
 
         {/* Header */}
         <div>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => router.push("/schedules")}
-            className="p-0 h-auto !px-0 mb-2"
-          >
+          <Button variant="link" size="sm" onClick={() => router.push("/schedules")} className="p-0 h-auto !px-0 mb-2">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Schedules
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">Add Schedule</h1>
-          <p className="text-muted-foreground text-sm">
-            Manually assign a subject, faculty, classroom, and time slot.
-          </p>
+          <p className="text-muted-foreground text-sm">Manually assign a subject, faculty, classroom, and time slot.</p>
         </div>
 
-        {/* Error */}
         {error && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -384,43 +496,29 @@ export default function AddSchedulePage() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-            {/* Semester */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Semester <span className="text-destructive">*</span>
-              </label>
+              <label className="text-sm font-medium">Semester <span className="text-destructive">*</span></label>
               <Select value={semester} onValueChange={setSemester}>
-                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select semester…" /></SelectTrigger>
                 <SelectContent>
                   {SEMESTERS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Academic Year */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Academic Year <span className="text-destructive">*</span>
-              </label>
-              <Input
-                placeholder="e.g. 2024-2025"
-                value={academicYear}
-                onChange={e => setAcademicYear(e.target.value)}
-              />
+              <label className="text-sm font-medium">Academic Year <span className="text-destructive">*</span></label>
+              <Select value={academicYear} onValueChange={setAcademicYear}>
+                <SelectTrigger><SelectValue placeholder="Select year…" /></SelectTrigger>
+                <SelectContent>
+                  {ACADEMIC_YEAR_OPTIONS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Schedule Type */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Schedule Type <span className="text-destructive">*</span>
-              </label>
-              <Select
-                value={scheduleType}
-                onValueChange={v => {
-                  setScheduleType(v as "lecture" | "laboratory");
-                  setSelectedSlot(null);
-                }}
-              >
+              <label className="text-sm font-medium">Schedule Type <span className="text-destructive">*</span></label>
+              <Select value={scheduleType} onValueChange={v => { setScheduleType(v as "lecture" | "laboratory"); setSelectedSlot(null); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="lecture">Lecture</SelectItem>
@@ -440,38 +538,30 @@ export default function AddSchedulePage() {
           </CardHeader>
           <CardContent className="space-y-4">
 
-            {/* Subject */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Subject <span className="text-destructive">*</span>
-              </label>
-              <Select value={subjectId} onValueChange={setSubjectId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select subject…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map(s => (
-                    <SelectItem key={s._id ?? s.id} value={(s._id ?? s.id)!}>
-                      <span className="font-medium">{s.subjectCode}</span>
-                      <span className="text-muted-foreground ml-2 text-xs">— {s.subjectName}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Subject <span className="text-destructive">*</span></label>
+              <Combobox
+                value={subjectId}
+                onChange={v => { setSubjectId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
+                placeholder="Search subjects…"
+                searchPlaceholder="Type subject code or name…"
+                emptyText={subjects.length === 0 ? "No subjects loaded." : "No subject found."}
+                items={subjectItems}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-              {/* Department */}
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Department <span className="text-destructive">*</span>
-                </label>
-                <Select value={departmentId} onValueChange={setDepartmentId}>
-                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <label className="text-sm font-medium">Department <span className="text-destructive">*</span></label>
+                <Select value={departmentId} onValueChange={v => { setDepartmentId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}>
+                  <SelectTrigger><SelectValue placeholder="Select department…" /></SelectTrigger>
                   <SelectContent>
+                    {departments.length === 0 && (
+                      <SelectItem value="__none" disabled>No departments loaded</SelectItem>
+                    )}
                     {departments.map(d => (
-                      <SelectItem key={d._id ?? d.id} value={(d._id ?? d.id)!}>
+                      <SelectItem key={getEntityId(d)} value={getEntityId(d)}>
                         {d.code} — {d.name}
                       </SelectItem>
                     ))}
@@ -479,25 +569,19 @@ export default function AddSchedulePage() {
                 </Select>
               </div>
 
-              {/* Year Level */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Year Level</label>
                 <Select value={yearLevel} onValueChange={v => { setYearLevel(v); setSectionId(""); }}>
                   <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
                   <SelectContent>
-                    {YEAR_LEVELS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                    {yearLevelOptions.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Section */}
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Section</label>
-                <Select
-                  value={sectionId}
-                  onValueChange={setSectionId}
-                  disabled={!yearLevel || sections.length === 0}
-                >
+                <Select value={sectionId} onValueChange={setSectionId} disabled={!yearLevel || sections.length === 0}>
                   <SelectTrigger>
                     <SelectValue placeholder={
                       !yearLevel ? "Set year level first" :
@@ -506,7 +590,7 @@ export default function AddSchedulePage() {
                   </SelectTrigger>
                   <SelectContent>
                     {sections.map(sec => (
-                      <SelectItem key={sec._id ?? sec.id} value={(sec._id ?? sec.id)!}>
+                      <SelectItem key={getEntityId(sec)} value={getEntityId(sec)}>
                         {sec.name ?? sec.sectionCode}
                       </SelectItem>
                     ))}
@@ -522,66 +606,48 @@ export default function AddSchedulePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Assignment</CardTitle>
-            <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
+            <CardDescription>
+              Faculty and classroom.
+              {departmentId && filteredFaculty.length === 0 && (
+                <span className="text-amber-600 ml-1">No faculty found for this department.</span>
+              )}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
 
-            {/* Faculty */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium flex items-center gap-1.5">
                 <User className="h-4 w-4 text-muted-foreground" />
                 Faculty <span className="text-destructive">*</span>
+                {departmentId && (
+                  <span className="text-xs text-muted-foreground font-normal ml-1">
+                    ({filteredFaculty.length} in department)
+                  </span>
+                )}
               </label>
-              <Select value={facultyId} onValueChange={v => { setFacultyId(v); setSelectedSlot(null); }}>
-                <SelectTrigger><SelectValue placeholder="Select faculty member…" /></SelectTrigger>
-                <SelectContent>
-                  {programFaculty.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Program / GE Faculty</SelectLabel>
-                      {programFaculty.map(f => (
-                        <SelectItem key={f._id ?? f.id} value={(f._id ?? f.id)!}>
-                          {getFacultyFullName(f)}
-                          {typeof f.program === "object" && (
-                            <span className="text-muted-foreground ml-1.5 text-xs">
-                              ({(f.program as any).courseCode})
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                  {otherFaculty.length > 0 && (
-                    <SelectGroup>
-                      <SelectLabel>Other Faculty</SelectLabel>
-                      {otherFaculty.map(f => (
-                        <SelectItem key={f._id ?? f.id} value={(f._id ?? f.id)!}>
-                          {getFacultyFullName(f)}
-                          {typeof f.program === "object" && (
-                            <span className="text-muted-foreground ml-1.5 text-xs">
-                              ({(f.program as any).courseCode})
-                            </span>
-                          )}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  )}
-                </SelectContent>
-              </Select>
+              <Combobox
+                value={facultyId}
+                onChange={v => { setFacultyId(v); setSelectedSlot(null); setSlotsLoaded(false); }}
+                placeholder={departmentId ? "Search faculty in this department…" : "Select department first…"}
+                searchPlaceholder="Type faculty name…"
+                emptyText={!departmentId ? "Select a department first." : "No faculty found."}
+                disabled={!departmentId}
+                items={facultyItems}
+              />
             </div>
 
             <Separator />
 
-            {/* Classroom */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium flex items-center gap-1.5">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
                 Classroom <span className="text-destructive">*</span>
               </label>
-              <Select value={classroomId} onValueChange={v => { setClassroomId(v); setSelectedSlot(null); }}>
+              <Select value={classroomId} onValueChange={v => { setClassroomId(v); setSelectedSlot(null); setSlotsLoaded(false); }}>
                 <SelectTrigger><SelectValue placeholder="Select classroom…" /></SelectTrigger>
                 <SelectContent>
                   {classrooms.map(room => (
-                    <SelectItem key={room._id ?? room.id} value={(room._id ?? room.id)!}>
+                    <SelectItem key={getEntityId(room)} value={getEntityId(room)}>
                       {room.building ? `${room.building} ${room.roomNumber}` : room.roomNumber}
                       <span className="text-muted-foreground ml-1.5 text-xs">(cap. {room.capacity})</span>
                     </SelectItem>
@@ -602,19 +668,17 @@ export default function AddSchedulePage() {
             </CardTitle>
             <CardDescription>
               {!canFetchSlots
-                ? "Fill in faculty, classroom, semester, academic year, and schedule type to see available slots."
+                ? "Complete faculty, classroom, semester, and academic year fields above to see available slots."
                 : slotsLoading
                 ? "Checking availability…"
                 : slotsLoaded
-                ? "Green = available · Gray = occupied. Click to select."
+                ? "Green = available · Gray = occupied. Click a slot to select."
                 : ""}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!canFetchSlots && (
-              <p className="text-sm text-muted-foreground italic">
-                Complete the fields above to load the availability grid.
-              </p>
+              <p className="text-sm text-muted-foreground italic">Availability grid will appear here once all required fields are filled.</p>
             )}
 
             {canFetchSlots && slotsLoading && (
@@ -626,18 +690,13 @@ export default function AddSchedulePage() {
 
             {canFetchSlots && !slotsLoading && slotsLoaded && (
               <>
-                {/* Grid */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr>
-                        <th className="text-left text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">
-                          Time
-                        </th>
+                        <th className="text-left text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">Time</th>
                         {DAY_PATTERNS.map(p => (
-                          <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">
-                            {p.label}
-                          </th>
+                          <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">{p.label}</th>
                         ))}
                       </tr>
                     </thead>
@@ -646,36 +705,26 @@ export default function AddSchedulePage() {
                         const end = addMinutes(start, durationMins);
                         return (
                           <tr key={start}>
-                            <td className="pr-3 py-0.5 text-muted-foreground whitespace-nowrap">
-                              {formatTime(start)}
-                            </td>
+                            <td className="pr-3 py-0.5 text-muted-foreground whitespace-nowrap">{formatTime(start)}</td>
                             {DAY_PATTERNS.map(pattern => {
-                              const candidateSlot: ITimeSlot = {
-                                day: pattern.day,
-                                days: pattern.days as ITimeSlot["days"],
-                                startTime: start,
-                                endTime: end,
-                              };
+                              const candidate: ITimeSlot = { day: pattern.day, days: pattern.days as ITimeSlot["days"], startTime: start, endTime: end };
                               const key = `${start}|${patternKey(pattern)}`;
                               const isAvailable = availableSet.has(key);
                               const reasons    = occupiedMap.get(key);
-                              const isOccupied = !!reasons;
-                              const isSelected =
-                                selectedSlot?.startTime === start &&
-                                slotKey(selectedSlot) === key;
+                              const isSelected = selectedSlot ? slotKey(selectedSlot) === key : false;
 
                               if (isAvailable) {
                                 return (
                                   <td key={pattern.label} className="px-1 py-0.5 text-center">
                                     <button
                                       type="button"
-                                      onClick={() => setSelectedSlot(isSelected ? null : candidateSlot)}
-                                      className={[
+                                      onClick={() => setSelectedSlot(isSelected ? null : candidate)}
+                                      className={cn(
                                         "w-full rounded px-1.5 py-1 font-medium transition-colors",
                                         isSelected
                                           ? "bg-green-600 text-white ring-2 ring-green-700"
-                                          : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300",
-                                      ].join(" ")}
+                                          : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
+                                      )}
                                     >
                                       {isSelected ? <CheckCircle2 className="h-3 w-3 mx-auto" /> : "Free"}
                                     </button>
@@ -683,33 +732,22 @@ export default function AddSchedulePage() {
                                 );
                               }
 
-                              if (isOccupied) {
+                              if (reasons) {
                                 return (
                                   <td key={pattern.label} className="px-1 py-0.5 text-center">
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <button
-                                          type="button"
-                                          disabled
-                                          className="w-full rounded px-1.5 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60"
-                                        >
+                                        <button type="button" disabled className="w-full rounded px-1.5 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60">
                                           Taken
                                         </button>
                                       </TooltipTrigger>
-                                      <TooltipContent side="top">
-                                        {reasons!.join(" · ")}
-                                      </TooltipContent>
+                                      <TooltipContent side="top">{reasons.join(" · ")}</TooltipContent>
                                     </Tooltip>
                                   </td>
                                 );
                               }
 
-                              // Slot not in either set (shouldn't happen, but fallback)
-                              return (
-                                <td key={pattern.label} className="px-1 py-0.5 text-center">
-                                  <span className="text-muted-foreground">—</span>
-                                </td>
-                              );
+                              return <td key={pattern.label} className="px-1 py-0.5 text-center"><span className="text-muted-foreground">—</span></td>;
                             })}
                           </tr>
                         );
@@ -718,13 +756,12 @@ export default function AddSchedulePage() {
                   </table>
                 </div>
 
-                {/* Selected slot summary */}
                 {selectedSlot && (
                   <div className="mt-4 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
                     <Clock className="h-4 w-4 shrink-0" />
                     <span>
                       <span className="font-medium">
-                        {DAY_PATTERNS.find(p => slotKey({ day: p.day, days: p.days as ITimeSlot["days"], startTime: selectedSlot.startTime, endTime: selectedSlot.endTime }) === slotKey(selectedSlot))?.label}
+                        {DAY_PATTERNS.find(p => patternKey(p) === slotKey(selectedSlot).split("|")[1])?.label}
                       </span>
                       {" · "}
                       {formatTime(selectedSlot.startTime)} – {formatTime(selectedSlot.endTime)}
@@ -742,17 +779,10 @@ export default function AddSchedulePage() {
 
         {/* ── Actions ── */}
         <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/schedules")}
-            disabled={submitting}
-          >
+          <Button variant="outline" onClick={() => router.push("/schedules")} disabled={submitting}>
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={submitting || !selectedSlot}
-          >
+          <Button onClick={handleSave} disabled={submitting || !selectedSlot}>
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Schedule
           </Button>
