@@ -345,15 +345,22 @@ export default function AddSchedulePage() {
     if (dId) setDepartmentId(dId);
   };
 
-  // ── Faculty combobox items (all active faculty) ──
-  const facultyItems = useMemo(
-    () => facultyList.map(f => ({
+  // ── Faculty combobox items (filtered by selected program) ──
+  const facultyItems = useMemo(() => {
+    const list = programId
+      ? facultyList.filter(f => {
+          const fProgId = typeof f.program === "object"
+            ? getEntityId(f.program)
+            : (f.program as string | undefined) ?? "";
+          return fProgId === programId;
+        })
+      : facultyList;
+    return list.map(f => ({
       value: getEntityId(f),
       label: getFacultyFullName(f),
       sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
-    })),
-    [facultyList]
-  );
+    }));
+  }, [facultyList, programId]);
 
   // ── Subject combobox items ──
   const subjectItems = useMemo(
@@ -574,7 +581,7 @@ export default function AddSchedulePage() {
                 <label className="text-sm font-medium">Program <span className="text-destructive">*</span></label>
                 <Combobox
                   value={programId}
-                  onChange={v => { setProgramId(v); setSectionId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
+                  onChange={v => { setProgramId(v); setSectionId(""); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
                   placeholder="Select program…"
                   searchPlaceholder="Type program code or name…"
                   emptyText={courses.length === 0 ? "No programs loaded." : "No program found."}

@@ -338,9 +338,22 @@ export interface AvailableSlotsResult {
   occupied: { slot: ITimeSlot; reasons: string[] }[];
 }
 
+// When a stored schedule lacks the `days` array (legacy data or validator stripping),
+// expand its primary day to all days covered by known scheduling patterns so we don't
+// miss conflicts on secondary days (e.g. a MW slot stored as day:"monday" only).
+const PRIMARY_DAY_EXPANSION: Record<string, string[]> = {
+  monday:    ['monday', 'wednesday', 'friday'], // could be MW or MF
+  tuesday:   ['tuesday', 'thursday'],
+  wednesday: ['wednesday', 'friday'],
+  thursday:  ['thursday'],
+  friday:    ['friday'],
+  saturday:  ['saturday'],
+  sunday:    ['sunday'],
+};
+
 function slotOverlaps(a: ITimeSlot, b: ITimeSlot): boolean {
   const aDays = a.days && a.days.length > 0 ? a.days : [a.day];
-  const bDays = b.days && b.days.length > 0 ? b.days : [b.day];
+  const bDays = b.days && b.days.length > 0 ? b.days : (PRIMARY_DAY_EXPANSION[b.day] ?? [b.day]);
   if (!aDays.some(d => bDays.includes(d))) return false;
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   return toMin(a.startTime) < toMin(b.endTime) && toMin(a.endTime) > toMin(b.startTime);
