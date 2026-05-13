@@ -841,7 +841,7 @@ export default function SchedulesPage() {
         pageCount: Math.ceil(schedules.length / 10),
         initialState: {
             pagination: { pageIndex: 0, pageSize: 10 },
-            sorting: [{ id: "day", desc: false }],
+            sorting: [{ id: "schedule", desc: false }],
             columnPinning: { left: ["select", "course"] },
         },
         enableAdvancedFilter: false,
