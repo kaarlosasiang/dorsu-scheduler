@@ -7,7 +7,7 @@ import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
 import { ClassroomAPI, type IClassroom } from "@/lib/services/ClassroomAPI";
 import { SubjectAPI, type ISubject } from "@/lib/services/SubjectAPI";
 import { DepartmentAPI, type IDepartment } from "@/lib/services/DepartmentAPI";
-import { SectionAPI, type ISection } from "@/lib/services/SectionAPI";
+import SectionAPI, { type ISection } from "@/lib/services/SectionAPI";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
