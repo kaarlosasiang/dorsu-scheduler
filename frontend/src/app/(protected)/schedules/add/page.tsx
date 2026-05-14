@@ -494,10 +494,10 @@ export default function AddSchedulePage() {
   // ── Render ──
   return (
     <TooltipProvider>
-      <div className="container mx-auto max-w-3xl space-y-6 pb-12">
+      <div className="container mx-auto max-w-7xl pb-12">
 
         {/* Header */}
-        <div>
+        <div className="mb-6">
           <Button variant="link" size="sm" onClick={() => router.push("/schedules")} className="p-0 h-auto !px-0 mb-2">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Schedules
@@ -507,296 +507,306 @@ export default function AddSchedulePage() {
         </div>
 
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* ── Card 1: Basic Info ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Basic Info</CardTitle>
-            <CardDescription>Semester, academic year, and schedule type.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Semester <span className="text-destructive">*</span></label>
-              <Select value={semester} onValueChange={setSemester}>
-                <SelectTrigger><SelectValue placeholder="Select semester…" /></SelectTrigger>
-                <SelectContent>
-                  {SEMESTERS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* ── Left column: form cards ── */}
+          <div className="space-y-6">
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Academic Year <span className="text-destructive">*</span></label>
-              <Select value={academicYear} onValueChange={setAcademicYear}>
-                <SelectTrigger><SelectValue placeholder="Select year…" /></SelectTrigger>
-                <SelectContent>
-                  {ACADEMIC_YEAR_OPTIONS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* ── Card 1: Basic Info ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Basic Info</CardTitle>
+                <CardDescription>Semester, academic year, and schedule type.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Schedule Type <span className="text-destructive">*</span></label>
-              <Select value={scheduleType} onValueChange={v => { setScheduleType(v as "lecture" | "laboratory"); setSelectedSlot(null); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lecture">Lecture</SelectItem>
-                  <SelectItem value="laboratory">Laboratory</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* ── Card 2: Subject & Context ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Subject &amp; Context</CardTitle>
-            <CardDescription>What subject is being scheduled and for whom.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Subject <span className="text-destructive">*</span></label>
-              <Combobox
-                value={subjectId}
-                onChange={v => { setSubjectId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
-                placeholder="Search subjects…"
-                searchPlaceholder="Type subject code or name…"
-                emptyText={subjects.length === 0 ? "No subjects loaded." : "No subject found."}
-                items={subjectItems}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Program <span className="text-destructive">*</span></label>
-                <Combobox
-                  value={programId}
-                  onChange={v => { setProgramId(v); setSectionId(""); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
-                  placeholder="Select program…"
-                  searchPlaceholder="Type program code or name…"
-                  emptyText={courses.length === 0 ? "No programs loaded." : "No program found."}
-                  items={programItems}
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Year Level</label>
-                <Select value={yearLevel} onValueChange={v => { setYearLevel(v); setSectionId(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent>
-                    {yearLevelOptions.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Section</label>
-                <Select value={sectionId} onValueChange={setSectionId} disabled={!yearLevel || sections.length === 0}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={
-                      !yearLevel ? "Set year level first" :
-                      sections.length === 0 ? "No sections" : "Optional"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sections.map(sec => (
-                      <SelectItem key={getEntityId(sec)} value={getEntityId(sec)}>
-                        {sec.name ?? sec.sectionCode}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* ── Card 3: Assignment ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Assignment</CardTitle>
-            <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                <User className="h-4 w-4 text-muted-foreground" />
-                Faculty <span className="text-destructive">*</span>
-              </label>
-              <Combobox
-                value={facultyId}
-                onChange={handleFacultyChange}
-                placeholder="Search faculty…"
-                searchPlaceholder="Type faculty name or program…"
-                emptyText="No faculty found."
-                items={facultyItems}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                Classroom <span className="text-destructive">*</span>
-              </label>
-              <Select value={classroomId} onValueChange={v => { setClassroomId(v); setSelectedSlot(null); setSlotsLoaded(false); }}>
-                <SelectTrigger><SelectValue placeholder="Select classroom…" /></SelectTrigger>
-                <SelectContent>
-                  {classrooms.map(room => (
-                    <SelectItem key={getEntityId(room)} value={getEntityId(room)}>
-                      {room.building ? `${room.building} ${room.roomNumber}` : room.roomNumber}
-                      <span className="text-muted-foreground ml-1.5 text-xs">(cap. {room.capacity})</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-          </CardContent>
-        </Card>
-
-        {/* ── Card 4: Time Slot Grid ── */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              Time Slot <span className="text-destructive">*</span>
-            </CardTitle>
-            <CardDescription>
-              {!canFetchSlots
-                ? "Complete faculty, classroom, semester, and academic year fields above to see available slots."
-                : slotsLoading
-                ? "Checking availability…"
-                : slotsLoaded
-                ? "Green = available · Gray = occupied. Click a slot to select."
-                : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!canFetchSlots && (
-              <p className="text-sm text-muted-foreground italic">Availability grid will appear here once all required fields are filled.</p>
-            )}
-
-            {canFetchSlots && slotsLoading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading available slots…
-              </div>
-            )}
-
-            {canFetchSlots && !slotsLoading && slotsLoaded && (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr>
-                        <th className="text-left text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">Time</th>
-                        {DAY_PATTERNS.map(p => (
-                          <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">{p.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {timeStarts.map(start => {
-                        const end = addMinutes(start, durationMins);
-                        return (
-                          <tr key={start}>
-                            <td className="pr-3 py-0.5 text-muted-foreground whitespace-nowrap">{formatTime(start)}</td>
-                            {DAY_PATTERNS.map(pattern => {
-                              const candidate: ITimeSlot = { day: pattern.day, days: pattern.days as ITimeSlot["days"], startTime: start, endTime: end };
-                              const key = `${start}|${patternKey(pattern)}`;
-                              const isAvailable = availableSet.has(key);
-                              const reasons    = occupiedMap.get(key);
-                              const isSelected = selectedSlot ? slotKey(selectedSlot) === key : false;
-
-                              if (isAvailable) {
-                                return (
-                                  <td key={pattern.label} className="px-1 py-0.5 text-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedSlot(isSelected ? null : candidate)}
-                                      className={cn(
-                                        "w-full rounded px-1.5 py-1 font-medium transition-colors",
-                                        isSelected
-                                          ? "bg-green-600 text-white ring-2 ring-green-700"
-                                          : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
-                                      )}
-                                    >
-                                      {isSelected ? <CheckCircle2 className="h-3 w-3 mx-auto" /> : "Free"}
-                                    </button>
-                                  </td>
-                                );
-                              }
-
-                              if (reasons) {
-                                return (
-                                  <td key={pattern.label} className="px-1 py-0.5 text-center">
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <button type="button" disabled className="w-full rounded px-1.5 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60">
-                                          Taken
-                                        </button>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top">{reasons.join(" · ")}</TooltipContent>
-                                    </Tooltip>
-                                  </td>
-                                );
-                              }
-
-                              return <td key={pattern.label} className="px-1 py-0.5 text-center"><span className="text-muted-foreground">—</span></td>;
-                            })}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Semester <span className="text-destructive">*</span></label>
+                  <Select value={semester} onValueChange={setSemester}>
+                    <SelectTrigger><SelectValue placeholder="Select semester…" /></SelectTrigger>
+                    <SelectContent>
+                      {SEMESTERS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                {selectedSlot && (
-                  <div className="mt-4 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
-                    <Clock className="h-4 w-4 shrink-0" />
-                    <span>
-                      <span className="font-medium">
-                        {DAY_PATTERNS.find(p => patternKey(p) === slotKey(selectedSlot).split("|")[1])?.label}
-                      </span>
-                      {" · "}
-                      {formatTime(selectedSlot.startTime)} – {formatTime(selectedSlot.endTime)}
-                      {" · "}
-                      <Badge variant="outline" className="text-xs py-0">
-                        {scheduleType === "laboratory" ? "1.5 hrs" : "1 hr"} per session
-                      </Badge>
-                    </span>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Academic Year <span className="text-destructive">*</span></label>
+                  <Select value={academicYear} onValueChange={setAcademicYear}>
+                    <SelectTrigger><SelectValue placeholder="Select year…" /></SelectTrigger>
+                    <SelectContent>
+                      {ACADEMIC_YEAR_OPTIONS.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Schedule Type <span className="text-destructive">*</span></label>
+                  <Select value={scheduleType} onValueChange={v => { setScheduleType(v as "lecture" | "laboratory"); setSelectedSlot(null); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lecture">Lecture</SelectItem>
+                      <SelectItem value="laboratory">Laboratory</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+              </CardContent>
+            </Card>
+
+            {/* ── Card 2: Subject & Context ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Subject &amp; Context</CardTitle>
+                <CardDescription>What subject is being scheduled and for whom.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Subject <span className="text-destructive">*</span></label>
+                  <Combobox
+                    value={subjectId}
+                    onChange={v => { setSubjectId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
+                    placeholder="Search subjects…"
+                    searchPlaceholder="Type subject code or name…"
+                    emptyText={subjects.length === 0 ? "No subjects loaded." : "No subject found."}
+                    items={subjectItems}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Program <span className="text-destructive">*</span></label>
+                    <Combobox
+                      value={programId}
+                      onChange={v => { setProgramId(v); setSectionId(""); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
+                      placeholder="Select program…"
+                      searchPlaceholder="Type program code or name…"
+                      emptyText={courses.length === 0 ? "No programs loaded." : "No program found."}
+                      items={programItems}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Year Level</label>
+                    <Select value={yearLevel} onValueChange={v => { setYearLevel(v); setSectionId(""); }}>
+                      <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
+                      <SelectContent>
+                        {yearLevelOptions.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Section</label>
+                    <Select value={sectionId} onValueChange={setSectionId} disabled={!yearLevel || sections.length === 0}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={
+                          !yearLevel ? "Set year level first" :
+                          sections.length === 0 ? "No sections" : "Optional"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sections.map(sec => (
+                          <SelectItem key={getEntityId(sec)} value={getEntityId(sec)}>
+                            {sec.name ?? sec.sectionCode}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ── Card 3: Assignment ── */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Assignment</CardTitle>
+                <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    Faculty <span className="text-destructive">*</span>
+                  </label>
+                  <Combobox
+                    value={facultyId}
+                    onChange={handleFacultyChange}
+                    placeholder="Search faculty…"
+                    searchPlaceholder="Type faculty name or program…"
+                    emptyText="No faculty found."
+                    items={facultyItems}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    Classroom <span className="text-destructive">*</span>
+                  </label>
+                  <Select value={classroomId} onValueChange={v => { setClassroomId(v); setSelectedSlot(null); setSlotsLoaded(false); }}>
+                    <SelectTrigger><SelectValue placeholder="Select classroom…" /></SelectTrigger>
+                    <SelectContent>
+                      {classrooms.map(room => (
+                        <SelectItem key={getEntityId(room)} value={getEntityId(room)}>
+                          {room.building ? `${room.building} ${room.roomNumber}` : room.roomNumber}
+                          <span className="text-muted-foreground ml-1.5 text-xs">(cap. {room.capacity})</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+              </CardContent>
+            </Card>
+
+            {/* ── Actions ── */}
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => router.push("/schedules")} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={submitting || !selectedSlot}>
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Schedule
+              </Button>
+            </div>
+
+          </div>
+
+          {/* ── Right column: Time Slot Grid (sticky) ── */}
+          <div className="lg:sticky lg:top-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  Time Slot <span className="text-destructive">*</span>
+                </CardTitle>
+                <CardDescription>
+                  {!canFetchSlots
+                    ? "Fill in faculty, classroom, semester, and year to see slots."
+                    : slotsLoading
+                    ? "Checking availability…"
+                    : slotsLoaded
+                    ? "Green = available · Gray = occupied. Click to select."
+                    : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!canFetchSlots && (
+                  <p className="text-sm text-muted-foreground italic">Availability grid will appear once all required fields are filled.</p>
+                )}
+
+                {canFetchSlots && slotsLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading available slots…
                   </div>
                 )}
-              </>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* ── Actions ── */}
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => router.push("/schedules")} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={submitting || !selectedSlot}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Schedule
-          </Button>
+                {canFetchSlots && !slotsLoading && slotsLoaded && (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border-collapse">
+                        <thead>
+                          <tr>
+                            <th className="text-left text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">Time</th>
+                            {DAY_PATTERNS.map(p => (
+                              <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">{p.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {timeStarts.map(start => {
+                            const end = addMinutes(start, durationMins);
+                            return (
+                              <tr key={start}>
+                                <td className="pr-3 py-0.5 text-muted-foreground whitespace-nowrap">{formatTime(start)}</td>
+                                {DAY_PATTERNS.map(pattern => {
+                                  const candidate: ITimeSlot = { day: pattern.day, days: pattern.days as ITimeSlot["days"], startTime: start, endTime: end };
+                                  const key = `${start}|${patternKey(pattern)}`;
+                                  const isAvailable = availableSet.has(key);
+                                  const reasons    = occupiedMap.get(key);
+                                  const isSelected = selectedSlot ? slotKey(selectedSlot) === key : false;
+
+                                  if (isAvailable) {
+                                    return (
+                                      <td key={pattern.label} className="px-1 py-0.5 text-center">
+                                        <button
+                                          type="button"
+                                          onClick={() => setSelectedSlot(isSelected ? null : candidate)}
+                                          className={cn(
+                                            "w-full rounded px-1.5 py-1 font-medium transition-colors",
+                                            isSelected
+                                              ? "bg-green-600 text-white ring-2 ring-green-700"
+                                              : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
+                                          )}
+                                        >
+                                          {isSelected ? <CheckCircle2 className="h-3 w-3 mx-auto" /> : "Free"}
+                                        </button>
+                                      </td>
+                                    );
+                                  }
+
+                                  if (reasons) {
+                                    return (
+                                      <td key={pattern.label} className="px-1 py-0.5 text-center">
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <button type="button" disabled className="w-full rounded px-1.5 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60">
+                                              Taken
+                                            </button>
+                                          </TooltipTrigger>
+                                          <TooltipContent side="top">{reasons.join(" · ")}</TooltipContent>
+                                        </Tooltip>
+                                      </td>
+                                    );
+                                  }
+
+                                  return <td key={pattern.label} className="px-1 py-0.5 text-center"><span className="text-muted-foreground">—</span></td>;
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {selectedSlot && (
+                      <div className="mt-4 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>
+                          <span className="font-medium">
+                            {DAY_PATTERNS.find(p => patternKey(p) === slotKey(selectedSlot).split("|")[1])?.label}
+                          </span>
+                          {" · "}
+                          {formatTime(selectedSlot.startTime)} – {formatTime(selectedSlot.endTime)}
+                          {" · "}
+                          <Badge variant="outline" className="text-xs py-0">
+                            {scheduleType === "laboratory" ? "1.5 hrs" : "1 hr"} per session
+                          </Badge>
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
         </div>
-
       </div>
     </TooltipProvider>
   );
