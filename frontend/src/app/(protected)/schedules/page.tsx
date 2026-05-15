@@ -23,6 +23,7 @@ import {
     CalendarRange,
     TableProperties,
     Download,
+    Layers,
 } from "lucide-react";
 
 import { DataTable } from "@/components/common/data-table/data-table";
@@ -462,44 +463,108 @@ const baseColumns: ColumnDef<Schedule>[] = [
                 { label: "Summer", value: "Summer" },
             ],
         },
-        size: 140,
-        minSize: 110,
-        maxSize: 200,
+    size: 140,
+    minSize: 110,
+    maxSize: 200,
+  },
+  {
+    id: "academicYear",
+    accessorKey: "academicYear",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="S.Y." />
+    ),
+    cell: ({ row }) => (
+      <Badge variant="outline">{row.original.academicYear}</Badge>
+    ),
+    enableSorting: true,
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (Array.isArray(value)) {
+        return value.includes(row.original.academicYear);
+      }
+      return row.original.academicYear.toLowerCase().includes(value.toLowerCase());
     },
-    {
-        id: "section",
-        accessorKey: "section",
-        header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="Section" />
-        ),
-        cell: ({ row }) => (
-            row.original.section
-                ? <Badge variant="outline" className="font-mono">{row.original.section}</Badge>
-                : <span className="text-muted-foreground text-sm">—</span>
-        ),
-        enableSorting: true,
-        enableColumnFilter: true,
-        filterFn: (row, id, value) => {
-            if (Array.isArray(value)) {
-                return value.includes(row.original.section);
-            }
+    meta: {
+      label: "S.Y.",
+      placeholder: "Select school year...",
+      variant: "select",
+      icon: Calendar,
+      options: [],
+    },
+    size: 130,
+    minSize: 100,
+    maxSize: 180,
+  },
+  {
+    id: "yearLevel",
+    accessorKey: "yearLevel",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Year Level" />
+    ),
+    cell: ({ row }) => (
+      row.original.yearLevel && row.original.yearLevel !== "N/A"
+        ? <Badge variant="outline">{row.original.yearLevel}</Badge>
+        : <span className="text-muted-foreground text-sm">—</span>
+    ),
+    enableSorting: true,
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (Array.isArray(value)) {
+        return value.includes(row.original.yearLevel);
+      }
+      return row.original.yearLevel.toLowerCase().includes(value.toLowerCase());
+    },
+    meta: {
+      label: "Year Level",
+      placeholder: "Select year level...",
+      variant: "select",
+      icon: Layers,
+      options: [
+        { label: "1st Year", value: "1st Year" },
+        { label: "2nd Year", value: "2nd Year" },
+        { label: "3rd Year", value: "3rd Year" },
+        { label: "4th Year", value: "4th Year" },
+        { label: "5th Year", value: "5th Year" },
+      ],
+    },
+    size: 120,
+    minSize: 90,
+    maxSize: 160,
+  },
+  {
+    id: "section",
+    accessorKey: "section",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Section" />
+    ),
+    cell: ({ row }) => (
+      row.original.section
+        ? <Badge variant="outline" className="font-mono">{row.original.section}</Badge>
+        : <span className="text-muted-foreground text-sm">—</span>
+    ),
+    enableSorting: true,
+    enableColumnFilter: true,
+    filterFn: (row, id, value) => {
+      if (Array.isArray(value)) {
+        return value.includes(row.original.section);
+      }
 
-            const sectionValue = row.original.section.toLowerCase();
-            return sectionValue.includes(value.toLowerCase());
-        },
-        meta: {
-            label: "Section",
-            placeholder: "Select section...",
-            variant: "select",
-            icon: LayoutGrid,
-            options: [],
-        },
-        size: 110,
-        minSize: 80,
-        maxSize: 160,
+      const sectionValue = row.original.section.toLowerCase();
+      return sectionValue.includes(value.toLowerCase());
     },
-    {
-        id: "status",
+    meta: {
+      label: "Section",
+      placeholder: "Select section...",
+      variant: "select",
+      icon: LayoutGrid,
+      options: [],
+    },
+    size: 110,
+    minSize: 80,
+    maxSize: 160,
+  },
+  {
+    id: "status",
         accessorKey: "status",
         header: ({ column }) => (
             <DataTableColumnHeader column={column} title="Status" />
@@ -697,6 +762,8 @@ export default function SchedulesPage() {
             schedules.map((schedule) => `${schedule.day} | ${schedule.timeSlot}`)
         );
         const semesterCounts = buildCountMap(schedules.map((schedule) => schedule.semester));
+        const academicYearCounts = buildCountMap(schedules.map((schedule) => schedule.academicYear));
+        const yearLevelCounts = buildCountMap(schedules.map((schedule) => schedule.yearLevel));
         const sectionCounts = buildCountMap(schedules.map((schedule) => schedule.section).filter(Boolean));
         const statusCounts = buildCountMap(schedules.map((schedule) => schedule.status));
 
@@ -778,6 +845,31 @@ export default function SchedulesPage() {
                 };
             }
 
+            if (column.id === "academicYear") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: Object.entries(academicYearCounts)
+                            .sort(([left], [right]) => left.localeCompare(right))
+                            .map(([value, count]) => ({ label: value, value, count })),
+                    },
+                };
+            }
+
+            if (column.id === "yearLevel") {
+                return {
+                    ...column,
+                    meta: {
+                        ...column.meta,
+                        options: (column.meta as any).options.map((o: any) => ({
+                            ...o,
+                            count: yearLevelCounts[o.value] || 0,
+                        })),
+                    },
+                };
+            }
+
             if (column.id === "section") {
                 return {
                     ...column,
@@ -841,7 +933,7 @@ export default function SchedulesPage() {
         pageCount: Math.ceil(schedules.length / 10),
         initialState: {
             pagination: { pageIndex: 0, pageSize: 10 },
-            sorting: [{ id: "day", desc: false }],
+            sorting: [{ id: "schedule", desc: false }],
             columnPinning: { left: ["select", "course"] },
         },
         enableAdvancedFilter: false,

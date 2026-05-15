@@ -338,9 +338,22 @@ export interface AvailableSlotsResult {
   occupied: { slot: ITimeSlot; reasons: string[] }[];
 }
 
+// When a stored schedule lacks the `days` array (legacy data or validator stripping),
+// expand its primary day to all days covered by known scheduling patterns so we don't
+// miss conflicts on secondary days (e.g. a MW slot stored as day:"monday" only).
+const PRIMARY_DAY_EXPANSION: Record<string, string[]> = {
+  monday:    ['monday', 'wednesday', 'friday'], // could be MW or MF
+  tuesday:   ['tuesday', 'thursday'],
+  wednesday: ['wednesday', 'friday'],
+  thursday:  ['thursday'],
+  friday:    ['friday'],
+  saturday:  ['saturday'],
+  sunday:    ['sunday'],
+};
+
 function slotOverlaps(a: ITimeSlot, b: ITimeSlot): boolean {
   const aDays = a.days && a.days.length > 0 ? a.days : [a.day];
-  const bDays = b.days && b.days.length > 0 ? b.days : [b.day];
+  const bDays = b.days && b.days.length > 0 ? b.days : (PRIMARY_DAY_EXPANSION[b.day] ?? [b.day]);
   if (!aDays.some(d => bDays.includes(d))) return false;
   const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   return toMin(a.startTime) < toMin(b.endTime) && toMin(a.endTime) > toMin(b.startTime);
@@ -373,9 +386,15 @@ export async function getAvailableSlots(params: {
   if (excludeId) query._id = { $ne: excludeId };
 
   const existing = await Schedule.find(query)
-    .select('faculty classroom section timeSlot')
+    .select('faculty classroom section timeSlot semester academicYear status')
     .lean()
     .exec();
+
+  console.log('[getAvailableSlots] query:', JSON.stringify({ faculty, classroom, semester, academicYear }));
+  console.log('[getAvailableSlots] found', existing.length, 'existing schedules');
+  if (existing.length > 0) {
+    existing.forEach(s => console.log('  ->', (s as any).semester, (s as any).academicYear, (s as any).status, JSON.stringify((s as any).timeSlot)));
+  }
 
   const candidates = getTimeSlotsForScheduleType(scheduleType);
   const available: ITimeSlot[] = [];

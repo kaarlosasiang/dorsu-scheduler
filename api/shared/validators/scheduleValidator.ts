@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
+const dayEnum = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
+
 // Time slot schema
 export const timeSlotSchema = z.object({
-  day: z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']),
+  day: dayEnum,
+  days: z.array(dayEnum).optional(),
   startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Start time must be in HH:mm format'),
   endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'End time must be in HH:mm format')
 }).refine((data) => {
