@@ -77,6 +77,13 @@ interface Subject {
   createdAt: string;
 }
 
+const getCurrentSemester = (): string => {
+  const month = new Date().getMonth();
+  if (month >= 7 || month <= 0) return "1st Semester";
+  if (month >= 1 && month <= 4) return "2nd Semester";
+  return "Summer";
+};
+
 const transformSubject = (s: ISubject): Subject => {
   // Resolve offerings to display-friendly objects
   const offerings = (s.courseOfferings ?? []).map((o) => {
@@ -289,6 +296,40 @@ const columns: ColumnDef<Subject>[] = [
     },
   },
   {
+    id: "yearLevel",
+    accessorKey: "yearLevel",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Year Level" />
+    ),
+    cell: ({ row }) => {
+      const v = row.getValue("yearLevel") as string;
+      return v ? (
+        <Badge variant="outline">{v}</Badge>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      );
+    },
+    enableSorting: true,
+    enableColumnFilter: true,
+    size: 120,
+    filterFn: (row, _id, filterValue: string[]) => {
+      if (!filterValue?.length) return true;
+      return filterValue.includes(row.getValue("yearLevel") as string);
+    },
+    meta: {
+      label: "Year Level",
+      variant: "select",
+      icon: Layers,
+      options: [
+        { label: "1st Year", value: "1st Year", count: 0 },
+        { label: "2nd Year", value: "2nd Year", count: 0 },
+        { label: "3rd Year", value: "3rd Year", count: 0 },
+        { label: "4th Year", value: "4th Year", count: 0 },
+        { label: "5th Year", value: "5th Year", count: 0 },
+      ],
+    },
+  },
+  {
     id: "units",
     accessorKey: "units",
     header: ({ column }) => (
@@ -455,11 +496,19 @@ function SubjectRowActions({ subject }: { subject: Subject }) {
 export default function SubjectsPage() {
   const router = useRouter();
   const { subjects: raw, loading, error, refetch } = useSubjects();
+  const [thisSemesterOnly, setThisSemesterOnly] = React.useState(false);
 
   const subjects = React.useMemo(
     () => (raw as unknown as ISubject[]).map(transformSubject),
     [raw]
   );
+
+  const currentSemester = React.useMemo(getCurrentSemester, []);
+
+  const filteredSubjects = React.useMemo(() => {
+    if (!thisSemesterOnly) return subjects;
+    return subjects.filter((s) => s.semester === currentSemester);
+  }, [subjects, thisSemesterOnly, currentSemester]);
 
   // Dynamic filter option counts
   const updatedColumns = React.useMemo(() => {
@@ -546,9 +595,9 @@ export default function SubjectsPage() {
   }, [subjects]);
 
   const { table } = useDataTable({
-    data: subjects,
+    data: filteredSubjects,
     columns: updatedColumns,
-    pageCount: Math.ceil(subjects.length / 10),
+    pageCount: Math.ceil(filteredSubjects.length / 10),
     initialState: {
       pagination: { pageIndex: 0, pageSize: 10 },
       sorting: [{ id: "subjectCode", desc: false }],
@@ -697,6 +746,21 @@ export default function SubjectsPage() {
             </p>
           </div>
         </Card>
+      </div>
+
+      {/* Quick Filters */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant={thisSemesterOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => setThisSemesterOnly(!thisSemesterOnly)}
+        >
+          <Calendar className="mr-2 h-4 w-4" />
+          {currentSemester}
+          {thisSemesterOnly && (
+            <span className="ml-2 text-xs opacity-70">● Active</span>
+          )}
+        </Button>
       </div>
 
       {/* Table */}
