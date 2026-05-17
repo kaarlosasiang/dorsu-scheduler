@@ -497,7 +497,7 @@ export default function AddSchedulePage() {
           subject:      row.subjectId,
           faculty:      facultyId,
           classroom:    classroomId,
-          department:   row.departmentId,
+          department:   row.departmentId || undefined,
           scheduleType: row.scheduleType,
           timeSlot:     row.selectedSlot!,
           semester,
