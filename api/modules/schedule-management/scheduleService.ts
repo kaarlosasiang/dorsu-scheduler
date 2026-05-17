@@ -10,7 +10,14 @@ import {
 } from '../../shared/validators/scheduleValidator.js';
 import { detectConflicts as detectScheduleConflicts } from '../../shared/utils/conflictDetector.js';
 import { generateSchedules as generateAutomatedSchedules } from '../../shared/utils/scheduleGenerator.js';
-import { getTimeSlotsForScheduleType } from '../../shared/utils/timeSlotPatterns.js';
+import {
+  getTimeSlotsForScheduleType,
+  LECTURE_DAY_PATTERNS,
+  LAB_DAY_PATTERNS,
+  LECTURE_TIME_STARTS,
+  LAB_TIME_STARTS,
+} from '../../shared/utils/timeSlotPatterns.js';
+import { calculateEndTime } from '../../shared/utils/teachingHoursCalculator.js';
 
 /**
  * Get all schedules with optional filtering
@@ -360,6 +367,35 @@ function slotOverlaps(a: ITimeSlot, b: ITimeSlot): boolean {
 }
 
 /**
+ * Generate candidate time slots for the given schedule type and session duration.
+ * Slots are capped so the last session ends at or before 17:00.
+ */
+function generateCandidates(
+  scheduleType: 'lecture' | 'laboratory',
+  durationHours: number,
+): ITimeSlot[] {
+  const patterns   = scheduleType === 'lecture' ? LECTURE_DAY_PATTERNS : LAB_DAY_PATTERNS;
+  const timeStarts = scheduleType === 'lecture' ? LECTURE_TIME_STARTS  : LAB_TIME_STARTS;
+  const maxEndMin  = 17 * 60; // sessions must end by 17:00
+  const durMin     = Math.round(durationHours * 60);
+
+  const slots: ITimeSlot[] = [];
+  for (const startTime of timeStarts) {
+    const [h, m] = startTime.split(':').map(Number);
+    if (h * 60 + m + durMin > maxEndMin) continue;
+    for (const dayPattern of patterns) {
+      slots.push({
+        day:       dayPattern[0] as ITimeSlot['day'],
+        days:      dayPattern   as ITimeSlot['days'],
+        startTime,
+        endTime:   calculateEndTime(startTime, durationHours),
+      });
+    }
+  }
+  return slots;
+}
+
+/**
  * Return which time slots are free for a given faculty + classroom combination.
  * Used by the manual-add schedule form to show an availability grid.
  */
@@ -369,10 +405,12 @@ export async function getAvailableSlots(params: {
   semester: string;
   academicYear: string;
   scheduleType: 'lecture' | 'laboratory';
+  durationHours?: number;
   section?: string;
   excludeId?: string;
 }): Promise<AvailableSlotsResult> {
   const { faculty, classroom, semester, academicYear, scheduleType, section, excludeId } = params;
+  const durationHours = params.durationHours ?? (scheduleType === 'lecture' ? 1.0 : 1.5);
 
   const orConditions: any[] = [{ faculty }, { classroom }];
   if (section) orConditions.push({ section });
@@ -386,17 +424,11 @@ export async function getAvailableSlots(params: {
   if (excludeId) query._id = { $ne: excludeId };
 
   const existing = await Schedule.find(query)
-    .select('faculty classroom section timeSlot semester academicYear status')
+    .select('faculty classroom section timeSlot')
     .lean()
     .exec();
 
-  console.log('[getAvailableSlots] query:', JSON.stringify({ faculty, classroom, semester, academicYear }));
-  console.log('[getAvailableSlots] found', existing.length, 'existing schedules');
-  if (existing.length > 0) {
-    existing.forEach(s => console.log('  ->', (s as any).semester, (s as any).academicYear, (s as any).status, JSON.stringify((s as any).timeSlot)));
-  }
-
-  const candidates = getTimeSlotsForScheduleType(scheduleType);
+  const candidates = generateCandidates(scheduleType, durationHours);
   const available: ITimeSlot[] = [];
   const occupied: { slot: ITimeSlot; reasons: string[] }[] = [];
 

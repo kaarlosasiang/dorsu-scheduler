@@ -370,7 +370,7 @@ export class ScheduleController {
    */
   static async getAvailableSlots(req: Request, res: Response): Promise<void> {
     try {
-      const { faculty, classroom, semester, academicYear, scheduleType, section, excludeId } = req.query;
+      const { faculty, classroom, semester, academicYear, scheduleType, section, excludeId, durationHours } = req.query;
 
       if (!faculty || !classroom || !semester || !academicYear || !scheduleType) {
         res.status(400).json({
@@ -385,12 +385,15 @@ export class ScheduleController {
         return;
       }
 
+      const parsedDuration = durationHours ? parseFloat(durationHours as string) : undefined;
+
       const result = await ScheduleService.getAvailableSlots({
         faculty: faculty as string,
         classroom: classroom as string,
         semester: semester as string,
         academicYear: academicYear as string,
         scheduleType: scheduleType as 'lecture' | 'laboratory',
+        durationHours: parsedDuration,
         section: section as string | undefined,
         excludeId: excludeId as string | undefined,
       });
