@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { ScheduleAPI, type ITimeSlot } from "@/lib/services/ScheduleAPI";
 import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
 import { ClassroomAPI, type IClassroom } from "@/lib/services/ClassroomAPI";
@@ -44,7 +44,6 @@ import {
 } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   ArrowLeft,
   Loader2,
@@ -56,6 +55,8 @@ import {
   ChevronsUpDown,
   Check,
   CheckCircle2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -90,20 +91,45 @@ const DAY_PATTERNS: DayPattern[] = [
   { label: "Tu / Th", days: ["tuesday", "thursday"],  day: "tuesday"   },
 ];
 
-const LECTURE_TIME_STARTS = [
-  "08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","13:00","13:30",
-  "14:00","14:30","15:00","15:30","16:00",
+// All possible time starts; filtered per-row by duration
+const ALL_TIME_STARTS = [
+  "07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30",
+  "11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30",
+  "15:00","15:30","16:00",
 ];
 
-const LAB_TIME_STARTS = [
-  "08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","13:00","13:30",
-  "14:00","14:30","15:00","15:30",
+const YEAR_LEVELS  = ["1st Year","2nd Year","3rd Year","4th Year","5th Year"];
+const SEMESTERS    = ["1st Semester","2nd Semester","Summer"];
+
+const DURATION_OPTIONS: { value: 1 | 2 | 3; label: string }[] = [
+  { value: 1, label: "1 hour"  },
+  { value: 2, label: "2 hours" },
+  { value: 3, label: "3 hours" },
 ];
 
-const YEAR_LEVELS = ["1st Year","2nd Year","3rd Year","4th Year","5th Year"];
-const SEMESTERS   = ["1st Semester","2nd Semester","Summer"];
+// ── Subject-row type ──────────────────────────────────────────────────────────
+
+interface SubjectRow {
+  id: string;
+  subjectId: string;
+  programId: string;
+  departmentId: string;
+  yearLevel: string;
+  sectionId: string;
+  scheduleType: "lecture" | "laboratory";
+  durationHours: 1 | 2 | 3;
+  selectedSlot: ITimeSlot | null;
+  sections: ISection[];
+}
+
+function makeRow(): SubjectRow {
+  return {
+    id: Math.random().toString(36).slice(2, 10),
+    subjectId: "", programId: "", departmentId: "",
+    yearLevel: "", sectionId: "", scheduleType: "lecture",
+    durationHours: 1, selectedSlot: null, sections: [],
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -136,6 +162,15 @@ function getEntityId(entity: any): string {
   return entity?._id ?? entity?.id ?? "";
 }
 
+/** Client-side slot overlap check — mirrors backend slotOverlaps logic. */
+function clientSlotOverlaps(a: ITimeSlot, b: ITimeSlot): boolean {
+  const aDays = a.days && a.days.length > 0 ? a.days : [a.day];
+  const bDays = b.days && b.days.length > 0 ? b.days : [b.day];
+  if (!aDays.some(d => bDays.includes(d))) return false;
+  const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+  return toMin(a.startTime) < toMin(b.endTime) && toMin(a.endTime) > toMin(b.startTime);
+}
+
 // ── Combobox ──────────────────────────────────────────────────────────────────
 
 interface ComboboxProps {
@@ -146,16 +181,13 @@ interface ComboboxProps {
   emptyText?: string;
   disabled?: boolean;
   items: { value: string; label: string; sub?: string }[];
+  className?: string;
 }
 
 function Combobox({
-  value,
-  onChange,
-  placeholder,
-  searchPlaceholder = "Search…",
-  emptyText = "No results.",
-  disabled = false,
-  items,
+  value, onChange, placeholder,
+  searchPlaceholder = "Search…", emptyText = "No results.",
+  disabled = false, items, className,
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
   const selected = items.find(i => i.value === value);
@@ -168,7 +200,7 @@ function Combobox({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className="w-full justify-between font-normal"
+          className={cn("w-full justify-between font-normal", className)}
         >
           {selected ? (
             <span className="truncate">
@@ -193,10 +225,7 @@ function Combobox({
                 <CommandItem
                   key={item.value}
                   value={`${item.label} ${item.sub ?? ""}`}
-                  onSelect={() => {
-                    onChange(item.value);
-                    setOpen(false);
-                  }}
+                  onSelect={() => { onChange(item.value); setOpen(false); }}
                 >
                   <Check className={cn("mr-2 h-4 w-4 shrink-0", value === item.value ? "opacity-100" : "opacity-0")} />
                   <span>{item.label}</span>
@@ -219,63 +248,74 @@ export default function AddSchedulePage() {
   const router = useRouter();
 
   // ── Reference data ──
-  const [subjects, setSubjects]       = useState<ISubject[]>([]);
+  const [subjects,    setSubjects]    = useState<ISubject[]>([]);
   const [facultyList, setFacultyList] = useState<IFaculty[]>([]);
-  const [classrooms, setClassrooms]   = useState<IClassroom[]>([]);
-  const [courses, setCourses]         = useState<ICourse[]>([]);
-  const [sections, setSections]       = useState<ISection[]>([]);
+  const [classrooms,  setClassrooms]  = useState<IClassroom[]>([]);
+  const [courses,     setCourses]     = useState<ICourse[]>([]);
   const [loadingPage, setLoadingPage] = useState(true);
 
-  // ── Form state ──
-  const [semester, setSemester]         = useState("");
+  // ── Shared form state ──
+  const [semester,     setSemester]     = useState("");
   const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear());
-  const [subjectId, setSubjectId]       = useState("");
-  const [scheduleType, setScheduleType] = useState<"lecture" | "laboratory">("lecture");
-  const [programId, setProgramId]       = useState("");   // shown in form as "Program"
-  const [departmentId, setDepartmentId] = useState("");   // derived from program, used in payload
-  const [yearLevel, setYearLevel]       = useState("");
-  const [sectionId, setSectionId]       = useState("");
-  const [facultyId, setFacultyId]       = useState("");
-  const [classroomId, setClassroomId]   = useState("");
+  const [facultyId,    setFacultyId]    = useState("");
+  const [classroomId,  setClassroomId]  = useState("");
 
-  // ── Slot grid state ──
+  // ── Multi-subject rows ──
+  const initialRow = makeRow();
+  const [rows,        setRows]        = useState<SubjectRow[]>([initialRow]);
+  const [activeRowId, setActiveRowId] = useState<string>(initialRow.id);
+
+  // ── Slot grid state (refreshed when active row / shared fields change) ──
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [availableSet, setAvailableSet] = useState<Set<string>>(new Set());
-  const [occupiedMap, setOccupiedMap]   = useState<Map<string, string[]>>(new Map());
-  const [selectedSlot, setSelectedSlot] = useState<ITimeSlot | null>(null);
-  const [slotsLoaded, setSlotsLoaded]   = useState(false);
+  const [occupiedMap,  setOccupiedMap]  = useState<Map<string, string[]>>(new Map());
+  const [slotsLoaded,  setSlotsLoaded]  = useState(false);
 
   // ── Submit state ──
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [error,      setError]      = useState<string | null>(null);
 
   // ── Load all reference data on mount ──
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       const [subjRes, facRes, clsRes, courseRes] = await Promise.allSettled([
         SubjectAPI.getAll(),
         FacultyAPI.getAll({ status: "active" }),
         ClassroomAPI.getAll(),
         CourseAPI.getAll(),
       ]);
-
-      if (subjRes.status === "fulfilled")   setSubjects(subjRes.value.data ?? []);
-      if (facRes.status === "fulfilled")    setFacultyList(facRes.value.data ?? []);
-      if (clsRes.status === "fulfilled")    setClassrooms(clsRes.value.data ?? []);
-      if (courseRes.status === "fulfilled") setCourses(courseRes.value.data ?? []);
-
+      if (subjRes.status   === "fulfilled") setSubjects(subjRes.value.data     ?? []);
+      if (facRes.status    === "fulfilled") setFacultyList(facRes.value.data   ?? []);
+      if (clsRes.status    === "fulfilled") setClassrooms(clsRes.value.data    ?? []);
+      if (courseRes.status === "fulfilled") setCourses(courseRes.value.data    ?? []);
       setLoadingPage(false);
-    };
-    load();
+    })();
   }, []);
 
-  // ── Subject change: auto-populate department, semester, year level ──
-  const selectedSubject = useMemo(
-    () => subjects.find(s => getEntityId(s) === subjectId),
-    [subjects, subjectId]
-  );
+  // ── Row updater ──
+  const updateRow = useCallback((id: string, patch: Partial<SubjectRow>) => {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+  }, []);
 
-  // ── Build course→department lookup (must be declared before any effect that uses it) ──
+  const addRow = () => {
+    const row = makeRow();
+    setRows(prev => [...prev, row]);
+    setActiveRowId(row.id);
+    setSlotsLoaded(false);
+  };
+
+  const removeRow = (id: string) => {
+    setRows(prev => {
+      const next = prev.filter(r => r.id !== id);
+      return next.length > 0 ? next : [makeRow()];
+    });
+    if (activeRowId === id) {
+      const remaining = rows.filter(r => r.id !== id);
+      setActiveRowId(remaining[0]?.id ?? "");
+    }
+  };
+
+  // ── Course → department lookup ──
   const courseDeptMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const c of courses) {
@@ -287,109 +327,114 @@ export default function AddSchedulePage() {
     return map;
   }, [courses]);
 
-  useEffect(() => {
-    if (!selectedSubject) return;
+  // ── Section loader ──
+  const loadSections = useCallback(async (rowId: string, programId: string, yearLevel: string) => {
+    if (!programId || !yearLevel) {
+      updateRow(rowId, { sections: [], sectionId: "" });
+      return;
+    }
+    try {
+      const res = await SectionAPI.getByProgramAndYearLevel(programId, yearLevel);
+      updateRow(rowId, { sections: res.data ?? [] });
+    } catch {
+      updateRow(rowId, { sections: [] });
+    }
+  }, [updateRow]);
 
-    // Pre-fill semester from subject
-    if (selectedSubject.semester) setSemester(selectedSubject.semester);
+  // ── Subject selected in a row ──
+  const handleSubjectChange = useCallback(async (rowId: string, subjectId: string) => {
+    if (!subjectId) { updateRow(rowId, { subjectId: "", selectedSlot: null }); return; }
 
-    // Pre-fill program from first course offering
-    const firstOffering = selectedSubject.courseOfferings?.[0];
-    if (firstOffering) {
-      const pId = typeof firstOffering.course === "object"
-        ? firstOffering.course._id
-        : (firstOffering.course as string);
-      if (pId) setProgramId(pId);
+    const subject = subjects.find(s => getEntityId(s) === subjectId);
+    const patch: Partial<SubjectRow> = { subjectId, selectedSlot: null, sectionId: "" };
+
+    if (subject?.semester) setSemester(subject.semester);
+
+    const off = subject?.courseOfferings?.[0];
+    if (off) {
+      const pId = typeof off.course === "object" ? (off.course as any)._id : (off.course as string);
+      if (pId) {
+        patch.programId   = pId;
+        patch.departmentId = courseDeptMap.get(pId) ?? "";
+      }
     }
 
-    // Pre-fill year level from first non-null offering
-    const firstYearLevel = selectedSubject.courseOfferings
-      ?.map(o => o.yearLevel)
-      .find(yl => yl != null);
-    if (firstYearLevel) setYearLevel(firstYearLevel);
+    const firstYL = subject?.courseOfferings?.map(o => o.yearLevel).find(yl => yl != null);
+    if (firstYL) patch.yearLevel = firstYL;
 
-    setSectionId("");
-    setSelectedSlot(null);
-    setSlotsLoaded(false);
-  }, [subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+    updateRow(rowId, patch);
 
-  // ── Program change: derive department for payload ──
-  useEffect(() => {
-    if (!programId) return;
-    const dId = courseDeptMap.get(programId);
-    if (dId) setDepartmentId(dId);
-  }, [programId, courseDeptMap]);
+    const programId  = (patch.programId  as string | undefined) ?? rows.find(r => r.id === rowId)?.programId  ?? "";
+    const yearLevel  = (patch.yearLevel  as string | undefined) ?? rows.find(r => r.id === rowId)?.yearLevel  ?? "";
+    if (programId && yearLevel) await loadSections(rowId, programId, yearLevel);
+  }, [subjects, courseDeptMap, rows, updateRow, loadSections]);
 
-  // ── Load sections when program + yearLevel are set ──
-  useEffect(() => {
-    if (!programId || !yearLevel) { setSections([]); setSectionId(""); return; }
+  const handleProgramChange = useCallback(async (rowId: string, programId: string) => {
+    const departmentId = programId ? (courseDeptMap.get(programId) ?? "") : "";
+    updateRow(rowId, { programId, departmentId, sectionId: "", sections: [], selectedSlot: null });
+    const row = rows.find(r => r.id === rowId);
+    if (programId && row?.yearLevel) await loadSections(rowId, programId, row.yearLevel);
+  }, [courseDeptMap, rows, updateRow, loadSections]);
 
-    SectionAPI.getByProgramAndYearLevel(programId, yearLevel)
-      .then(res => setSections(res.data ?? []))
-      .catch(() => setSections([]));
-  }, [programId, yearLevel]);
+  const handleYearLevelChange = useCallback(async (rowId: string, yearLevel: string) => {
+    updateRow(rowId, { yearLevel, sectionId: "", sections: [], selectedSlot: null });
+    const row = rows.find(r => r.id === rowId);
+    if (row?.programId && yearLevel) await loadSections(rowId, row.programId, yearLevel);
+  }, [rows, updateRow, loadSections]);
 
-  // ── Faculty change: auto-populate department from faculty's program ──
-  const handleFacultyChange = (fId: string) => {
+  // ── Faculty change clears all selected slots (availability changes) ──
+  const handleFacultyChange = useCallback((fId: string) => {
     setFacultyId(fId);
-    setSelectedSlot(null);
+    setRows(prev => prev.map(r => ({ ...r, selectedSlot: null })));
     setSlotsLoaded(false);
+  }, []);
 
-    if (!fId) return;
-    const faculty = facultyList.find(f => getEntityId(f) === fId);
-    if (!faculty) return;
-    const progId = typeof faculty.program === "object"
-      ? getEntityId(faculty.program)
-      : (faculty.program as string | undefined) ?? "";
-    const dId = courseDeptMap.get(progId);
-    if (dId) setDepartmentId(dId);
-  };
-
-  // ── Faculty combobox items (filtered by selected program) ──
-  const facultyItems = useMemo(() => {
-    const list = programId
-      ? facultyList.filter(f => {
-          const fProgId = typeof f.program === "object"
-            ? getEntityId(f.program)
-            : (f.program as string | undefined) ?? "";
-          return fProgId === programId;
-        })
-      : facultyList;
-    return list.map(f => ({
-      value: getEntityId(f),
-      label: getFacultyFullName(f),
-      sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
-    }));
-  }, [facultyList, programId]);
-
-  // ── Subject combobox items ──
+  // ── Combobox items ──
   const subjectItems = useMemo(
-    () => subjects.map(s => ({
-      value: getEntityId(s),
-      label: s.subjectCode,
-      sub: s.subjectName,
-    })),
+    () => subjects.map(s => ({ value: getEntityId(s), label: s.subjectCode, sub: s.subjectName })),
     [subjects]
   );
 
-  // ── Program combobox items ──
-  const programItems = useMemo(
-    () => courses.map(c => ({
-      value: getEntityId(c),
-      label: c.courseCode,
-      sub: c.courseName,
+  // All faculty — no program filter
+  const facultyItems = useMemo(
+    () => facultyList.map(f => ({
+      value: getEntityId(f),
+      label: getFacultyFullName(f),
+      sub: typeof f.program === "object" ? (f.program as any).courseCode : undefined,
     })),
+    [facultyList]
+  );
+
+  const programItems = useMemo(
+    () => courses.map(c => ({ value: getEntityId(c), label: c.courseCode, sub: c.courseName })),
     [courses]
   );
 
-  // ── Fetch available slots ──
-  const canFetchSlots = !!(facultyId && classroomId && semester && academicYear && scheduleType);
+  // ── Active row ──
+  const activeRow = useMemo(
+    () => rows.find(r => r.id === activeRowId) ?? rows[0],
+    [rows, activeRowId]
+  );
+
+  // ── Time starts for active row's duration (max end 17:00) ──
+  const timeStarts = useMemo(() => {
+    const durMin    = (activeRow?.durationHours ?? 1) * 60;
+    const maxEndMin = 17 * 60;
+    return ALL_TIME_STARTS.filter(s => {
+      const [h, m] = s.split(":").map(Number);
+      return h * 60 + m + durMin <= maxEndMin;
+    });
+  }, [activeRow?.durationHours]);
+
+  const durationMins = (activeRow?.durationHours ?? 1) * 60;
+
+  // ── Fetch available slots whenever active row or shared fields change ──
+  const canFetchSlots = !!(facultyId && classroomId && semester && academicYear && activeRow);
 
   useEffect(() => {
     if (!canFetchSlots) {
       setAvailableSet(new Set());
       setOccupiedMap(new Map());
-      setSelectedSlot(null);
       setSlotsLoaded(false);
       return;
     }
@@ -397,15 +442,15 @@ export default function AddSchedulePage() {
     let cancelled = false;
     setSlotsLoading(true);
     setSlotsLoaded(false);
-    setSelectedSlot(null);
 
     ScheduleAPI.getAvailableSlots({
-      faculty: facultyId,
-      classroom: classroomId,
+      faculty:       facultyId,
+      classroom:     classroomId,
       semester,
       academicYear,
-      scheduleType,
-      section: sectionId || undefined,
+      scheduleType:  activeRow.scheduleType,
+      durationHours: activeRow.durationHours,
+      section:       activeRow.sectionId || undefined,
     }).then(res => {
       if (cancelled) return;
       setAvailableSet(new Set(res.data.available.map(slotKey)));
@@ -416,82 +461,85 @@ export default function AddSchedulePage() {
     }).finally(() => { if (!cancelled) setSlotsLoading(false); });
 
     return () => { cancelled = true; };
-  }, [facultyId, classroomId, semester, academicYear, scheduleType, sectionId, canFetchSlots]);
+  }, [
+    facultyId, classroomId, semester, academicYear,
+    activeRowId,
+    activeRow?.scheduleType, activeRow?.durationHours, activeRow?.sectionId,
+    canFetchSlots,
+  ]);
 
-  const timeStarts   = scheduleType === "laboratory" ? LAB_TIME_STARTS : LECTURE_TIME_STARTS;
-  const durationMins = scheduleType === "laboratory" ? 90 : 60;
+  // ── Year level options (from subject's courseOfferings or fallback) ──
+  const getYearLevelOptions = (row: SubjectRow) => {
+    const sub = subjects.find(s => getEntityId(s) === row.subjectId);
+    if (!sub?.courseOfferings?.length) return YEAR_LEVELS;
+    const fromSub = [...new Set(sub.courseOfferings.map(o => o.yearLevel).filter(Boolean) as string[])];
+    return fromSub.length > 0 ? fromSub : YEAR_LEVELS;
+  };
 
-  // ── Year level options ──
-  const yearLevelOptions = useMemo(() => {
-    if (!selectedSubject?.courseOfferings?.length) return YEAR_LEVELS;
-    const fromSubject = [
-      ...new Set(selectedSubject.courseOfferings.map(o => o.yearLevel).filter(Boolean) as string[])
-    ];
-    return fromSubject.length > 0 ? fromSubject : YEAR_LEVELS;
-  }, [selectedSubject]);
-
-  // ── Submit ──
+  // ── Save all rows ──
   const handleSave = async () => {
-    if (!semester || !academicYear || !subjectId || !programId || !facultyId || !classroomId || !selectedSlot) {
-      setError("Please fill in all required fields and select a time slot.");
+    if (!semester || !academicYear || !facultyId || !classroomId) {
+      setError("Please fill in semester, academic year, faculty, and classroom.");
       return;
     }
-    if (!/^\d{4}-\d{4}$/.test(academicYear)) {
-      setError("Academic year must be in YYYY-YYYY format (e.g. 2024-2025).");
+    const incomplete = rows.filter(r => !r.subjectId || !r.programId || !r.selectedSlot);
+    if (incomplete.length > 0) {
+      setError(`${incomplete.length} subject(s) are missing a selection or time slot.`);
       return;
     }
     setError(null);
     setSubmitting(true);
-    try {
-      const res = await ScheduleAPI.create({
-        subject: subjectId,
-        faculty: facultyId,
-        classroom: classroomId,
-        department: departmentId,
-        scheduleType,
-        timeSlot: selectedSlot,
-        semester,
-        academicYear,
-        yearLevel: yearLevel || undefined,
-        section: sectionId || undefined,
-        status: "draft",
-      });
 
-      if (res.success) {
-        toast.success("Schedule created successfully!");
-        router.push("/schedules");
-      } else {
-        setError((res as any).message ?? "Failed to create schedule");
+    const results: { success: boolean; msg: string }[] = [];
+    for (const row of rows) {
+      try {
+        const res = await ScheduleAPI.create({
+          subject:      row.subjectId,
+          faculty:      facultyId,
+          classroom:    classroomId,
+          department:   row.departmentId,
+          scheduleType: row.scheduleType,
+          timeSlot:     row.selectedSlot!,
+          semester,
+          academicYear,
+          yearLevel: row.yearLevel  || undefined,
+          section:   row.sectionId  || undefined,
+          status:    "draft",
+        });
+        results.push({ success: res.success, msg: res.message });
+      } catch (err: any) {
+        const msg: string = err?.response?.data?.message ?? err?.message ?? "Failed";
+        results.push({ success: false, msg });
       }
-    } catch (err: any) {
-      const msg: string = err?.response?.data?.message ?? err?.message ?? "Failed to create schedule";
-      setError(msg);
-      // Refresh grid on conflict
-      if (canFetchSlots) {
-        ScheduleAPI.getAvailableSlots({ faculty: facultyId, classroom: classroomId, semester, academicYear, scheduleType, section: sectionId || undefined })
-          .then(r => {
-            setAvailableSet(new Set(r.data.available.map(slotKey)));
-            setOccupiedMap(new Map(r.data.occupied.map(({ slot, reasons }) => [slotKey(slot), reasons])));
-          }).catch(() => {});
-      }
-    } finally {
-      setSubmitting(false);
+    }
+
+    setSubmitting(false);
+    const succeeded = results.filter(r => r.success).length;
+    const failed    = results.filter(r => !r.success);
+
+    if (failed.length === 0) {
+      toast.success(`${succeeded} schedule(s) created successfully!`);
+      router.push("/schedules");
+    } else {
+      if (succeeded > 0) toast.success(`${succeeded} created.`);
+      setError(`${failed.length} failed: ${failed.map(f => f.msg).join("; ")}`);
     }
   };
 
-  // ── Loading ──
-  if (loadingPage) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        </div>
+  // ── Loading screen ──
+  if (loadingPage) return (
+    <div className="flex h-[50vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Loading…</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // ── Render ──
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const allHaveSlots = rows.every(r => r.selectedSlot && r.subjectId);
+
   return (
     <TooltipProvider>
       <div className="container mx-auto max-w-7xl pb-12">
@@ -503,7 +551,7 @@ export default function AddSchedulePage() {
             Back to Schedules
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">Add Schedule</h1>
-          <p className="text-muted-foreground text-sm">Manually assign a subject, faculty, classroom, and time slot.</p>
+          <p className="text-muted-foreground text-sm">Manually assign subjects, faculty, classroom, and time slots.</p>
         </div>
 
         {error && (
@@ -513,19 +561,18 @@ export default function AddSchedulePage() {
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
 
-          {/* ── Left column: form cards ── */}
+          {/* ── Left column ── */}
           <div className="space-y-6">
 
-            {/* ── Card 1: Basic Info ── */}
+            {/* Card 1: Basic Info */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Basic Info</CardTitle>
-                <CardDescription>Semester, academic year, and schedule type.</CardDescription>
+                <CardDescription>Semester and academic year applied to all subjects.</CardDescription>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
+              <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Semester <span className="text-destructive">*</span></label>
                   <Select value={semester} onValueChange={setSemester}>
@@ -535,7 +582,6 @@ export default function AddSchedulePage() {
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Academic Year <span className="text-destructive">*</span></label>
                   <Select value={academicYear} onValueChange={setAcademicYear}>
@@ -545,96 +591,16 @@ export default function AddSchedulePage() {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Schedule Type <span className="text-destructive">*</span></label>
-                  <Select value={scheduleType} onValueChange={v => { setScheduleType(v as "lecture" | "laboratory"); setSelectedSlot(null); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lecture">Lecture</SelectItem>
-                      <SelectItem value="laboratory">Laboratory</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
               </CardContent>
             </Card>
 
-            {/* ── Card 2: Subject & Context ── */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Subject &amp; Context</CardTitle>
-                <CardDescription>What subject is being scheduled and for whom.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Subject <span className="text-destructive">*</span></label>
-                  <Combobox
-                    value={subjectId}
-                    onChange={v => { setSubjectId(v); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
-                    placeholder="Search subjects…"
-                    searchPlaceholder="Type subject code or name…"
-                    emptyText={subjects.length === 0 ? "No subjects loaded." : "No subject found."}
-                    items={subjectItems}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Program <span className="text-destructive">*</span></label>
-                    <Combobox
-                      value={programId}
-                      onChange={v => { setProgramId(v); setSectionId(""); setFacultyId(""); setSelectedSlot(null); setSlotsLoaded(false); }}
-                      placeholder="Select program…"
-                      searchPlaceholder="Type program code or name…"
-                      emptyText={courses.length === 0 ? "No programs loaded." : "No program found."}
-                      items={programItems}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Year Level</label>
-                    <Select value={yearLevel} onValueChange={v => { setYearLevel(v); setSectionId(""); }}>
-                      <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                      <SelectContent>
-                        {yearLevelOptions.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Section</label>
-                    <Select value={sectionId} onValueChange={setSectionId} disabled={!yearLevel || sections.length === 0}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={
-                          !yearLevel ? "Set year level first" :
-                          sections.length === 0 ? "No sections" : "Optional"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sections.map(sec => (
-                          <SelectItem key={getEntityId(sec)} value={getEntityId(sec)}>
-                            {sec.name ?? sec.sectionCode}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ── Card 3: Assignment ── */}
+            {/* Card 2: Assignment */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Assignment</CardTitle>
-                <CardDescription>Faculty member and classroom for this schedule.</CardDescription>
+                <CardDescription>Faculty and classroom shared across all subjects.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-5">
-
+              <CardContent className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium flex items-center gap-1.5">
                     <User className="h-4 w-4 text-muted-foreground" />
@@ -644,20 +610,24 @@ export default function AddSchedulePage() {
                     value={facultyId}
                     onChange={handleFacultyChange}
                     placeholder="Search faculty…"
-                    searchPlaceholder="Type faculty name or program…"
+                    searchPlaceholder="Type faculty name…"
                     emptyText="No faculty found."
                     items={facultyItems}
                   />
                 </div>
-
-                <Separator />
-
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium flex items-center gap-1.5">
                     <Building2 className="h-4 w-4 text-muted-foreground" />
                     Classroom <span className="text-destructive">*</span>
                   </label>
-                  <Select value={classroomId} onValueChange={v => { setClassroomId(v); setSelectedSlot(null); setSlotsLoaded(false); }}>
+                  <Select
+                    value={classroomId}
+                    onValueChange={v => {
+                      setClassroomId(v);
+                      setRows(prev => prev.map(r => ({ ...r, selectedSlot: null })));
+                      setSlotsLoaded(false);
+                    }}
+                  >
                     <SelectTrigger><SelectValue placeholder="Select classroom…" /></SelectTrigger>
                     <SelectContent>
                       {classrooms.map(room => (
@@ -669,18 +639,203 @@ export default function AddSchedulePage() {
                     </SelectContent>
                   </Select>
                 </div>
-
               </CardContent>
             </Card>
 
-            {/* ── Actions ── */}
+            {/* Card 3: Subjects */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="text-base">Subjects</CardTitle>
+                  <CardDescription>Add one or more subjects. Click a row to edit its time slot.</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" onClick={addRow}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Subject
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {rows.map((row, idx) => {
+                  const isActive = activeRowId === row.id;
+                  const slotLabel = row.selectedSlot
+                    ? `${DAY_PATTERNS.find(p => patternKey(p) === slotKey(row.selectedSlot!).split("|")[1])?.label} · ${formatTime(row.selectedSlot.startTime)}–${formatTime(row.selectedSlot.endTime)}`
+                    : null;
+
+                  return (
+                    <div
+                      key={row.id}
+                      className={cn(
+                        "rounded-lg border p-4 space-y-3 cursor-pointer transition-all",
+                        isActive
+                          ? "border-primary/60 bg-primary/5 shadow-sm"
+                          : "border-border hover:border-muted-foreground/40"
+                      )}
+                      onClick={() => { setActiveRowId(row.id); setSlotsLoaded(false); }}
+                    >
+                      {/* Row header */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-foreground">
+                          Subject {idx + 1}
+                          {isActive && (
+                            <Badge variant="secondary" className="ml-2 text-xs py-0 font-normal">Active</Badge>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                          {slotLabel && (
+                            <Badge variant="outline" className="text-xs gap-1 text-green-700 border-green-300 bg-green-50 dark:bg-green-950/20">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {slotLabel}
+                            </Badge>
+                          )}
+                          {rows.length > 1 && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeRow(row.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Fields — stop click from activating row */}
+                      <div className="space-y-3" onClick={e => e.stopPropagation()}>
+
+                        {/* Subject */}
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">
+                            Subject <span className="text-destructive">*</span>
+                          </label>
+                          <Combobox
+                            value={row.subjectId}
+                            onChange={v => handleSubjectChange(row.id, v)}
+                            placeholder="Search subjects…"
+                            searchPlaceholder="Type subject code or name…"
+                            emptyText={subjects.length === 0 ? "No subjects loaded." : "No subject found."}
+                            items={subjectItems}
+                          />
+                        </div>
+
+                        {/* Program / Year / Section / Type / Duration */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Program <span className="text-destructive">*</span>
+                            </label>
+                            <Combobox
+                              value={row.programId}
+                              onChange={v => handleProgramChange(row.id, v)}
+                              placeholder="Program…"
+                              searchPlaceholder="Program…"
+                              emptyText="No programs."
+                              items={programItems}
+                              className="h-9 text-sm"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Year Level</label>
+                            <Select
+                              value={row.yearLevel}
+                              onValueChange={v => handleYearLevelChange(row.id, v)}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder="Year…" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {getYearLevelOptions(row).map(y => (
+                                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Section</label>
+                            <Select
+                              value={row.sectionId}
+                              onValueChange={v => updateRow(row.id, { sectionId: v })}
+                              disabled={!row.yearLevel || row.sections.length === 0}
+                            >
+                              <SelectTrigger className="h-9 text-sm">
+                                <SelectValue placeholder={
+                                  !row.yearLevel        ? "Set year first"  :
+                                  row.sections.length === 0 ? "No sections" : "Optional"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {row.sections.map(sec => (
+                                  <SelectItem key={getEntityId(sec)} value={getEntityId(sec)}>
+                                    {sec.name ?? sec.sectionCode}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Type</label>
+                            <Select
+                              value={row.scheduleType}
+                              onValueChange={v => {
+                                updateRow(row.id, { scheduleType: v as "lecture" | "laboratory", selectedSlot: null });
+                                if (isActive) setSlotsLoaded(false);
+                              }}
+                            >
+                              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="lecture">Lecture</SelectItem>
+                                <SelectItem value="laboratory">Laboratory</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Duration</label>
+                            <Select
+                              value={String(row.durationHours)}
+                              onValueChange={v => {
+                                updateRow(row.id, { durationHours: Number(v) as 1 | 2 | 3, selectedSlot: null });
+                                if (isActive) setSlotsLoaded(false);
+                              }}
+                            >
+                              <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {DURATION_OPTIONS.map(d => (
+                                  <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                        </div>
+
+                        {/* Hint */}
+                        {!row.selectedSlot && isActive && canFetchSlots && slotsLoaded && (
+                          <p className="text-xs text-primary/70 italic">Click a green slot in the grid on the right to assign a time →</p>
+                        )}
+                        {!row.selectedSlot && isActive && !canFetchSlots && (
+                          <p className="text-xs text-muted-foreground italic">Fill faculty and classroom to see available time slots.</p>
+                        )}
+
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => router.push("/schedules")} disabled={submitting}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={submitting || !selectedSlot}>
+              <Button onClick={handleSave} disabled={submitting || !allHaveSlots}>
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Schedule
+                Save {rows.length > 1 ? `${rows.length} Schedules` : "Schedule"}
               </Button>
             </div>
 
@@ -696,17 +851,20 @@ export default function AddSchedulePage() {
                 </CardTitle>
                 <CardDescription>
                   {!canFetchSlots
-                    ? "Fill in faculty, classroom, semester, and year to see slots."
+                    ? "Fill in faculty, classroom, semester, and year above."
                     : slotsLoading
                     ? "Checking availability…"
                     : slotsLoaded
-                    ? "Green = available · Gray = occupied. Click to select."
+                    ? `Subject ${rows.findIndex(r => r.id === activeRowId) + 1} · ${activeRow?.durationHours}hr · Green = free · Gray = taken`
                     : ""}
                 </CardDescription>
               </CardHeader>
               <CardContent>
+
                 {!canFetchSlots && (
-                  <p className="text-sm text-muted-foreground italic">Availability grid will appear once all required fields are filled.</p>
+                  <p className="text-sm text-muted-foreground italic">
+                    Availability grid will appear once faculty, classroom, semester, and academic year are filled.
+                  </p>
                 )}
 
                 {canFetchSlots && slotsLoading && (
@@ -716,92 +874,167 @@ export default function AddSchedulePage() {
                   </div>
                 )}
 
-                {canFetchSlots && !slotsLoading && slotsLoaded && (
-                  <>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs border-collapse">
-                        <thead>
-                          <tr>
-                            <th className="text-left text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">Time</th>
-                            {DAY_PATTERNS.map(p => (
-                              <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">{p.label}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {timeStarts.map(start => {
-                            const end = addMinutes(start, durationMins);
-                            return (
-                              <tr key={start}>
-                                <td className="pr-3 py-0.5 text-muted-foreground whitespace-nowrap">{formatTime(start)}</td>
-                                {DAY_PATTERNS.map(pattern => {
-                                  const candidate: ITimeSlot = { day: pattern.day, days: pattern.days as ITimeSlot["days"], startTime: start, endTime: end };
-                                  const key = `${start}|${patternKey(pattern)}`;
-                                  const isAvailable = availableSet.has(key);
-                                  const reasons    = occupiedMap.get(key);
-                                  const isSelected = selectedSlot ? slotKey(selectedSlot) === key : false;
+                {canFetchSlots && !slotsLoading && slotsLoaded && (() => {
+                  // Slots used by OTHER rows (shown as amber in the grid)
+                  const otherSlots = rows
+                    .filter(r => r.id !== activeRowId && r.selectedSlot)
+                    .map(r => ({
+                      slot:  r.selectedSlot!,
+                      label: `S${rows.findIndex(x => x.id === r.id) + 1}`,
+                    }));
 
-                                  if (isAvailable) {
+                  return (
+                    <>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse">
+                          <thead>
+                            <tr>
+                              <th className="text-left text-muted-foreground font-medium pb-2 pr-2 whitespace-nowrap">Time</th>
+                              {DAY_PATTERNS.map(p => (
+                                <th key={p.label} className="text-center text-muted-foreground font-medium pb-2 px-1 whitespace-nowrap">
+                                  {p.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {timeStarts.map(start => {
+                              const end = addMinutes(start, durationMins);
+                              return (
+                                <tr key={start}>
+                                  <td className="pr-2 py-0.5 text-muted-foreground whitespace-nowrap">{formatTime(start)}</td>
+                                  {DAY_PATTERNS.map(pattern => {
+                                    const candidate: ITimeSlot = {
+                                      day:  pattern.day,
+                                      days: pattern.days as ITimeSlot["days"],
+                                      startTime: start,
+                                      endTime:   end,
+                                    };
+                                    const key        = `${start}|${patternKey(pattern)}`;
+                                    const isAvail    = availableSet.has(key);
+                                    const takenBy    = occupiedMap.get(key);
+                                    const isSelected = activeRow?.selectedSlot
+                                      ? slotKey(activeRow.selectedSlot) === key
+                                      : false;
+                                    const usedByOther = otherSlots.find(o =>
+                                      clientSlotOverlaps(candidate, o.slot)
+                                    );
+
+                                    // Other row's slot (amber)
+                                    if (usedByOther && !isSelected) {
+                                      return (
+                                        <td key={pattern.label} className="px-1 py-0.5 text-center">
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                type="button"
+                                                disabled
+                                                className="w-full rounded px-1 py-1 bg-amber-100 text-amber-700 cursor-not-allowed text-[10px] dark:bg-amber-900/20 dark:text-amber-400"
+                                              >
+                                                {usedByOther.label}
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Used by Subject {usedByOther.label.slice(1)}</TooltipContent>
+                                          </Tooltip>
+                                        </td>
+                                      );
+                                    }
+
+                                    // Available or currently selected (green)
+                                    if (isAvail || isSelected) {
+                                      return (
+                                        <td key={pattern.label} className="px-1 py-0.5 text-center">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              updateRow(activeRowId, {
+                                                selectedSlot: isSelected ? null : candidate,
+                                              })
+                                            }
+                                            className={cn(
+                                              "w-full rounded px-1 py-1 font-medium transition-colors",
+                                              isSelected
+                                                ? "bg-green-600 text-white ring-2 ring-green-700"
+                                                : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
+                                            )}
+                                          >
+                                            {isSelected
+                                              ? <CheckCircle2 className="h-3 w-3 mx-auto" />
+                                              : "Free"}
+                                          </button>
+                                        </td>
+                                      );
+                                    }
+
+                                    // Externally occupied (gray)
+                                    if (takenBy) {
+                                      return (
+                                        <td key={pattern.label} className="px-1 py-0.5 text-center">
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                type="button"
+                                                disabled
+                                                className="w-full rounded px-1 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60 text-[10px]"
+                                              >
+                                                Taken
+                                              </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top">{takenBy.join(" · ")}</TooltipContent>
+                                          </Tooltip>
+                                        </td>
+                                      );
+                                    }
+
                                     return (
                                       <td key={pattern.label} className="px-1 py-0.5 text-center">
-                                        <button
-                                          type="button"
-                                          onClick={() => setSelectedSlot(isSelected ? null : candidate)}
-                                          className={cn(
-                                            "w-full rounded px-1.5 py-1 font-medium transition-colors",
-                                            isSelected
-                                              ? "bg-green-600 text-white ring-2 ring-green-700"
-                                              : "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300"
-                                          )}
-                                        >
-                                          {isSelected ? <CheckCircle2 className="h-3 w-3 mx-auto" /> : "Free"}
-                                        </button>
+                                        <span className="text-muted-foreground">—</span>
                                       </td>
                                     );
-                                  }
-
-                                  if (reasons) {
-                                    return (
-                                      <td key={pattern.label} className="px-1 py-0.5 text-center">
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <button type="button" disabled className="w-full rounded px-1.5 py-1 bg-muted text-muted-foreground cursor-not-allowed opacity-60">
-                                              Taken
-                                            </button>
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top">{reasons.join(" · ")}</TooltipContent>
-                                        </Tooltip>
-                                      </td>
-                                    );
-                                  }
-
-                                  return <td key={pattern.label} className="px-1 py-0.5 text-center"><span className="text-muted-foreground">—</span></td>;
-                                })}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {selectedSlot && (
-                      <div className="mt-4 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span>
-                          <span className="font-medium">
-                            {DAY_PATTERNS.find(p => patternKey(p) === slotKey(selectedSlot).split("|")[1])?.label}
-                          </span>
-                          {" · "}
-                          {formatTime(selectedSlot.startTime)} – {formatTime(selectedSlot.endTime)}
-                          {" · "}
-                          <Badge variant="outline" className="text-xs py-0">
-                            {scheduleType === "laboratory" ? "1.5 hrs" : "1 hr"} per session
-                          </Badge>
-                        </span>
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
-                    )}
-                  </>
-                )}
+
+                      {/* Selected slot summary */}
+                      {activeRow?.selectedSlot && (
+                        <div className="mt-3 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
+                          <Clock className="h-4 w-4 shrink-0" />
+                          <span>
+                            <span className="font-medium">
+                              {DAY_PATTERNS.find(p => patternKey(p) === slotKey(activeRow.selectedSlot!).split("|")[1])?.label}
+                            </span>
+                            {" · "}
+                            {formatTime(activeRow.selectedSlot.startTime)} – {formatTime(activeRow.selectedSlot.endTime)}
+                            {" · "}
+                            <Badge variant="outline" className="text-xs py-0">
+                              {activeRow.durationHours} hr/session
+                            </Badge>
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Legend */}
+                      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-sm bg-green-200 inline-block" />Free
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-3 rounded-sm bg-muted inline-block" />Taken
+                        </span>
+                        {otherSlots.length > 0 && (
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 rounded-sm bg-amber-200 inline-block" />Other subject
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+
               </CardContent>
             </Card>
           </div>
