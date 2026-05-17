@@ -23,7 +23,7 @@ export const createScheduleSchema = z.object({
   subject: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid subject ID'),
   faculty: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid faculty ID'),
   classroom: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid classroom ID'),
-  department: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID'),
+  department: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid department ID').optional(),
   timeSlot: timeSlotSchema,
   scheduleType: z.enum(['lecture', 'laboratory']).default('lecture'),
   semester: z.string().min(1, 'Semester is required'),
