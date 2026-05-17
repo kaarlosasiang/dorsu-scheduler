@@ -148,6 +148,7 @@ export interface AvailableSlotsParams {
   semester: string;
   academicYear: string;
   scheduleType: 'lecture' | 'laboratory';
+  durationHours?: number;
   section?: string;
   excludeId?: string;
 }
