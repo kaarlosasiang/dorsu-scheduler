@@ -157,9 +157,12 @@ export const SubjectAPI = {
     semester: string
   ): Promise<SubjectListResponse> {
     try {
-      const response = await APIService.get(
-        `/subjects?courseId=${courseId}&semester=${semester}`
-      );
+      const params = new URLSearchParams({
+        courseId,
+        semester,
+        yearLevel,
+      });
+      const response = await APIService.get(`/subjects?${params.toString()}`);
       return response.data;
     } catch (error) {
       throw error;

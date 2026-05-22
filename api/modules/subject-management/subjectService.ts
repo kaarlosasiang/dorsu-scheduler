@@ -14,7 +14,13 @@ export async function getAll(filters: ISubjectFilter = {}): Promise<ISubjectDocu
   try {
     const query: any = {};
 
-    if (filters.courseId) query['courseOfferings.course'] = filters.courseId;
+    if (filters.courseId && filters.yearLevel) {
+      query.courseOfferings = {
+        $elemMatch: { course: filters.courseId, yearLevel: filters.yearLevel },
+      };
+    } else if (filters.courseId) {
+      query['courseOfferings.course'] = filters.courseId;
+    }
     if (filters.department) query.department = filters.department;
     if (filters.semester) query.semester = filters.semester;
     if (filters.subjectCode) query.subjectCode = new RegExp(filters.subjectCode, 'i');

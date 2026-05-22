@@ -31,7 +31,6 @@ import { DataTableColumnHeader } from "@/components/common/data-table/data-table
 import { DataTableAdvancedToolbar } from "@/components/common/data-table/data-table-advanced-toolbar";
 import { DataTableFilterList } from "@/components/common/data-table/data-table-filter-list";
 import { DataTableSortList } from "@/components/common/data-table/data-table-sort-list";
-import { DataTableViewOptions } from "@/components/common/data-table/data-table-view-options";
 import { DataTableSearch } from "@/components/common/data-table/data-table-search";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +56,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useDataTable } from "@/hooks/use-data-table";
@@ -64,14 +73,16 @@ import { useSchedules } from "@/hooks/useSchedules";
 import { useRouter } from "next/navigation";
 import { type ISchedule, ScheduleAPI } from "@/lib/services/ScheduleAPI";
 import { toast } from "sonner";
-import { exportCourseOffering, type ExportSchedule } from "@/lib/utils/exportCourseOffering";
+import { exportCourseOffering, exportFacultyWorkload, type ExportSchedule } from "@/lib/utils/exportCourseOffering";
 import { useCourses } from "@/hooks/useCourses";
+import { useFaculty } from "@/hooks/useFaculty";
+import type { IFaculty } from "@/lib/services/FacultyAPI";
+import SectionAPI, { type ISection } from "@/lib/services/SectionAPI";
 import { ScheduleCalendar } from "@/components/common/schedule-calendar";
 import { useAuth } from "@/contexts/authContext";
 import { FacultyAPI } from "@/lib/services/FacultyAPI";
 import { useQueryState } from "nuqs";
 import { getFiltersStateParser } from "@/lib/parsers";
-import { SubjectAPI } from "@/lib/services/SubjectAPI";
 
 // Transform ISchedule to display format
 interface Schedule {
@@ -156,6 +167,116 @@ const buildAcademicYearOptions = (count: number) => {
         return `${year}-${year + 1}`;
     });
 };
+
+function getMostCommonValue(values: string[]): string | undefined {
+    const counts = new Map<string, number>();
+
+    for (const value of values) {
+        if (!value || value === "N/A") {
+            continue;
+        }
+
+        counts.set(value, (counts.get(value) || 0) + 1);
+    }
+
+    let best: string | undefined;
+    let bestCount = 0;
+
+    for (const [value, count] of counts) {
+        if (count > bestCount) {
+            best = value;
+            bestCount = count;
+        }
+    }
+
+    return best;
+}
+
+function getFilterValue(
+    filters: Array<{ id: string; value?: unknown }>,
+    columnId: string
+): string | undefined {
+    const filter = filters.find((item) => item.id === columnId);
+    if (!filter?.value) {
+        return undefined;
+    }
+
+    const { value } = filter;
+    if (Array.isArray(value)) {
+        return value[0] as string;
+    }
+
+    return typeof value === "string" ? value : undefined;
+}
+
+function formatFacultyName(faculty: IFaculty): string {
+    const { name } = faculty;
+    return `${name.first} ${name.middle ? name.middle + " " : ""}${name.last}${name.ext ? " " + name.ext : ""}`;
+}
+
+function resolveScheduleSection(schedule: ISchedule): string {
+    const section = typeof schedule.section === "object" ? schedule.section as ScheduleSection : null;
+    const sectionDetails = typeof schedule.sectionDetails === "object"
+        ? schedule.sectionDetails as ScheduleSection
+        : null;
+
+    return (
+        section?.name ||
+        section?.sectionCode ||
+        sectionDetails?.name ||
+        sectionDetails?.sectionCode ||
+        ""
+    );
+}
+
+function resolveScheduleYearLevel(schedule: ISchedule): string {
+    const section = typeof schedule.section === "object" ? schedule.section as { yearLevel?: string } : null;
+    return schedule.yearLevel || section?.yearLevel || "";
+}
+
+function getFacultyProgramId(faculty: IFaculty): string {
+    if (typeof faculty.program === "string") return faculty.program;
+    return faculty.program?._id || faculty.program?.id || "";
+}
+
+function getConfiguredSectionLabel(section: ISection, showYearLevel: boolean): string {
+    const code = section.name ?? section.sectionCode;
+    return showYearLevel ? `${section.yearLevel} — ${code}` : code;
+}
+
+function scheduleMatchesConfiguredSection(
+    schedule: ISchedule,
+    sectionId: string,
+    configuredSections: ISection[]
+): boolean {
+    const selected = configuredSections.find(
+        (section) => (section._id || section.id) === sectionId
+    );
+    if (!selected) return false;
+
+    const scheduleSectionId =
+        typeof schedule.section === "object" && schedule.section
+            ? schedule.section._id || schedule.section.id
+            : typeof schedule.section === "string"
+            ? schedule.section
+            : "";
+
+    if (scheduleSectionId && scheduleSectionId === sectionId) return true;
+
+    const code = (selected.name || selected.sectionCode).toUpperCase();
+    return resolveScheduleSection(schedule).toUpperCase() === code;
+}
+
+function getExportRowsFromTable(
+    filteredRows: Schedule[],
+    rawSchedules: ISchedule[]
+): ExportSchedule[] {
+    const visibleIds = new Set(filteredRows.map((row) => row.id).filter(Boolean));
+
+    return rawSchedules.filter((schedule) =>
+        visibleIds.has(schedule._id || schedule.id || "")
+    ) as ExportSchedule[];
+}
 
 // Transform function
 const transformSchedule = (schedule: ISchedule): Schedule => {
@@ -613,15 +734,28 @@ const baseColumns: ColumnDef<Schedule>[] = [
         cell: ({ row }) => {
             const schedule = row.original;
 
-            return <ScheduleActionCell schedule={schedule} />;
+            return (
+                <ScheduleActionCell
+                    schedule={schedule}
+                    onDelete={async () => false}
+                />
+            );
         },
     },
 ];
 
-function ScheduleActionCell({ schedule }: { schedule: Schedule }) {
+function ScheduleActionCell({
+    schedule,
+    onDelete,
+}: {
+    schedule: Schedule;
+    onDelete: (id: string) => Promise<boolean>;
+}) {
     const router = useRouter();
     const { user } = useAuth();
     const isFaculty = user?.role === "faculty";
+    const [deleteOpen, setDeleteOpen] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
 
     if (isFaculty) {
         return (
@@ -636,37 +770,89 @@ function ScheduleActionCell({ schedule }: { schedule: Schedule }) {
         );
     }
 
+    const handleConfirmDelete = async () => {
+        setDeleting(true);
+        try {
+            const success = await onDelete(schedule.id);
+            if (success) {
+                setDeleteOpen(false);
+            }
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     return (
-        <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(schedule.id)}
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuItem
+                        onClick={() => navigator.clipboard.writeText(schedule.id)}
+                    >
+                        Copy schedule ID
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push(`/schedules/${schedule.id}`)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push(`/schedules/${schedule.id}/edit`)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit schedule
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDeleteOpen(true)}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete schedule
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to permanently delete the schedule for{" "}
+                            <strong>
+                                {schedule.courseCode} — {schedule.day} ({schedule.timeSlot})
+                            </strong>
+                            ? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                void handleConfirmDelete();
+                            }}
+                            disabled={deleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                            Copy schedule ID
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push(`/schedules/${schedule.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => router.push(`/schedules/${schedule.id}/edit`)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit schedule
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete schedule
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            {deleting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                "Delete"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </>
     );
 }
 
@@ -720,13 +906,24 @@ export default function SchedulesPage() {
     // Export state
     const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
     const [exporting, setExporting] = React.useState(false);
-    const [exportSemester, setExportSemester] = React.useState("2nd Semester");
+    const [exportSemester, setExportSemester] = React.useState("1st Semester");
     const [exportAcademicYear, setExportAcademicYear] = React.useState(() => academicYearOptions[0] ?? "");
     const [exportProgramId, setExportProgramId] = React.useState("all");
     const [exportYearLevel, setExportYearLevel] = React.useState("all");
     const [exportSection, setExportSection] = React.useState("all");
     const [exportInstitute, setExportInstitute] = React.useState("Baganga Campus");
+    const [workloadExportDialogOpen, setWorkloadExportDialogOpen] = React.useState(false);
+    const [workloadExporting, setWorkloadExporting] = React.useState(false);
+    const [workloadFacultyId, setWorkloadFacultyId] = React.useState("");
+    const [workloadSemester, setWorkloadSemester] = React.useState("1st Semester");
+    const [workloadAcademicYear, setWorkloadAcademicYear] = React.useState(() => academicYearOptions[0] ?? "");
+    const [workloadYearLevel, setWorkloadYearLevel] = React.useState("all");
+    const [workloadSection, setWorkloadSection] = React.useState("all");
+    const [configuredSections, setConfiguredSections] = React.useState<ISection[]>([]);
+    const [configuredSectionsLoading, setConfiguredSectionsLoading] = React.useState(false);
     const [view, setView] = React.useState<"table" | "calendar">("table");
+
+    const { faculties } = useFaculty();
 
     // Transform schedules data
     const schedules = React.useMemo(
@@ -742,6 +939,27 @@ export default function SchedulesPage() {
             endTime: schedule.timeSlot.split(" - ")[1] || "",
         }));
     }, [schedules]);
+
+    const handleDeleteSchedule = React.useCallback(
+        async (id: string) => {
+            try {
+                const response = await ScheduleAPI.delete(id);
+                if (response?.success !== false) {
+                    toast.success("Schedule deleted successfully");
+                    await refetch();
+                    return true;
+                }
+                toast.error("Failed to delete schedule");
+                return false;
+            } catch (err) {
+                toast.error(
+                    err instanceof Error ? err.message : "Failed to delete schedule"
+                );
+                return false;
+            }
+        },
+        [refetch]
+    );
 
     const updatedColumns = React.useMemo(() => {
         const buildCountMap = (values: string[]) => {
@@ -768,6 +986,18 @@ export default function SchedulesPage() {
         const statusCounts = buildCountMap(schedules.map((schedule) => schedule.status));
 
         return baseColumns.map((column) => {
+            if (column.id === "actions") {
+                return {
+                    ...column,
+                    cell: ({ row }: { row: { original: Schedule } }) => (
+                        <ScheduleActionCell
+                            schedule={row.original}
+                            onDelete={handleDeleteSchedule}
+                        />
+                    ),
+                };
+            }
+
             if (!column.meta) {
                 return column;
             }
@@ -898,7 +1128,7 @@ export default function SchedulesPage() {
 
             return column;
         });
-    }, [schedules]);
+    }, [schedules, handleDeleteSchedule]);
 
     const selectedProgram = React.useMemo(
         () => courses.find((course) => (course._id || course.id) === selectedProgramId),
@@ -919,6 +1149,104 @@ export default function SchedulesPage() {
         () => courses.find((course) => (course._id || course.id) === exportProgramId),
         [courses, exportProgramId]
     );
+
+    const facultyOptions = React.useMemo(() => {
+        return faculties
+            .filter((faculty) => faculty.status === "active")
+            .map((faculty) => ({
+                id: faculty._id || faculty.id || "",
+                name: formatFacultyName(faculty),
+            }))
+            .filter((faculty) => faculty.id)
+            .sort((left, right) => left.name.localeCompare(right.name));
+    }, [faculties]);
+
+    const selectedWorkloadFaculty = React.useMemo(
+        () => faculties.find((faculty) => (faculty._id || faculty.id) === workloadFacultyId),
+        [faculties, workloadFacultyId]
+    );
+
+    const workloadSectionOptions = React.useMemo(() => {
+        const showYearLevel = workloadYearLevel === "all";
+
+        return configuredSections
+            .map((section) => ({
+                id: section._id || section.id || "",
+                label: getConfiguredSectionLabel(section, showYearLevel),
+            }))
+            .filter((option) => option.id)
+            .sort((left, right) => left.label.localeCompare(right.label));
+    }, [configuredSections, workloadYearLevel]);
+
+    const selectedWorkloadSectionLabel = React.useMemo(() => {
+        if (workloadSection === "all") return null;
+
+        const section = configuredSections.find(
+            (item) => (item._id || item.id) === workloadSection
+        );
+        if (!section) return null;
+
+        return getConfiguredSectionLabel(section, workloadYearLevel === "all");
+    }, [workloadSection, configuredSections, workloadYearLevel]);
+
+    React.useEffect(() => {
+        if (!workloadExportDialogOpen || !workloadFacultyId) {
+            setConfiguredSections([]);
+            setConfiguredSectionsLoading(false);
+            return;
+        }
+
+        const faculty = faculties.find(
+            (item) => (item._id || item.id) === workloadFacultyId
+        );
+        const programId = faculty ? getFacultyProgramId(faculty) : "";
+
+        if (!programId) {
+            setConfiguredSections([]);
+            setConfiguredSectionsLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+        setConfiguredSectionsLoading(true);
+
+        const fetchSections = workloadYearLevel !== "all"
+            ? SectionAPI.getByProgramAndYearLevel(programId, workloadYearLevel)
+            : SectionAPI.getByProgram(programId);
+
+        fetchSections
+            .then((response) => {
+                if (cancelled) return;
+                const activeSections = (response.data || []).filter(
+                    (section) => section.status === "active"
+                );
+                setConfiguredSections(activeSections);
+            })
+            .catch(() => {
+                if (!cancelled) setConfiguredSections([]);
+            })
+            .finally(() => {
+                if (!cancelled) setConfiguredSectionsLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [workloadExportDialogOpen, workloadFacultyId, workloadYearLevel, faculties]);
+
+    React.useEffect(() => {
+        if (workloadSection === "all") return;
+
+        const validSectionIds = new Set(
+            configuredSections
+                .map((section) => section._id || section.id)
+                .filter(Boolean)
+        );
+
+        if (!validSectionIds.has(workloadSection)) {
+            setWorkloadSection("all");
+        }
+    }, [configuredSections, workloadSection]);
 
     // For faculty: hide the select checkbox and faculty name columns (irrelevant read-only view)
     const tableColumns = React.useMemo(() => {
@@ -1008,6 +1336,207 @@ export default function SchedulesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [advancedFilters, updatedColumns]);
 
+    const filteredScheduleCount = table.getFilteredRowModel().rows.length;
+
+    const handleOpenExportDialog = React.useCallback(() => {
+        const filteredRows = table.getFilteredRowModel().rows.map((row) => row.original);
+
+        const semesterFromFilter = getFilterValue(advancedFilters, "semester");
+        const academicYearFromFilter = getFilterValue(advancedFilters, "academicYear");
+        const yearLevelFromFilter = getFilterValue(advancedFilters, "yearLevel");
+        const sectionFromFilter = getFilterValue(advancedFilters, "section");
+
+        setExportSemester(
+            semesterFromFilter
+                ?? getMostCommonValue(filteredRows.map((row) => row.semester))
+                ?? "1st Semester"
+        );
+        setExportAcademicYear(
+            academicYearFromFilter
+                ?? getMostCommonValue(filteredRows.map((row) => row.academicYear))
+                ?? academicYearOptions[0]
+                ?? ""
+        );
+        setExportYearLevel(yearLevelFromFilter ?? "all");
+        setExportSection(sectionFromFilter ?? "all");
+        setExportDialogOpen(true);
+    }, [table, advancedFilters, academicYearOptions]);
+
+    const handleExportCourseOffering = async () => {
+        setExporting(true);
+        try {
+            const filteredRows = table.getFilteredRowModel().rows.map((row) => row.original);
+            const schedulesForExport = getExportRowsFromTable(filteredRows, rawSchedules);
+
+            if (schedulesForExport.length === 0) {
+                toast.error("No schedules in the current table view to export");
+                return;
+            }
+
+            const pdfSemester =
+                getMostCommonValue(schedulesForExport.map((schedule) => schedule.semester))
+                ?? exportSemester;
+            const pdfAcademicYear =
+                getMostCommonValue(schedulesForExport.map((schedule) => schedule.academicYear))
+                ?? exportAcademicYear;
+            const programName =
+                exportProgram?.courseName
+                ?? getMostCommonValue(
+                    filteredRows
+                        .map((row) => row.departmentName)
+                        .filter((name) => name && name !== "Unknown Program")
+                )
+                ?? "All Programs";
+
+            await exportCourseOffering({
+                programName,
+                institute: exportInstitute,
+                semester: pdfSemester,
+                academicYear: pdfAcademicYear,
+                schedules: schedulesForExport,
+            });
+
+            toast.success("Course offering PDF exported successfully!");
+            setExportDialogOpen(false);
+        } catch (err) {
+            console.error(err);
+            toast.error(err instanceof Error ? err.message : "Failed to export PDF");
+        } finally {
+            setExporting(false);
+        }
+    };
+
+    const handleOpenWorkloadExportDialog = React.useCallback(() => {
+        const filteredRows = table.getFilteredRowModel().rows.map((row) => row.original);
+
+        const semesterFromFilter = getFilterValue(advancedFilters, "semester");
+        const academicYearFromFilter = getFilterValue(advancedFilters, "academicYear");
+        const yearLevelFromFilter = getFilterValue(advancedFilters, "yearLevel");
+        const sectionFromFilter = getFilterValue(advancedFilters, "section");
+        const facultyFromFilter = getFilterValue(advancedFilters, "faculty");
+
+        setWorkloadSemester(
+            semesterFromFilter
+                ?? getMostCommonValue(filteredRows.map((row) => row.semester))
+                ?? "1st Semester"
+        );
+        setWorkloadAcademicYear(
+            academicYearFromFilter
+                ?? getMostCommonValue(filteredRows.map((row) => row.academicYear))
+                ?? academicYearOptions[0]
+                ?? ""
+        );
+        setWorkloadYearLevel(yearLevelFromFilter ?? "all");
+        setWorkloadSection(sectionFromFilter ?? "all");
+
+        const filteredIds = new Set(filteredRows.map((row) => row.id));
+        const filteredRawSchedules = rawSchedules.filter((schedule) =>
+            filteredIds.has(schedule._id || schedule.id || "")
+        );
+        const uniqueFacultyIds = [
+            ...new Set(
+                filteredRawSchedules
+                    .map((schedule) => {
+                        if (typeof schedule.faculty === "object" && schedule.faculty) {
+                            return schedule.faculty._id || schedule.faculty.id || "";
+                        }
+                        return typeof schedule.faculty === "string" ? schedule.faculty : "";
+                    })
+                    .filter(Boolean)
+            ),
+        ];
+
+        if (uniqueFacultyIds.length === 1) {
+            setWorkloadFacultyId(uniqueFacultyIds[0]);
+        } else if (facultyFromFilter) {
+            const matchedFaculty = facultyOptions.find(
+                (faculty) => faculty.name === facultyFromFilter
+            );
+            setWorkloadFacultyId(matchedFaculty?.id ?? "");
+        } else {
+            setWorkloadFacultyId("");
+        }
+
+        setWorkloadExportDialogOpen(true);
+    }, [table, advancedFilters, academicYearOptions, facultyOptions, rawSchedules]);
+
+    const handleExportWorkload = async () => {
+        if (!workloadFacultyId) {
+            toast.error("Please select a faculty member");
+            return;
+        }
+
+        const selectedFaculty = faculties.find(
+            (faculty) => (faculty._id || faculty.id) === workloadFacultyId
+        );
+
+        if (!selectedFaculty) {
+            toast.error("Selected faculty not found");
+            return;
+        }
+
+        setWorkloadExporting(true);
+        try {
+            const result = await ScheduleAPI.getByFaculty(
+                workloadFacultyId,
+                workloadSemester,
+                workloadAcademicYear
+            );
+
+            if (!result.success || !result.data || result.data.length === 0) {
+                toast.error("No schedules found for this faculty in the selected period");
+                return;
+            }
+
+            const filteredSchedules = result.data.filter((schedule) => {
+                if (workloadYearLevel !== "all") {
+                    const yearLevel = resolveScheduleYearLevel(schedule);
+                    if (yearLevel !== workloadYearLevel) {
+                        return false;
+                    }
+                }
+
+                if (workloadSection !== "all") {
+                    if (!scheduleMatchesConfiguredSection(schedule, workloadSection, configuredSections)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            if (filteredSchedules.length === 0) {
+                toast.error("No schedules match the selected year level and section");
+                return;
+            }
+
+            const programName = typeof selectedFaculty.program === "string"
+                ? selectedFaculty.program
+                : selectedFaculty.program?.courseName || selectedFaculty.program?.courseCode || "";
+
+            await exportFacultyWorkload({
+                facultyName: formatFacultyName(selectedFaculty),
+                programName,
+                institute: exportInstitute,
+                designation: selectedFaculty.designation,
+                employmentType: selectedFaculty.employmentType,
+                maxLoad: selectedFaculty.maxLoad,
+                adminLoad: selectedFaculty.adminLoad,
+                semester: workloadSemester,
+                academicYear: workloadAcademicYear,
+                schedules: filteredSchedules as ExportSchedule[],
+            });
+
+            toast.success("Faculty workload PDF exported successfully!");
+            setWorkloadExportDialogOpen(false);
+        } catch (err) {
+            console.error(err);
+            toast.error(err instanceof Error ? err.message : "Failed to export workload PDF");
+        } finally {
+            setWorkloadExporting(false);
+        }
+    };
+
     const handleGenerateSchedules = async () => {
         setGenerating(true);
         try {
@@ -1069,81 +1598,6 @@ export default function SchedulesPage() {
             toast.error(err instanceof Error ? err.message : "Failed to publish schedules");
         } finally {
             setPublishing(false);
-        }
-    };
-
-    const handleExportCourseOffering = async () => {
-        setExporting(true);
-        try {
-            // Fetch schedules for selected semester/academic year/year-level
-            const params: import("@/lib/services/ScheduleAPI").ScheduleQueryParams = {
-                semester: exportSemester,
-                academicYear: exportAcademicYear,
-                yearLevel: exportYearLevel !== "all" ? exportYearLevel : undefined,
-            };
-
-            const result = await ScheduleAPI.getAll(params);
-            if (!result.success || result.data.length === 0) {
-                toast.error("No schedules found for the selected filters");
-                return;
-            }
-
-            let schedulesForExport = result.data as ExportSchedule[];
-
-            if (exportProgramId !== "all") {
-                const subjectResult = exportYearLevel !== "all"
-                    ? await SubjectAPI.getByYearAndSemester(exportProgramId, exportYearLevel, exportSemester)
-                    : await SubjectAPI.getByCourse(exportProgramId);
-
-                const subjectIds = new Set(
-                    (subjectResult.data || [])
-                        .map((subject) => subject._id || (subject as { id?: string }).id)
-                        .filter(Boolean)
-                );
-
-                schedulesForExport = schedulesForExport.filter((schedule) => {
-                    const subjectValue = schedule.subject;
-                    const subjectObject = typeof subjectValue === "object"
-                        ? subjectValue as { _id?: string; id?: string }
-                        : null;
-                    const subjectId = typeof subjectValue === "object"
-                        ? subjectObject?._id || subjectObject?.id
-                        : subjectValue;
-
-                    return subjectId ? subjectIds.has(subjectId) : false;
-                });
-            }
-
-            if (exportSection !== "all") {
-                schedulesForExport = schedulesForExport.filter((schedule) => {
-                    const sectionValue = typeof schedule.section === "object"
-                        ? schedule.section?.name || schedule.section?.sectionCode
-                        : "";
-
-                    return sectionValue === exportSection;
-                });
-            }
-
-            if (schedulesForExport.length === 0) {
-                toast.error("No schedules found for the selected program/year level/section/semester");
-                return;
-            }
-
-            await exportCourseOffering({
-                programName: exportProgram?.courseName || "All Programs",
-                institute: exportInstitute,
-                semester: exportSemester,
-                academicYear: exportAcademicYear,
-                schedules: schedulesForExport,
-            });
-
-            toast.success("Course offering PDF exported successfully!");
-            setExportDialogOpen(false);
-        } catch (err) {
-            console.error(err);
-            toast.error(err instanceof Error ? err.message : "Failed to export PDF");
-        } finally {
-            setExporting(false);
         }
     };
 
@@ -1230,10 +1684,16 @@ export default function SchedulesPage() {
                         <DropdownMenuContent align="end" className="w-56">
                             <DropdownMenuLabel>Schedule Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setExportDialogOpen(true)}>
+                            <DropdownMenuItem onClick={handleOpenExportDialog}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Export
                             </DropdownMenuItem>
+                            {isAdmin && (
+                                <DropdownMenuItem onClick={handleOpenWorkloadExportDialog}>
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Export Workload
+                                </DropdownMenuItem>
+                            )}
                             {isAdmin && (
                                 <>
                                     <DropdownMenuSeparator />
@@ -1386,7 +1846,6 @@ export default function SchedulesPage() {
                                 />
                                 <DataTableFilterList table={table} />
                                 <DataTableSortList table={table} />
-                                <DataTableViewOptions table={table} />
                             </DataTableAdvancedToolbar>
                         </DataTable>
                     </CardContent>
@@ -1408,7 +1867,7 @@ export default function SchedulesPage() {
                             Export Course Offering
                         </DialogTitle>
                         <DialogDescription>
-                            Generate the official DOrSU Course Offering PDF (FM-DOrSU-ODI-01) from the current schedule data.
+                            Exports schedules currently visible in the table (filters and search apply). PDF header fields below can be adjusted before generating.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
@@ -1509,9 +1968,8 @@ export default function SchedulesPage() {
 
                         <Alert>
                             <AlertDescription>
-                                Export scope: <strong>{exportProgram?.courseName || "All Programs"}</strong>
-                                {" • "}<strong>{exportYearLevel === "all" ? "All Year Levels" : exportYearLevel}</strong>
-                                {" • "}<strong>{exportSection === "all" ? "All Sections" : exportSection}</strong>
+                                Exporting <strong>{filteredScheduleCount}</strong> schedule(s) from the current table view.
+                                {" "}PDF header: <strong>{exportProgram?.courseName || "All Programs"}</strong>
                                 {" • "}<strong>{exportSemester}</strong>
                                 {" • "}<strong>{exportAcademicYear}</strong>
                             </AlertDescription>
@@ -1523,6 +1981,155 @@ export default function SchedulesPage() {
                         </Button>
                         <Button onClick={handleExportCourseOffering} disabled={exporting}>
                             {exporting ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating PDF...</>
+                            ) : (
+                                <><Download className="mr-2 h-4 w-4" />Export PDF</>
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Export Workload Dialog */}
+            <Dialog open={workloadExportDialogOpen} onOpenChange={setWorkloadExportDialogOpen}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <FileText className="h-5 w-5" />
+                            Export Workload
+                        </DialogTitle>
+                        <DialogDescription>
+                            Generate a Faculty Workload PDF (FM-DOrSU-ODI-02) for the selected faculty member, semester, and academic year.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Faculty Name</label>
+                            <select
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                value={workloadFacultyId}
+                                onChange={(e) => {
+                                    setWorkloadFacultyId(e.target.value);
+                                    setWorkloadSection("all");
+                                }}
+                            >
+                                <option value="">Select faculty...</option>
+                                {facultyOptions.map((faculty) => (
+                                    <option key={faculty.id} value={faculty.id}>
+                                        {faculty.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Semester</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={workloadSemester}
+                                    onChange={(e) => setWorkloadSemester(e.target.value)}
+                                >
+                                    <option value="1st Semester">1st Semester</option>
+                                    <option value="2nd Semester">2nd Semester</option>
+                                    <option value="Summer">Summer</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Academic Year</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={workloadAcademicYear}
+                                    onChange={(e) => setWorkloadAcademicYear(e.target.value)}
+                                >
+                                    {academicYearOptions.map((academicYear) => (
+                                        <option key={academicYear} value={academicYear}>
+                                            {academicYear}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Year Level</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                    value={workloadYearLevel}
+                                    onChange={(e) => {
+                                        setWorkloadYearLevel(e.target.value);
+                                        setWorkloadSection("all");
+                                    }}
+                                >
+                                    <option value="all">All Year Levels</option>
+                                    <option value="1st Year">1st Year</option>
+                                    <option value="2nd Year">2nd Year</option>
+                                    <option value="3rd Year">3rd Year</option>
+                                    <option value="4th Year">4th Year</option>
+                                    <option value="5th Year">5th Year</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Section</label>
+                                <select
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={workloadSection}
+                                    onChange={(e) => setWorkloadSection(e.target.value)}
+                                    disabled={!workloadFacultyId || configuredSectionsLoading}
+                                >
+                                    <option value="all">All Sections</option>
+                                    {workloadSectionOptions.map((section) => (
+                                        <option key={section.id} value={section.id}>
+                                            {section.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                {!workloadFacultyId && (
+                                    <p className="text-xs text-muted-foreground">Select a faculty member first.</p>
+                                )}
+                                {workloadFacultyId && selectedWorkloadFaculty && !getFacultyProgramId(selectedWorkloadFaculty) && (
+                                    <p className="text-xs text-muted-foreground">
+                                        This faculty has no linked program; sections cannot be loaded.
+                                    </p>
+                                )}
+                                {workloadFacultyId && configuredSectionsLoading && (
+                                    <p className="text-xs text-muted-foreground">Loading sections...</p>
+                                )}
+                                {workloadFacultyId
+                                    && !configuredSectionsLoading
+                                    && selectedWorkloadFaculty
+                                    && getFacultyProgramId(selectedWorkloadFaculty)
+                                    && configuredSections.length === 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                        No sections configured for this program.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <Alert>
+                            <AlertDescription>
+                                Exporting workload for{" "}
+                                <strong>{selectedWorkloadFaculty ? formatFacultyName(selectedWorkloadFaculty) : "—"}</strong>
+                                {" • "}<strong>{workloadSemester}</strong>
+                                {" • "}<strong>{workloadAcademicYear}</strong>
+                                {workloadYearLevel !== "all" && (
+                                    <>{" • "}<strong>{workloadYearLevel}</strong></>
+                                )}
+                                {workloadSection !== "all" && selectedWorkloadSectionLabel && (
+                                    <>{" • "}<strong>Section {selectedWorkloadSectionLabel}</strong></>
+                                )}
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setWorkloadExportDialogOpen(false)}
+                            disabled={workloadExporting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleExportWorkload} disabled={workloadExporting}>
+                            {workloadExporting ? (
                                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating PDF...</>
                             ) : (
                                 <><Download className="mr-2 h-4 w-4" />Export PDF</>

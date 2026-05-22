@@ -156,11 +156,20 @@ export async function update(id: string, updateData: UpdateScheduleInput): Promi
       throw new Error('Schedule not found');
     }
 
-    // Detect conflicts with update
-    const conflicts = await detectScheduleConflicts({
-      ...validatedData,
-      _id: id
-    });
+    // Merge existing document with partial update so conflict detection has full context
+    const mergedForConflictCheck = {
+      faculty: validatedData.faculty ?? existingSchedule.faculty.toString(),
+      classroom: validatedData.classroom ?? existingSchedule.classroom.toString(),
+      section: validatedData.section ?? existingSchedule.section?.toString(),
+      subject: validatedData.subject ?? existingSchedule.subject.toString(),
+      timeSlot: validatedData.timeSlot ?? existingSchedule.timeSlot,
+      semester: validatedData.semester ?? existingSchedule.semester,
+      academicYear: validatedData.academicYear ?? existingSchedule.academicYear,
+      scheduleType: validatedData.scheduleType ?? existingSchedule.scheduleType,
+      _id: id,
+    };
+
+    const conflicts = await detectScheduleConflicts(mergedForConflictCheck);
     
     const errorConflicts = conflicts.filter(c => c.severity === 'error');
     if (errorConflicts.length > 0) {

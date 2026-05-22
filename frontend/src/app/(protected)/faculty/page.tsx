@@ -72,6 +72,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Transform IFaculty to display format
 interface Faculty {
@@ -138,8 +148,17 @@ function buildAcademicYearOptions(count = 4): string[] {
 
 // ─── Faculty Action Cell with Per-Faculty Workload Export ────────────────────
 
-function FacultyActionCell({ faculty }: { faculty: Faculty }) {
+function FacultyActionCell({
+  faculty,
+  onDelete,
+}: {
+  faculty: Faculty;
+  onDelete: (id: string) => Promise<boolean>;
+}) {
+  const router = useRouter();
   const [exportOpen, setExportOpen] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [exportSemester, setExportSemester] = React.useState("2nd Semester");
   const academicYearOptions = React.useMemo(() => buildAcademicYearOptions(4), []);
@@ -176,6 +195,18 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
     }
   };
 
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const success = await onDelete(faculty.id);
+      if (success) {
+        setDeleteOpen(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -188,11 +219,11 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Actions</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/faculty/${faculty.id}`)}>
             <Eye className="mr-2 h-4 w-4" />
             View Details
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/faculty/${faculty.id}/edit`)}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Faculty
           </DropdownMenuItem>
@@ -209,7 +240,10 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
             Send Email
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
+          <DropdownMenuItem
+            className="text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete Faculty
           </DropdownMenuItem>
@@ -289,6 +323,40 @@ function FacultyActionCell({ faculty }: { faculty: Faculty }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Faculty</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete{" "}
+              <strong>{faculty.name}</strong>? This action cannot be undone.
+              Faculty members assigned to schedules must have those schedules
+              removed or reassigned before deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void handleConfirmDelete();
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -546,7 +614,12 @@ const columns: ColumnDef<Faculty>[] = [
   },
   {
     id: "actions",
-    cell: ({ row }) => <FacultyActionCell faculty={row.original} />,
+    cell: ({ row }) => (
+      <FacultyActionCell
+        faculty={row.original}
+        onDelete={async () => false}
+      />
+    ),
     enableSorting: false,
     enableHiding: false,
     size: 50,
@@ -571,6 +644,19 @@ export default function FacultyPage() {
   const faculties = React.useMemo(
     () => rawFaculties.map(transformFaculty),
     [rawFaculties]
+  );
+
+  const handleDeleteFaculty = React.useCallback(
+    async (id: string) => {
+      const success = await deleteFaculty(id);
+      if (success) {
+        toast.success("Faculty deleted successfully");
+      } else {
+        toast.error("Failed to delete faculty");
+      }
+      return success;
+    },
+    [deleteFaculty]
   );
 
   // Update column meta with real data counts
@@ -644,9 +730,20 @@ export default function FacultyPage() {
           },
         };
       }
+      if (column.id === "actions") {
+        return {
+          ...column,
+          cell: ({ row }: { row: { original: Faculty } }) => (
+            <FacultyActionCell
+              faculty={row.original}
+              onDelete={handleDeleteFaculty}
+            />
+          ),
+        };
+      }
       return column;
     });
-  }, [faculties]);
+  }, [faculties, handleDeleteFaculty]);
 
   const { table } = useDataTable({
     data: faculties,
@@ -758,18 +855,6 @@ export default function FacultyPage() {
       await searchFaculties(query);
     },
     [searchFaculties]
-  );
-
-  // Handle delete faculty
-  const handleDeleteFaculty = React.useCallback(
-    async (id: string) => {
-      const success = await deleteFaculty(id);
-      if (success) {
-        // Optionally show success message
-        console.log("Faculty deleted successfully");
-      }
-    },
-    [deleteFaculty]
   );
 
   // Handle status update

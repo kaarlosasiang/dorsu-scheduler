@@ -28,6 +28,7 @@ export const updateSubjectSchema = createSubjectSchema.partial();
 // Subject query schema
 export const subjectQuerySchema = z.object({
   courseId: z.string().optional(),
+  yearLevel: z.enum(['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year']).optional(),
   department: z.string().optional(),
   semester: z.string().optional(),
   subjectCode: z.string().optional(),

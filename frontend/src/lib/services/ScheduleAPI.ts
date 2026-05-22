@@ -142,6 +142,10 @@ export interface ScheduleCreateData {
   status?: 'draft' | 'published' | 'archived';
 }
 
+export interface DetectConflictsData extends Partial<ScheduleCreateData> {
+  _id?: string;
+}
+
 export interface AvailableSlotsParams {
   faculty: string;
   classroom: string;
@@ -283,7 +287,7 @@ export const ScheduleAPI = {
   /**
    * Detect conflicts for a proposed schedule
    */
-  detectConflicts: async (scheduleData: Partial<ScheduleCreateData>) => {
+  detectConflicts: async (scheduleData: DetectConflictsData) => {
     const response = await APIService.post(scheduleData, "schedules/detect-conflicts");
     return response.data as ConflictDetectionResponse;
   },

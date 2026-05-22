@@ -1,8 +1,12 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { useEffect, useState, useMemo } from "react";
-import { ScheduleAPI } from "@/lib/services/ScheduleAPI";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import {
+  ScheduleAPI,
+  type IScheduleConflict,
+  type ITimeSlot,
+} from "@/lib/services/ScheduleAPI";
 import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
 import { ClassroomAPI, type IClassroom } from "@/lib/services/ClassroomAPI";
 import { Button } from "@/components/ui/button";
@@ -25,107 +29,144 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Loader2, AlertCircle, Calendar, Clock, User, Building2 } from "lucide-react";
+import {
+  TooltipProvider,
+} from "@/components/ui/tooltip";
+import {
+  ArrowLeft,
+  Loader2,
+  AlertCircle,
+  Calendar,
+  Clock,
+  User,
+  Building2,
+} from "lucide-react";
 import { toast } from "sonner";
-
-// ── Day patterns ──────────────────────────────────────────────────────────────
-
-type DayKey = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday";
-
-interface DayPattern {
-  label: string;
-  days: DayKey[];
-  day: DayKey;
-}
-
-const DAY_PATTERNS: DayPattern[] = [
-  { label: "M / W",   days: ["monday", "wednesday"],  day: "monday"    },
-  { label: "M / F",   days: ["monday", "friday"],      day: "monday"    },
-  { label: "W / F",   days: ["wednesday", "friday"],   day: "wednesday" },
-  { label: "Tu / Th", days: ["tuesday", "thursday"],   day: "tuesday"   },
-];
-
-// Unique key that can round-trip back to a DayPattern
-function dayPatternKey(p: DayPattern): string {
-  return p.days.join(",");
-}
-
-const DAY_PATTERN_MAP = new Map<string, DayPattern>(
-  DAY_PATTERNS.map((p) => [dayPatternKey(p), p])
-);
-
-// ── Time starts ───────────────────────────────────────────────────────────────
-
-const LECTURE_TIME_STARTS = [
-  "08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","13:00","13:30",
-  "14:00","14:30","15:00","15:30","16:00",
-];
-
-const LAB_TIME_STARTS = [
-  "08:00","08:30","09:00","09:30","10:00","10:30",
-  "11:00","11:30","12:00","12:30","13:00","13:30",
-  "14:00","14:30","15:00","15:30",
-];
-
-function addMinutes(time: string, mins: number): string {
-  const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m + mins;
-  const hh = String(Math.floor(total / 60)).padStart(2, "0");
-  const mm = String(total % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function formatTime(time: string): string {
-  const [h, m] = time.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:${String(m).padStart(2, "0")} ${period}`;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import {
+  DAY_PATTERNS,
+  addMinutes,
+  formatTime,
+  slotKey,
+  patternKey,
+  filterTimeStartsByDuration,
+} from "@/components/schedules/schedule-slot-utils";
+import { ScheduleAvailabilityGrid } from "@/components/schedules/schedule-availability-grid";
+import { ScheduleConflictModal } from "@/components/schedules/schedule-conflict-modal";
 
 function getFacultyFullName(f: IFaculty): string {
   const { first, middle, last, ext } = f.name;
   return [first, middle, last, ext].filter(Boolean).join(" ");
 }
 
-function getPatternFromDays(days?: string[]): DayPattern | undefined {
-  if (!days || days.length === 0) return undefined;
-  const key = [...days].sort().join(",");
-  // Try sorted key first, then original order
-  for (const [k, p] of DAY_PATTERN_MAP.entries()) {
-    if ([...p.days].sort().join(",") === key) return p;
-  }
-  return undefined;
+function getEntityId(entity: unknown): string {
+  if (!entity || typeof entity !== "object") return "";
+  const e = entity as { _id?: string; id?: string };
+  return e._id ?? e.id ?? "";
 }
-
-// ── Page component ────────────────────────────────────────────────────────────
 
 export default function EditSchedulePage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
+  const assignmentRef = useRef<HTMLDivElement>(null);
 
-  // ── Data loading ──
-  const [schedule, setSchedule] = useState<any | null>(null);
+  const [schedule, setSchedule] = useState<Record<string, unknown> | null>(null);
   const [facultyList, setFacultyList] = useState<IFaculty[]>([]);
   const [classroomList, setClassroomList] = useState<IClassroom[]>([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // ── Form state ──
   const [selectedFaculty, setSelectedFaculty] = useState<string>("");
   const [selectedClassroom, setSelectedClassroom] = useState<string>("");
-  const [selectedDayPatternKey, setSelectedDayPatternKey] = useState<string>("");
-  const [selectedStartTime, setSelectedStartTime] = useState<string>("");
-  const [selectedScheduleType, setSelectedScheduleType] = useState<"lecture" | "laboratory">("lecture");
+  const [selectedScheduleType, setSelectedScheduleType] = useState<
+    "lecture" | "laboratory"
+  >("lecture");
+  const [selectedSlot, setSelectedSlot] = useState<ITimeSlot | null>(null);
 
-  // ── Submit state ──
+  const [availableSet, setAvailableSet] = useState<Set<string>>(new Set());
+  const [occupiedMap, setOccupiedMap] = useState<Map<string, string[]>>(
+    new Map()
+  );
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsLoaded, setSlotsLoaded] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
-  const [conflictError, setConflictError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  // ── Load data ──
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [conflicts, setConflicts] = useState<IScheduleConflict[]>([]);
+  const [fallbackConflictMessages, setFallbackConflictMessages] = useState<
+    string[]
+  >([]);
+  const [vacantSlots, setVacantSlots] = useState<ITimeSlot[]>([]);
+  const [vacantSlotsLoading, setVacantSlotsLoading] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<ITimeSlot | null>(
+    null
+  );
+
+  const sectionId = useMemo(() => {
+    if (!schedule?.section) return "";
+    return getEntityId(schedule.section);
+  }, [schedule]);
+
+  const subjectId = useMemo(() => {
+    if (!schedule?.subject) return "";
+    return getEntityId(schedule.subject);
+  }, [schedule]);
+
+  const semester = (schedule?.semester as string) ?? "";
+  const academicYear = (schedule?.academicYear as string) ?? "";
+
+  const durationMins = selectedScheduleType === "laboratory" ? 90 : 60;
+  const durationHours = selectedScheduleType === "laboratory" ? 1.5 : 1;
+
+  const timeStarts = useMemo(
+    () => filterTimeStartsByDuration(durationMins),
+    [durationMins]
+  );
+
+  const canFetchSlots = !!(
+    selectedFaculty &&
+    selectedClassroom &&
+    semester &&
+    academicYear
+  );
+
+  const loadVacantSlots = useCallback(async () => {
+    if (!canFetchSlots) return [];
+    setVacantSlotsLoading(true);
+    try {
+      const res = await ScheduleAPI.getAvailableSlots({
+        faculty: selectedFaculty,
+        classroom: selectedClassroom,
+        semester,
+        academicYear,
+        scheduleType: selectedScheduleType,
+        durationHours,
+        section: sectionId || undefined,
+        excludeId: id,
+      });
+      const slots = res.data?.available ?? [];
+      setVacantSlots(slots);
+      return slots;
+    } catch {
+      setVacantSlots([]);
+      return [];
+    } finally {
+      setVacantSlotsLoading(false);
+    }
+  }, [
+    canFetchSlots,
+    selectedFaculty,
+    selectedClassroom,
+    semester,
+    academicYear,
+    selectedScheduleType,
+    durationHours,
+    sectionId,
+    id,
+  ]);
+
   useEffect(() => {
     if (!id) return;
 
@@ -143,38 +184,25 @@ export default function EditSchedulePage() {
           return;
         }
 
-        const sched = schedRes.data;
+        const sched = schedRes.data as unknown as Record<string, unknown>;
         setSchedule(sched);
         setFacultyList(facultyRes.data ?? []);
         setClassroomList(classroomRes.data ?? []);
 
-        // Pre-populate form from loaded schedule
-        const facultyId =
-          typeof sched.faculty === "object"
-            ? sched.faculty._id ?? sched.faculty.id
-            : sched.faculty;
-        const classroomId =
-          typeof sched.classroom === "object"
-            ? sched.classroom._id ?? sched.classroom.id
-            : sched.classroom;
-
-        setSelectedFaculty(facultyId ?? "");
-        setSelectedClassroom(classroomId ?? "");
+        setSelectedFaculty(getEntityId(sched.faculty));
+        setSelectedClassroom(getEntityId(sched.classroom));
         setSelectedScheduleType(
           (sched.scheduleType as "lecture" | "laboratory") ?? "lecture"
         );
 
-        const slot = sched.timeSlot;
-        if (slot) {
-          // Prefer `days` array to identify the pattern; fall back to `day`
-          const pattern =
-            getPatternFromDays(slot.days) ??
-            DAY_PATTERNS.find((p) => p.day === slot.day);
-          if (pattern) setSelectedDayPatternKey(dayPatternKey(pattern));
-          setSelectedStartTime(slot.startTime ?? "");
+        const slot = sched.timeSlot as ITimeSlot | undefined;
+        if (slot?.startTime && slot?.endTime) {
+          setSelectedSlot(slot);
         }
       } catch (err) {
-        setPageError(err instanceof Error ? err.message : "Failed to load page");
+        setPageError(
+          err instanceof Error ? err.message : "Failed to load page"
+        );
       } finally {
         setPageLoading(false);
       }
@@ -183,46 +211,93 @@ export default function EditSchedulePage() {
     load();
   }, [id]);
 
-  // ── Derived ──
-
-  const timeStarts =
-    selectedScheduleType === "laboratory" ? LAB_TIME_STARTS : LECTURE_TIME_STARTS;
-
-  // Reset start time when schedule type changes if current time is no longer valid
   useEffect(() => {
-    if (selectedStartTime && !timeStarts.includes(selectedStartTime)) {
-      setSelectedStartTime("");
+    if (!canFetchSlots) {
+      setAvailableSet(new Set());
+      setOccupiedMap(new Map());
+      setSlotsLoaded(false);
+      return;
     }
-  }, [selectedScheduleType, timeStarts, selectedStartTime]);
 
-  // Subject course ObjectId (for grouping faculty)
+    let cancelled = false;
+    setSlotsLoading(true);
+    setSlotsLoaded(false);
+
+    ScheduleAPI.getAvailableSlots({
+      faculty: selectedFaculty,
+      classroom: selectedClassroom,
+      semester,
+      academicYear,
+      scheduleType: selectedScheduleType,
+      durationHours,
+      section: sectionId || undefined,
+      excludeId: id,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setAvailableSet(new Set(res.data.available.map(slotKey)));
+        setOccupiedMap(
+          new Map(
+            res.data.occupied.map(({ slot, reasons }) => [
+              slotKey(slot),
+              reasons,
+            ])
+          )
+        );
+        setSlotsLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Failed to load available slots");
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canFetchSlots,
+    selectedFaculty,
+    selectedClassroom,
+    semester,
+    academicYear,
+    selectedScheduleType,
+    durationHours,
+    sectionId,
+    id,
+  ]);
+
+  useEffect(() => {
+    if (!selectedSlot?.startTime) return;
+    const expectedEnd = addMinutes(selectedSlot.startTime, durationMins);
+    if (selectedSlot.endTime === expectedEnd) return;
+    setSelectedSlot((prev) =>
+      prev ? { ...prev, endTime: expectedEnd } : null
+    );
+  }, [durationMins, selectedSlot?.startTime, selectedSlot?.endTime]);
+
   const subjectCourseId: string | null = useMemo(() => {
-    if (!schedule) return null;
-    const subj = schedule.subject;
-    if (!subj) return null;
+    if (!schedule?.subject) return null;
+    const subj = schedule.subject as Record<string, unknown>;
     const course = subj.course;
     if (!course) return null;
-    return typeof course === "object" ? (course._id ?? course.id) : course;
+    return getEntityId(course);
   }, [schedule]);
 
-  // Group faculty: program-matching first, then others
   const { programFaculty, otherFaculty } = useMemo(() => {
     const prog: IFaculty[] = [];
     const other: IFaculty[] = [];
     for (const f of facultyList) {
-      const fProgId =
-        typeof f.program === "object"
-          ? (f.program as any)._id ?? (f.program as any).id
-          : f.program;
+      const fProgId = getEntityId(f.program);
       const fCode =
-        typeof f.program === "object"
-          ? (f.program as any).courseCode
+        typeof f.program === "object" && f.program
+          ? (f.program as { courseCode?: string }).courseCode
           : undefined;
 
       if (subjectCourseId && fProgId === subjectCourseId) {
         prog.push(f);
       } else if (fCode === "GE") {
-        // GE faculty appear right after program faculty
         prog.push(f);
       } else {
         other.push(f);
@@ -231,69 +306,136 @@ export default function EditSchedulePage() {
     return { programFaculty: prog, otherFaculty: other };
   }, [facultyList, subjectCourseId]);
 
-  // ── Read-only display values ──
-
   const subjectDisplay = useMemo(() => {
     if (!schedule?.subject) return "—";
-    const s = schedule.subject;
+    const s = schedule.subject as { subjectCode?: string; subjectName?: string };
     return `${s.subjectCode} — ${s.subjectName}`;
   }, [schedule]);
 
   const sectionDisplay = useMemo(() => {
     if (!schedule?.section) return "—";
-    const s = schedule.section;
-    return typeof s === "object" ? (s.sectionCode ?? s.name ?? "—") : "—";
+    const s = schedule.section as { sectionCode?: string; name?: string };
+    return s.sectionCode ?? s.name ?? "—";
   }, [schedule]);
 
-  // ── Submit ──
+  const selectedSlotConflictReasons = useMemo(() => {
+    if (!selectedSlot) return null;
+    return occupiedMap.get(slotKey(selectedSlot)) ?? null;
+  }, [selectedSlot, occupiedMap]);
+
+  const buildTimeSlot = (): ITimeSlot | null => {
+    if (!selectedSlot) return null;
+    return {
+      day: selectedSlot.day,
+      days: selectedSlot.days,
+      startTime: selectedSlot.startTime,
+      endTime: addMinutes(selectedSlot.startTime, durationMins),
+    };
+  };
+
+  const performUpdate = async (timeSlot: ITimeSlot) => {
+    const res = await ScheduleAPI.update(id, {
+      faculty: selectedFaculty,
+      classroom: selectedClassroom,
+      scheduleType: selectedScheduleType,
+      timeSlot,
+    });
+
+    if (res.success) {
+      toast.success("Schedule updated successfully!");
+      router.push("/schedules");
+      return true;
+    }
+
+    throw new Error(res.message ?? "Failed to update schedule");
+  };
+
+  const openConflictModal = async (
+    detectedConflicts: IScheduleConflict[],
+    fallback: string[] = []
+  ) => {
+    setConflicts(detectedConflicts);
+    setFallbackConflictMessages(fallback);
+    setSelectedSuggestion(null);
+    setConflictModalOpen(true);
+    await loadVacantSlots();
+  };
 
   const handleSave = async () => {
-    if (!selectedFaculty || !selectedClassroom || !selectedDayPatternKey || !selectedStartTime) {
-      setConflictError("Please fill in all required fields.");
+    if (!selectedFaculty || !selectedClassroom || !selectedSlot) {
+      setValidationError(
+        "Please select faculty, classroom, and a time slot."
+      );
       return;
     }
 
-    const pattern = DAY_PATTERN_MAP.get(selectedDayPatternKey);
-    if (!pattern) return;
+    const timeSlot = buildTimeSlot();
+    if (!timeSlot) return;
 
-    const durationMins = selectedScheduleType === "laboratory" ? 90 : 60;
-    const endTime = addMinutes(selectedStartTime, durationMins);
-
-    setConflictError(null);
+    setValidationError(null);
     setSubmitting(true);
 
     try {
-      const res = await ScheduleAPI.update(id, {
+      const detectRes = await ScheduleAPI.detectConflicts({
+        _id: id,
         faculty: selectedFaculty,
         classroom: selectedClassroom,
+        section: sectionId || undefined,
+        subject: subjectId,
+        semester,
+        academicYear,
         scheduleType: selectedScheduleType,
-        timeSlot: {
-          day: pattern.day,
-          days: pattern.days,
-          startTime: selectedStartTime,
-          endTime,
-        },
+        timeSlot,
       });
 
-      if (res.success) {
-        toast.success("Schedule updated successfully!");
-        router.push("/schedules");
-      } else {
-        setConflictError(res.message ?? "Failed to update schedule");
+      const errorConflicts =
+        detectRes.conflicts?.filter((c) => c.severity === "error") ?? [];
+
+      if (detectRes.hasConflicts && errorConflicts.length > 0) {
+        await openConflictModal(errorConflicts);
+        return;
       }
-    } catch (err: any) {
-      // The API throws with the conflict message as the error message
-      const msg: string =
-        err?.response?.data?.message ??
-        err?.message ??
-        "Failed to update schedule";
-      setConflictError(msg);
+
+      await performUpdate(timeSlot);
+    } catch (err: unknown) {
+      const axiosErr = err as {
+        response?: { data?: { message?: string }; status?: number };
+        message?: string;
+      };
+      const msg =
+        axiosErr?.response?.data?.message ??
+        (err instanceof Error ? err.message : "Failed to update schedule");
+
+      if (
+        axiosErr?.response?.status === 409 ||
+        msg.toLowerCase().includes("conflict")
+      ) {
+        const parts = msg
+          .replace(/^Cannot update schedule:\s*/i, "")
+          .split("; ")
+          .filter(Boolean);
+        await openConflictModal([], parts);
+      } else {
+        setValidationError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ── Render: loading / error ──
+  const handleApplySuggestion = () => {
+    if (!selectedSuggestion) return;
+    setSelectedSlot(selectedSuggestion);
+    setConflictModalOpen(false);
+    setConflicts([]);
+    setFallbackConflictMessages([]);
+    toast.info("Vacant slot applied. Review and save again.");
+  };
+
+  const handleChangeAssignment = () => {
+    setConflictModalOpen(false);
+    assignmentRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   if (pageLoading) {
     return (
@@ -317,242 +459,308 @@ export default function EditSchedulePage() {
     );
   }
 
-  // ── Render: form ──
-
   return (
-    <div className="container mx-auto max-w-3xl space-y-6">
-      {/* Header */}
-      <div>
-        <Button
-          variant="link"
-          size="sm"
-          onClick={() => router.push("/schedules")}
-          className="p-0 h-auto !px-0 mb-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back to Schedules
-        </Button>
-        <h1 className="text-2xl font-bold tracking-tight">Edit Schedule</h1>
-        <p className="text-muted-foreground">
-          Reassign faculty, classroom, or time slot for this schedule entry.
-        </p>
-      </div>
+    <TooltipProvider>
+      <div className="container mx-auto max-w-7xl space-y-6 pb-12">
+        <div>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => router.push("/schedules")}
+            className="p-0 h-auto !px-0 mb-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Schedules
+          </Button>
+          <h1 className="text-2xl font-bold tracking-tight">Edit Schedule</h1>
+          <p className="text-muted-foreground">
+            Reassign faculty, classroom, or time slot for this schedule entry.
+          </p>
+        </div>
 
-      {/* Conflict / validation error */}
-      {conflictError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{conflictError}</AlertDescription>
-        </Alert>
-      )}
+        {validationError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
 
-      {/* Read-only summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Schedule Details</CardTitle>
-          <CardDescription>These fields cannot be changed here.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-muted-foreground mb-0.5">Subject</p>
-            <p className="font-medium">{subjectDisplay}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Section</p>
-            <p className="font-medium">{sectionDisplay}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Semester</p>
-            <p className="font-medium">{schedule.semester ?? "—"}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Year Level</p>
-            <p className="font-medium">{schedule.yearLevel ?? "—"}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground mb-0.5">Status</p>
-            <Badge variant={schedule.status === "published" ? "default" : "secondary"}>
-              {schedule.status ?? "draft"}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+        {selectedSlotConflictReasons && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              This slot has conflicts: {selectedSlotConflictReasons.join(" · ")}
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {/* Editable fields */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Assignment</CardTitle>
-          <CardDescription>Update faculty, room, and time slot.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_440px] gap-6 items-start">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Schedule Details</CardTitle>
+                <CardDescription>
+                  These fields cannot be changed here.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Subject</p>
+                  <p className="font-medium">{subjectDisplay}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Section</p>
+                  <p className="font-medium">{sectionDisplay}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Semester</p>
+                  <p className="font-medium">{semester || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Year Level</p>
+                  <p className="font-medium">
+                    {(schedule.yearLevel as string) ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground mb-0.5">Status</p>
+                  <Badge
+                    variant={
+                      schedule.status === "published" ? "default" : "secondary"
+                    }
+                  >
+                    {(schedule.status as string) ?? "draft"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Faculty */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium flex items-center gap-1.5">
-              <User className="h-4 w-4 text-muted-foreground" />
-              Faculty <span className="text-destructive">*</span>
-            </label>
-            <Select value={selectedFaculty} onValueChange={setSelectedFaculty}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select faculty member…" />
-              </SelectTrigger>
-              <SelectContent>
-                {programFaculty.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Program / GE Faculty</SelectLabel>
-                    {programFaculty.map((f) => (
-                      <SelectItem key={f._id ?? f.id} value={(f._id ?? f.id)!}>
-                        {getFacultyFullName(f)}
-                        {typeof f.program === "object" && (
+            <Card ref={assignmentRef}>
+              <CardHeader>
+                <CardTitle className="text-base">Assignment</CardTitle>
+                <CardDescription>
+                  Update faculty, room, and schedule type.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    Faculty <span className="text-destructive">*</span>
+                  </label>
+                  <Select
+                    value={selectedFaculty}
+                    onValueChange={setSelectedFaculty}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select faculty member…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {programFaculty.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>Program / GE Faculty</SelectLabel>
+                          {programFaculty.map((f) => (
+                            <SelectItem
+                              key={getEntityId(f)}
+                              value={getEntityId(f)}
+                            >
+                              {getFacultyFullName(f)}
+                              {typeof f.program === "object" && f.program && (
+                                <span className="text-muted-foreground ml-1.5 text-xs">
+                                  (
+                                  {(f.program as { courseCode?: string })
+                                    .courseCode}
+                                  )
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      {otherFaculty.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>Other Faculty</SelectLabel>
+                          {otherFaculty.map((f) => (
+                            <SelectItem
+                              key={getEntityId(f)}
+                              value={getEntityId(f)}
+                            >
+                              {getFacultyFullName(f)}
+                              {typeof f.program === "object" && f.program && (
+                                <span className="text-muted-foreground ml-1.5 text-xs">
+                                  (
+                                  {(f.program as { courseCode?: string })
+                                    .courseCode}
+                                  )
+                                </span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    Classroom <span className="text-destructive">*</span>
+                  </label>
+                  <Select
+                    value={selectedClassroom}
+                    onValueChange={setSelectedClassroom}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select classroom…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classroomList.map((room) => (
+                        <SelectItem
+                          key={getEntityId(room)}
+                          value={getEntityId(room)}
+                        >
+                          {room.building
+                            ? `${room.building} ${room.roomNumber}`
+                            : room.roomNumber}
                           <span className="text-muted-foreground ml-1.5 text-xs">
-                            ({(f.program as any).courseCode})
+                            (cap. {room.capacity})
                           </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-                {otherFaculty.length > 0 && (
-                  <SelectGroup>
-                    <SelectLabel>Other Faculty</SelectLabel>
-                    {otherFaculty.map((f) => (
-                      <SelectItem key={f._id ?? f.id} value={(f._id ?? f.id)!}>
-                        {getFacultyFullName(f)}
-                        {typeof f.program === "object" && (
-                          <span className="text-muted-foreground ml-1.5 text-xs">
-                            ({(f.program as any).courseCode})
-                          </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <Separator />
+                <Separator />
 
-          {/* Classroom */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium flex items-center gap-1.5">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              Classroom <span className="text-destructive">*</span>
-            </label>
-            <Select value={selectedClassroom} onValueChange={setSelectedClassroom}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select classroom…" />
-              </SelectTrigger>
-              <SelectContent>
-                {classroomList.map((room) => (
-                  <SelectItem key={room._id ?? room.id} value={(room._id ?? room.id)!}>
-                    {room.building ? `${room.building} ${room.roomNumber}` : room.roomNumber}
-                    <span className="text-muted-foreground ml-1.5 text-xs">
-                      (cap. {room.capacity})
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">
+                    Schedule Type <span className="text-destructive">*</span>
+                  </label>
+                  <Select
+                    value={selectedScheduleType}
+                    onValueChange={(v) =>
+                      setSelectedScheduleType(v as "lecture" | "laboratory")
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lecture">Lecture</SelectItem>
+                      <SelectItem value="laboratory">Laboratory</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
 
-          <Separator />
-
-          {/* Schedule type + day pattern + start time in a grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-            {/* Schedule type */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                Schedule Type <span className="text-destructive">*</span>
-              </label>
-              <Select
-                value={selectedScheduleType}
-                onValueChange={(v) => setSelectedScheduleType(v as "lecture" | "laboratory")}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push("/schedules")}
+                disabled={submitting}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lecture">Lecture</SelectItem>
-                  <SelectItem value="laboratory">Laboratory</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Day pattern */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                Days <span className="text-destructive">*</span>
-              </label>
-              <Select value={selectedDayPatternKey} onValueChange={setSelectedDayPatternKey}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select days…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_PATTERNS.map((p) => (
-                    <SelectItem key={dayPatternKey(p)} value={dayPatternKey(p)}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Start time */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium flex items-center gap-1.5">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                Start Time <span className="text-destructive">*</span>
-              </label>
-              <Select value={selectedStartTime} onValueChange={setSelectedStartTime}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select time…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeStarts.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {formatTime(t)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={submitting}>
+                {submitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Save Changes
+              </Button>
             </div>
           </div>
 
-          {/* Computed end-time preview */}
-          {selectedStartTime && (
-            <p className="text-xs text-muted-foreground">
-              Session ends at{" "}
-              <span className="font-medium">
-                {formatTime(
-                  addMinutes(
-                    selectedStartTime,
-                    selectedScheduleType === "laboratory" ? 90 : 60
-                  )
-                )}
-              </span>{" "}
-              ({selectedScheduleType === "laboratory" ? "1.5 hrs" : "1 hr"} per session)
-            </p>
-          )}
-        </CardContent>
-      </Card>
+          <Card className="sticky top-4">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Time Slot <span className="text-destructive">*</span>
+              </CardTitle>
+              <CardDescription>
+                {!canFetchSlots
+                  ? "Select faculty and classroom to see availability."
+                  : slotsLoading
+                  ? "Checking availability…"
+                  : slotsLoaded
+                  ? `Green = free · Gray = taken · ${selectedScheduleType === "laboratory" ? "1.5" : "1"} hr/session`
+                  : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!canFetchSlots && (
+                <p className="text-sm text-muted-foreground italic">
+                  Availability grid will appear once faculty and classroom are
+                  selected.
+                </p>
+              )}
 
-      {/* Actions */}
-      <div className="flex justify-end gap-3 pb-8">
-        <Button
-          variant="outline"
-          onClick={() => router.push("/schedules")}
-          disabled={submitting}
-        >
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={submitting}>
-          {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Save Changes
-        </Button>
+              {canFetchSlots && slotsLoading && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading available slots…
+                </div>
+              )}
+
+              {canFetchSlots && !slotsLoading && slotsLoaded && (
+                <ScheduleAvailabilityGrid
+                  timeStarts={timeStarts}
+                  durationMins={durationMins}
+                  availableSet={availableSet}
+                  occupiedMap={occupiedMap}
+                  selectedSlot={selectedSlot}
+                  onSelectSlot={setSelectedSlot}
+                  selectedSlotSummary={
+                    selectedSlot ? (
+                      <div className="mt-3 flex items-center gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/20 dark:text-green-300">
+                        <Clock className="h-4 w-4 shrink-0" />
+                        <span>
+                          <span className="font-medium">
+                            {
+                              DAY_PATTERNS.find(
+                                (p) =>
+                                  patternKey(p) ===
+                                  slotKey(selectedSlot).split("|")[1]
+                              )?.label
+                            }
+                          </span>
+                          {" · "}
+                          {formatTime(selectedSlot.startTime)} –{" "}
+                          {formatTime(selectedSlot.endTime)}
+                          {" · "}
+                          <Badge variant="outline" className="text-xs py-0">
+                            {selectedScheduleType === "laboratory"
+                              ? "1.5 hrs"
+                              : "1 hr"}
+                            /session
+                          </Badge>
+                        </span>
+                      </div>
+                    ) : undefined
+                  }
+                />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <ScheduleConflictModal
+          open={conflictModalOpen}
+          onOpenChange={setConflictModalOpen}
+          conflicts={conflicts}
+          fallbackMessages={fallbackConflictMessages}
+          vacantSlots={vacantSlots}
+          slotsLoading={vacantSlotsLoading}
+          selectedSuggestion={selectedSuggestion}
+          onSelectSuggestion={setSelectedSuggestion}
+          onApplySuggestion={handleApplySuggestion}
+          onChangeAssignment={handleChangeAssignment}
+        />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

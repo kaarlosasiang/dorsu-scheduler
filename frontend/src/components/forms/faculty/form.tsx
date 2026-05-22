@@ -98,7 +98,7 @@ export function FacultyForm({
 
       const response = mode === "create"
         ? await createFaculty(data)
-        : await updateFaculty(initialData?.id || "", data);
+        : await updateFaculty(initialData?._id || initialData?.id || "", data);
 
       if (response?.success) {
         onSuccess?.(response);

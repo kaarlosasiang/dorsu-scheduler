@@ -47,6 +47,7 @@ export function calculateTotalTeachingHours(lectureUnits: number, labUnits: numb
 
 export interface ISubjectFilter {
   courseId?: string; // filter by a courseId present in courseOfferings[].course
+  yearLevel?: string;
   department?: string;
   semester?: string;
   subjectCode?: string;

@@ -19,11 +19,18 @@ interface Schedule {
 interface FacultyScheduleListProps {
   schedules: Schedule[];
   facultyId: string;
+  title?: string;
   isLoading?: boolean;
   error?: string;
 }
 
-export function FacultyScheduleList({ schedules, facultyId, isLoading, error }: FacultyScheduleListProps) {
+export function FacultyScheduleList({
+  schedules,
+  facultyId,
+  title = "My Schedules",
+  isLoading,
+  error,
+}: FacultyScheduleListProps) {
   const [exporting, setExporting] = useState(false);
 
   const handleExportCSV = async () => {
@@ -101,7 +108,7 @@ export function FacultyScheduleList({ schedules, facultyId, isLoading, error }: 
   return (
     <div className="rounded-lg border">
       <div className="p-4 border-b flex items-center justify-between">
-        <h3 className="font-semibold text-lg">My Schedules</h3>
+        <h3 className="font-semibold text-lg">{title}</h3>
         <Button
           variant="outline"
           size="sm"
