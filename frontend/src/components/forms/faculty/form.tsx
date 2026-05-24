@@ -30,7 +30,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 
-import { facultySchema } from "./schema";
+import { facultySchema, facultyCreateSchema, facultyEditSchema } from "./schema";
 import type { FacultyFormData, FacultyFormProps } from "./types";
 import { useFacultyForm } from "./useFacultyForm";
 import { 
@@ -54,7 +54,9 @@ export function FacultyForm({
   const { courses, loading: programsLoading, error: programsError } = useCourses();
 
   const form = useForm<FacultyFormData>({
-    resolver: zodResolver(facultySchema) as never,
+    resolver: zodResolver(
+      mode === "create" ? facultyCreateSchema : facultyEditSchema
+    ) as never,
     defaultValues: {
       name: {
         first: initialData?.name?.first || "",
@@ -567,10 +569,12 @@ export function FacultyForm({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <KeyRound className="h-5 w-5" />
-                Login Access (Optional)
+                Login Credentials
               </CardTitle>
               <CardDescription>
-                Set a password to allow this faculty member to log in and view their schedule. You can skip this now and set it up later.
+                Set the login password for this faculty member. This is the only way they can
+                access the system — faculty cannot create their own accounts. A summary with the
+                email, password, and login URL will be shown after saving.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

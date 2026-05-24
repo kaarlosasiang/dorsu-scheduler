@@ -412,6 +412,8 @@ export default function FacultyDetailPage() {
           <FacultyScheduleList
             schedules={mappedSchedules}
             facultyId={facultyId}
+            semester={selectedSemester || undefined}
+            academicYear={selectedAcademicYear || undefined}
             title="Schedules"
             isLoading={false}
           />

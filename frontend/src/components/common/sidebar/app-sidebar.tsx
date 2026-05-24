@@ -90,6 +90,11 @@ const adminNav = [
 
 const facultyNav = [
     {
+        title: "My Dashboard",
+        url: "/faculty/dashboard",
+        icon: LayoutDashboard,
+    },
+    {
         title: "My Schedule",
         url: "/schedules",
         icon: CalendarRange,

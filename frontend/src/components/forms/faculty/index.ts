@@ -1,5 +1,5 @@
 export { FacultyForm as default, FacultyForm } from "./form";
-export { facultySchema, nameSchema } from "./schema";
+export { facultySchema, facultyCreateSchema, facultyEditSchema, nameSchema } from "./schema";
 export { useFacultyForm } from "./useFacultyForm";
 export type { 
   FacultyFormData, 

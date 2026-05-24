@@ -4,44 +4,6 @@ import { validateFacultyQuery } from '../../shared/validators/facultyValidator.j
 
 export class FacultyController {
   /**
-   * GET /api/faculty/public/:facultyId - Public faculty lookup for registration
-   */
-  static async getPublicById(req: Request, res: Response): Promise<void> {
-    try {
-      const { facultyId } = req.params;
-      const faculty = await FacultyService.getRegistrationLookupById(facultyId);
-
-      res.status(200).json({
-        success: true,
-        message: 'Faculty retrieved successfully',
-        data: {
-          id: faculty._id.toString(),
-          email: faculty.email,
-          fullName: [faculty.name.first, faculty.name.middle, faculty.name.last, faculty.name.ext]
-            .filter(Boolean)
-            .join(' '),
-          program: faculty.program,
-          status: faculty.status,
-          hasAccount: Boolean(faculty.userId),
-        }
-      });
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Faculty not found') {
-        res.status(404).json({
-          success: false,
-          message: 'Faculty ID not found'
-        });
-        return;
-      }
-
-      res.status(500).json({
-        success: false,
-        message: error instanceof Error ? error.message : 'Internal server error'
-      });
-    }
-  }
-
-  /**
    * GET /api/faculty - Get all faculty with optional filtering
    */
   static async getAll(req: Request, res: Response): Promise<void> {

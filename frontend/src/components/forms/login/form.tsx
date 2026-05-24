@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useAuth } from "@/contexts/authContext";
-import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -97,6 +96,9 @@ export function LoginForm({
             <FieldDescription>
               Enter your account credentials to get started.
             </FieldDescription>
+            <FieldDescription className="text-xs">
+              Faculty accounts are created by your administrator. Contact them if you need access.
+            </FieldDescription>
           </div>
 
           {/* General Error Message */}
@@ -145,13 +147,6 @@ export function LoginForm({
               {isSubmitting ? "Signing in..." : "Login"}
             </Button>
           </Field>
-
-          <FieldDescription className="text-center">
-            Need a faculty account?{" "}
-            <Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">
-              Create account
-            </Link>
-          </FieldDescription>
         </FieldGroup>
       </form>
       

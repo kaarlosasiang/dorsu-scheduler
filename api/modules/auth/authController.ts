@@ -63,6 +63,15 @@ export class AuthController {
         return;
       }
 
+      // Faculty accounts must be created by an administrator.
+      if (role === USER_ROLES.FACULTY || facultyId) {
+        res.status(403).json({
+          success: false,
+          message: 'Faculty accounts can only be created by an administrator.',
+        });
+        return;
+      }
+
       // Register user
       const result = await AuthService.register({ email, password, role, facultyId });
 

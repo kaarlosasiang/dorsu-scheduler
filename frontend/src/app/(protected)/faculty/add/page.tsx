@@ -1,28 +1,60 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FacultyForm } from "@/components/forms/faculty";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import type { FacultyResponse } from "@/components/forms/faculty/types";
+import { FacultyCredentialsDialog } from "@/components/faculty/FacultyCredentialsDialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AddFacultyPage() {
   const router = useRouter();
+  const [credentialsDialog, setCredentialsDialog] = useState<{
+    open: boolean;
+    facultyName: string;
+    email: string;
+    accountCreated: boolean;
+    accountError?: string;
+    loginPassword?: string;
+  }>({
+    open: false,
+    facultyName: "",
+    email: "",
+    accountCreated: false,
+  });
 
   const handleCancel = () => {
     router.back();
   };
 
+  const handleSuccess = (response: FacultyResponse) => {
+    if (response.accountCreated) {
+      toast.success("Faculty and login account created successfully!");
+    } else if (response.accountError) {
+      toast.warning("Faculty created, but login account setup failed.");
+    } else {
+      toast.success("Faculty created successfully!");
+    }
+
+    setCredentialsDialog({
+      open: true,
+      facultyName: response.facultyName || response.data.email,
+      email: response.data.email,
+      accountCreated: response.accountCreated ?? false,
+      accountError: response.accountError,
+      loginPassword: response.loginPassword,
+    });
+  };
+
+  const handleDialogDone = () => {
+    setCredentialsDialog((prev) => ({ ...prev, open: false }));
+    router.push("/faculty");
+  };
+
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="flex items-center space-x-2 mb-2">
@@ -39,18 +71,27 @@ export default function AddFacultyPage() {
         </div>
       </div>
 
-      {/* Form Card */}
-
       <FacultyForm
         mode="create"
-        onSuccess={(response) => {
-          toast.success("Faculty created successfully!");
-          router.push("/faculty");
-        }}
+        onSuccess={handleSuccess}
         onError={(error) => {
           toast.error(error);
         }}
         onCancel={handleCancel}
+      />
+
+      <FacultyCredentialsDialog
+        open={credentialsDialog.open}
+        onOpenChange={(open) => {
+          if (!open) handleDialogDone();
+          else setCredentialsDialog((prev) => ({ ...prev, open }));
+        }}
+        facultyName={credentialsDialog.facultyName}
+        email={credentialsDialog.email}
+        accountCreated={credentialsDialog.accountCreated}
+        accountError={credentialsDialog.accountError}
+        loginPassword={credentialsDialog.loginPassword}
+        onDone={handleDialogDone}
       />
     </div>
   );

@@ -1,37 +1,44 @@
 import { z } from "zod";
-import { facultySchema, nameSchema } from "./schema";
+import { facultyCreateSchema, nameSchema } from "./schema";
 import { IFaculty } from "@/lib/services/FacultyAPI";
 
 // Infer types from schemas
-export type FacultyFormData = z.infer<typeof facultySchema>;
+export type FacultyFormData = z.infer<typeof facultyCreateSchema>;
 export type NameFormData = z.infer<typeof nameSchema>;
 
 // API Response types
+export interface FacultyResponseData {
+  id: string;
+  name: NameFormData;
+  email: string;
+  program: string;
+  employmentType: "full-time" | "part-time";
+  designation?: string;
+  adminLoad?: number;
+  image?: string;
+  minLoad: number;
+  maxLoad: number;
+  currentLoad: number;
+  maxPreparations: number;
+  currentPreparations: number;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+  fullName?: string;
+  availableLoad?: number;
+  availablePreparations?: number;
+  totalLoad?: number;
+  overload?: number;
+}
+
 export interface FacultyResponse {
   success: boolean;
-  data: {
-    id: string;
-    name: NameFormData;
-    email: string;
-    program: string;
-    employmentType: "full-time" | "part-time";
-    designation?: string;
-    adminLoad?: number;
-    image?: string;
-    minLoad: number;
-    maxLoad: number;
-    currentLoad: number;
-    maxPreparations: number;
-    currentPreparations: number;
-    status: "active" | "inactive";
-    createdAt: string;
-    updatedAt: string;
-    fullName?: string;
-    availableLoad?: number;
-    availablePreparations?: number;
-    totalLoad?: number;
-    overload?: number;
-  };
+  data: FacultyResponseData;
+  accountCreated?: boolean;
+  accountError?: string;
+  loginEmail?: string;
+  loginPassword?: string;
+  facultyName?: string;
 }
 
 // Form props
