@@ -1,10 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Edit, Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import APP_CONFIG from "@/config";
+import { ScheduleAPI } from "@/lib/services/ScheduleAPI";
+import type { MappedFacultySchedule } from "@/hooks/useFacultySemesterData";
 
 interface Schedule {
   _id: string;
@@ -25,6 +40,100 @@ interface FacultyScheduleListProps {
   isLoading?: boolean;
   error?: string;
   onExportPDF?: () => Promise<void>;
+  manageMode?: boolean;
+  onScheduleDeleted?: () => void;
+}
+
+function buildAddScheduleUrl(
+  facultyId: string,
+  semester?: string,
+  academicYear?: string
+): string {
+  const params = new URLSearchParams({ facultyId });
+  if (semester) params.set("semester", semester);
+  if (academicYear) params.set("academicYear", academicYear);
+  return `/schedules/add?${params.toString()}`;
+}
+
+function ScheduleManageActions({
+  schedule,
+  onDelete,
+}: {
+  schedule: MappedFacultySchedule;
+  onDelete: (id: string) => Promise<boolean>;
+}) {
+  const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      const success = await onDelete(schedule._id);
+      if (success) {
+        setDeleteOpen(false);
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex items-center gap-1 ml-2 shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => router.push(`/schedules/${schedule._id}/edit`)}
+        >
+          <Edit className="h-4 w-4" />
+          <span className="sr-only">Edit schedule</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete schedule</span>
+        </Button>
+      </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete the schedule for{" "}
+              <strong>
+                {schedule.subject.code} - {schedule.subject.name}
+              </strong>
+              ? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
 }
 
 export function FacultyScheduleList({
@@ -36,11 +145,31 @@ export function FacultyScheduleList({
   isLoading,
   error,
   onExportPDF,
+  manageMode = false,
+  onScheduleDeleted,
 }: FacultyScheduleListProps) {
+  const router = useRouter();
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
 
   const canExport = Boolean(facultyId && semester && academicYear);
+  const addScheduleUrl = buildAddScheduleUrl(facultyId, semester, academicYear);
+
+  const handleDeleteSchedule = async (id: string): Promise<boolean> => {
+    try {
+      const response = await ScheduleAPI.delete(id);
+      if (response?.success !== false) {
+        toast.success("Schedule deleted successfully");
+        onScheduleDeleted?.();
+        return true;
+      }
+      toast.error("Failed to delete schedule");
+      return false;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete schedule");
+      return false;
+    }
+  };
 
   const handleExportCSV = async () => {
     if (!canExport || !semester || !academicYear) return;
@@ -143,10 +272,16 @@ export function FacultyScheduleList({
 
   return (
     <div className="rounded-lg border">
-      <div className="p-4 border-b flex items-center justify-between gap-2">
+      <div className="p-4 border-b flex items-center justify-between gap-2 flex-wrap">
         <h3 className="font-semibold text-lg">{title}</h3>
-        <div className="flex items-center gap-2">
-          {onExportPDF && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {manageMode && (
+            <Button size="sm" onClick={() => router.push(addScheduleUrl)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Schedule
+            </Button>
+          )}
+          {!manageMode && onExportPDF && (
             <Button
               variant="outline"
               size="sm"
@@ -156,20 +291,28 @@ export function FacultyScheduleList({
               {exportingPdf ? "Exporting..." : "Export PDF"}
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportCSV}
-            disabled={exportingCsv || schedules.length === 0 || !canExport}
-          >
-            {exportingCsv ? "Exporting..." : "Export CSV"}
-          </Button>
+          {!manageMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              disabled={exportingCsv || schedules.length === 0 || !canExport}
+            >
+              {exportingCsv ? "Exporting..." : "Export CSV"}
+            </Button>
+          )}
         </div>
       </div>
 
       {schedules.length === 0 ? (
-        <div className="p-8 text-center text-muted-foreground">
-          No schedules found for this semester
+        <div className="p-8 text-center text-muted-foreground space-y-3">
+          <p>No schedules found for this semester</p>
+          {manageMode && (
+            <Button variant="outline" onClick={() => router.push(addScheduleUrl)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Schedule
+            </Button>
+          )}
         </div>
       ) : (
         <div className="divide-y">
@@ -188,7 +331,7 @@ export function FacultyScheduleList({
                       key={schedule._id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card"
                     >
-                      <div className="space-y-1">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <p className="font-medium text-sm">
                           {schedule.subject.code} - {schedule.subject.name}
                         </p>
@@ -202,27 +345,35 @@ export function FacultyScheduleList({
                           {schedule.department.name}
                         </p>
                       </div>
-                      <div className="text-right space-y-1">
-                        <p className="text-sm font-medium">
-                          {formatTime(schedule.timeSlot.startTime)} -{" "}
-                          {formatTime(schedule.timeSlot.endTime)}
-                        </p>
-                        <Badge
-                          variant={
-                            schedule.scheduleType === "lecture"
-                              ? "default"
-                              : "secondary"
-                          }
-                          className={
-                            schedule.scheduleType === "lecture"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-orange-100 text-orange-800"
-                          }
-                        >
-                          {schedule.scheduleType === "lecture"
-                            ? "Lecture"
-                            : "Laboratory"}
-                        </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right space-y-1">
+                          <p className="text-sm font-medium">
+                            {formatTime(schedule.timeSlot.startTime)} -{" "}
+                            {formatTime(schedule.timeSlot.endTime)}
+                          </p>
+                          <Badge
+                            variant={
+                              schedule.scheduleType === "lecture"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className={
+                              schedule.scheduleType === "lecture"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-orange-100 text-orange-800"
+                            }
+                          >
+                            {schedule.scheduleType === "lecture"
+                              ? "Lecture"
+                              : "Laboratory"}
+                          </Badge>
+                        </div>
+                        {manageMode && (
+                          <ScheduleManageActions
+                            schedule={schedule}
+                            onDelete={handleDeleteSchedule}
+                          />
+                        )}
                       </div>
                     </div>
                   ))}

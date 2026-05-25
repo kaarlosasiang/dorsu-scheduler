@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { ScheduleAPI, type ITimeSlot } from "@/lib/services/ScheduleAPI";
 import { FacultyAPI, type IFaculty } from "@/lib/services/FacultyAPI";
@@ -208,6 +208,11 @@ function Combobox({
 
 export default function AddSchedulePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const facultyIdFromQuery = searchParams.get("facultyId") ?? "";
+  const semesterFromQuery = searchParams.get("semester") ?? "";
+  const academicYearFromQuery = searchParams.get("academicYear") ?? "";
+  const isFacultyLocked = Boolean(facultyIdFromQuery);
 
   // ── Reference data ──
   const [subjects,    setSubjects]    = useState<ISubject[]>([]);
@@ -253,6 +258,14 @@ export default function AddSchedulePage() {
       setLoadingPage(false);
     })();
   }, []);
+
+  // ── Apply query params from faculty manage schedule page ──
+  useEffect(() => {
+    if (loadingPage) return;
+    if (facultyIdFromQuery) setFacultyId(facultyIdFromQuery);
+    if (semesterFromQuery) setSemester(semesterFromQuery);
+    if (academicYearFromQuery) setAcademicYear(academicYearFromQuery);
+  }, [loadingPage, facultyIdFromQuery, semesterFromQuery, academicYearFromQuery]);
 
   // ── Row updater ──
   const updateRow = useCallback((id: string, patch: Partial<SubjectRow>) => {
@@ -508,9 +521,20 @@ export default function AddSchedulePage() {
 
         {/* Header */}
         <div className="mb-6">
-          <Button variant="link" size="sm" onClick={() => router.push("/schedules")} className="p-0 h-auto !px-0 mb-2">
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() =>
+              router.push(
+                isFacultyLocked
+                  ? `/faculty/${facultyIdFromQuery}/schedule`
+                  : "/schedules"
+              )
+            }
+            className="p-0 h-auto !px-0 mb-2"
+          >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Schedules
+            {isFacultyLocked ? "Back to Manage Schedule" : "Back to Schedules"}
           </Button>
           <h1 className="text-2xl font-bold tracking-tight">Add Schedule</h1>
           <p className="text-muted-foreground text-sm">Manually assign subjects, faculty, classroom, and time slots.</p>
@@ -575,6 +599,7 @@ export default function AddSchedulePage() {
                     searchPlaceholder="Type faculty name…"
                     emptyText="No faculty found."
                     items={facultyItems}
+                    disabled={isFacultyLocked}
                   />
                 </div>
                 <div className="space-y-1.5">

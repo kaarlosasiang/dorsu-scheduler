@@ -13,6 +13,7 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
+  Plus,
   XCircle,
 } from "lucide-react";
 import {
@@ -30,7 +31,18 @@ import {
   useFacultySemesterData,
 } from "@/hooks/useFacultySemesterData";
 
-export default function FacultyDetailPage() {
+function buildAddScheduleUrl(
+  facultyId: string,
+  semester: string | null,
+  academicYear: string | null
+): string {
+  const params = new URLSearchParams({ facultyId });
+  if (semester) params.set("semester", semester);
+  if (academicYear) params.set("academicYear", academicYear);
+  return `/schedules/add?${params.toString()}`;
+}
+
+export default function FacultyManageSchedulePage() {
   const router = useRouter();
   const params = useParams();
   const facultyId = params.id as string;
@@ -47,6 +59,7 @@ export default function FacultyDetailPage() {
     isSelectionInitialized,
     setSelectedSemester,
     setSelectedAcademicYear,
+    refetch,
   } = useFacultySemesterData(facultyId);
 
   if (!isSelectionInitialized || (loading && !faculty)) {
@@ -89,7 +102,9 @@ export default function FacultyDetailPage() {
             Back to Faculty
           </Button>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-semibold tracking-tight">{fullName}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Manage Schedule — {fullName}
+            </h1>
             <Badge variant={status === "active" ? "default" : "secondary"}>
               {status === "active" ? (
                 <CheckCircle className="mr-1 h-3 w-3" />
@@ -104,7 +119,7 @@ export default function FacultyDetailPage() {
           </p>
         </div>
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 flex-wrap">
           <div className="space-y-1">
             <Label htmlFor="semester-select" className="text-xs">
               Semester
@@ -139,6 +154,16 @@ export default function FacultyDetailPage() {
               </SelectContent>
             </Select>
           </div>
+          <Button
+            onClick={() =>
+              router.push(
+                buildAddScheduleUrl(facultyId, selectedSemester, selectedAcademicYear)
+              )
+            }
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add Schedule
+          </Button>
         </div>
       </div>
 
@@ -184,8 +209,10 @@ export default function FacultyDetailPage() {
             facultyId={facultyId}
             semester={selectedSemester || undefined}
             academicYear={selectedAcademicYear || undefined}
-            title="Schedules"
+            title="Assigned Schedules"
             isLoading={false}
+            manageMode
+            onScheduleDeleted={refetch}
           />
         </>
       )}

@@ -15,7 +15,6 @@ import {
   XCircle,
   Calendar,
   User,
-  Mail,
   BookOpen,
   GraduationCap,
   Briefcase,
@@ -227,17 +226,13 @@ function FacultyActionCell({
             <Edit className="mr-2 h-4 w-4" />
             Edit Faculty
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push(`/faculty/${faculty.id}/schedule`)}>
             <Clock className="mr-2 h-4 w-4" />
             Manage Schedule
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => setExportOpen(true)}>
             <Download className="mr-2 h-4 w-4" />
             Export Workload PDF
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Mail className="mr-2 h-4 w-4" />
-            Send Email
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -886,10 +881,6 @@ export default function FacultyPage() {
       <Button variant="outline" size="sm" disabled={isLoading}>
         <Edit className="mr-2 h-4 w-4" />
         Bulk Edit
-      </Button>
-      <Button variant="outline" size="sm" disabled={isLoading}>
-        <Mail className="mr-2 h-4 w-4" />
-        Send Email
       </Button>
       <Button variant="destructive" size="sm" disabled={isLoading}>
         <Trash2 className="mr-2 h-4 w-4" />
